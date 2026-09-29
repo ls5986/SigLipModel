@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect Vision Studio</title><style>body{font:17px system-ui;background:#0b1722;color:#e9f1f7;max-width:640px;margin:8vh auto;padding:24px;line-height:1.6}button,a{padding:12px 18px;border-radius:8px}button{background:#4b80ff;color:white;border:0;font:inherit;cursor:pointer}a{color:#8aafff}button:disabled{opacity:.5}code{overflow-wrap:anywhere}#error{color:#ffc094}</style></head><body><h1>Connect Vision Studio to ACQ BOT dev</h1><p>Connect once. ACQ BOT can then send individual property tests to this computer and receive results automatically.</p><p>This permits comparison processing only. It cannot change live assessments, train automatically, or use paid AI calls. Keep Studio running; you can revoke the connection in either app.</p><p id="origin"></p><button id="connect" disabled>Connect this computer</button><p id="status" role="status"></p><p id="error" role="alert"></p><a href="/advanced?tab=experiments">Open Models &amp; results</a><script>
+let setup, token;
+try { setup = JSON.parse(decodeURIComponent(location.hash.slice(1))); } catch { setup = null; }
+history.replaceState(null, '', '/connect');
+const statusEl = document.getElementById('status'), errorEl = document.getElementById('error'), button = document.getElementById('connect');
+async function initialize() {
+ if (!setup?.code || setup.origin !== 'https://mls-acquisition-dev-web.onrender.com') throw Error('Start from Connect Vision Studio in ACQ BOT dev.');
+ document.getElementById('origin').textContent = 'Destination: ' + setup.origin;
+ const response = await fetch('/api/studio/summary', {cache:'no-store'});
+ if (!response.ok) throw Error('Studio could not initialize. Check its local data/model setup.');
+ token = (await response.json()).token; button.disabled = false;
+}
+button.onclick = async () => {
+ button.disabled = true; errorEl.textContent = ''; statusEl.textContent = 'Connecting…';
+ try {
+  const response = await fetch('/api/studio/connection', {method:'POST',headers:{'Content-Type':'application/json','X-Review-Token':token},body:JSON.stringify({...setup, confirmed:true})});
+  const result = await response.json(); if (!response.ok) throw Error(result.error || 'Connection failed');
+  setup = null; statusEl.textContent = 'Connected. Return to ACQ BOT and click Run my SigLIP model. If reviews need training, ACQ BOT will show that first.';
+ } catch (error) { statusEl.textContent = ''; errorEl.textContent = error.message; button.disabled = false; }
+};
+initialize().catch(error => {errorEl.textContent = error.message;});
+</script></body></html>
