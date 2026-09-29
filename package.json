@@ -1,0 +1,8 @@
+{
+  "name": "siglip-model-studio",
+  "private": true,
+  "description": "Browser regression tooling for the local image-first model reviewer",
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

@@ -1,0 +1,1500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="same-origin">
+<title>ACQ Vision · Training studio</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--cp-bg); color: var(--cp-text); font: 15px/1.5 "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif; }
+button, input, select, textarea { font: inherit; }
+button, input, select, textarea, a { -webkit-tap-highlight-color: var(--cp-accent-soft); }
+button, .button { border: 1px solid var(--cp-border); border-radius: 0.625rem; background: var(--cp-surface); color: var(--cp-text); padding: 8px 12px; cursor: pointer; text-decoration: none; line-height: 1.4; }
+button:hover, .button:hover { border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+button:disabled { cursor: not-allowed; opacity: .5; }
+button.primary { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); font-weight: 600; }
+button.primary:hover { background: var(--cp-accent-hover); }
+button[aria-pressed="true"] { border-color: var(--cp-accent); background: var(--cp-accent-soft); color: var(--cp-accent); }
+button.link { padding: 0; border: 0; background: var(--cp-surface); color: var(--cp-link); text-align: left; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 3px; }
+input:not([type="checkbox"]), select, textarea { padding: 9px 10px; color: var(--cp-text); background: var(--cp-surface); border: 1px solid var(--cp-border-strong); border-radius: 0.625rem; max-width: 100%; }
+textarea { resize: vertical; width: 100%; }
+input[type="checkbox"] { accent-color: var(--cp-accent); width: 17px; height: 17px; flex: 0 0 auto; }
+label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+a { color: var(--cp-link); overflow-wrap: anywhere; }
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 26px; line-height: 1.25; font-weight: 650; }
+h2 { font-size: 20px; line-height: 1.35; font-weight: 650; }
+h3 { font-size: 16px; }
+small, .small { font-size: 12px; }
+.muted { color: var(--cp-text-muted); }
+.eyebrow { color: var(--cp-accent); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.stack { display: grid; gap: 16px; min-width: 0; }
+.stack-tight { display: grid; gap: 8px; min-width: 0; }
+.row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.spread { justify-content: space-between; }
+.grow { flex: 1; min-width: 0; }
+.card { padding: 20px; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px; min-width: 0; }
+.soft { background: var(--cp-surface-soft); padding: 12px; border-radius: 0.625rem; }
+.notice { background: var(--cp-accent-soft); border: 1px solid var(--cp-border); border-left: 3px solid var(--cp-accent); border-radius: 0.625rem; padding: 12px 16px; }
+.warning { border-left-color: var(--cp-warning); }
+.error { border-left-color: var(--cp-danger); }
+.success { border-left-color: var(--cp-success); }
+.badge { display: inline-flex; align-items: center; border: 1px solid var(--cp-border); background: var(--cp-surface-soft); border-radius: 6px; padding: 2px 7px; color: var(--cp-text-muted); font-size: 11px; }
+.badge.human { border-color: var(--cp-success); color: var(--cp-success); }
+.badge.ai { color: var(--cp-accent); background: var(--cp-accent-soft); }
+.chip { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 12px; color: var(--cp-accent); background: var(--cp-accent-soft); }
+.empty { padding: 36px 20px; text-align: center; color: var(--cp-text-muted); }
+.status-dot { width: 7px; height: 7px; background: var(--cp-success); border-radius: 50%; display: inline-block; }
+.status-dot.pending { background: var(--cp-warning); }
+.status-dot.failed { background: var(--cp-danger); }
+header { background: var(--cp-surface); border-bottom: 1px solid var(--cp-border); padding: 16px 28px 0; }
+.brand-mark { background: var(--cp-accent); color: var(--cp-accent-fg); border-radius: 0.625rem; width: 36px; height: 36px; display: grid; place-items: center; font-size: 17px; font-weight: 700; }
+.brand-title { font-size: 17px; font-weight: 700; }
+.top-tabs { display: flex; gap: 24px; padding-top: 16px; }
+.top-tabs button { border: 0; border-bottom: 3px solid var(--cp-surface); border-radius: 0; padding: 10px 4px; color: var(--cp-text-muted); }
+.top-tabs button[aria-selected="true"] { border-bottom-color: var(--cp-accent); color: var(--cp-accent); font-weight: 650; }
+main { max-width: 1600px; margin: auto; padding: 20px 28px 40px; }
+.onboarding { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.step { display: flex; align-items: center; gap: 12px; padding: 12px 16px; text-align: left; background: var(--cp-bg-elevated); }
+.step.current { border-color: var(--cp-accent); }
+.step-number { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--cp-border-strong); display: grid; place-items: center; flex-shrink: 0; }
+.step.current .step-number { background: var(--cp-accent); color: var(--cp-accent-fg); border-color: var(--cp-accent); }
+.step strong, .step small { display: block; }
+#global-feedback { margin-bottom: 16px; }
+.feedback-text { overflow-wrap: anywhere; white-space: pre-wrap; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: end; margin-bottom: 16px; }
+.segmented { display: inline-flex; border: 1px solid var(--cp-border); padding: 3px; gap: 3px; border-radius: 0.625rem; background: var(--cp-surface); }
+.segmented button { border-color: var(--cp-surface); }
+.review-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 20px; align-items: start; }
+.queue-panel { padding: 16px; position: sticky; top: 16px; }
+#queue-toggle { color: var(--cp-text); font-weight: 650; }
+#property-queue-disclosure[open] > summary { margin-bottom: 16px; }
+.queue-list { display: grid; gap: 8px; max-height: 59vh; overflow: auto; padding: 2px; }
+.queue-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 6px; padding: 8px; border: 1px solid var(--cp-border); border-radius: 0.625rem; }
+.queue-item.current { border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+.queue-open { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; text-align: left; padding: 0; border: 0; background: var(--cp-surface); width: 100%; }
+.queue-open img { width: 52px; height: 54px; object-fit: cover; border-radius: 6px; background: var(--cp-surface-soft); }
+.queue-open strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+.queue-open small { display: block; color: var(--cp-text-muted); font-size: 11px; }
+.queue-open:hover { background: var(--cp-accent-soft); }
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; }
+.pagination button { padding: 6px 9px; }
+.property-header { padding: 16px; }
+.property-decision { border-top: 1px solid var(--cp-border); padding-top: 12px; margin-top: 4px; }
+#property-decision-summary { color: var(--cp-text); font-weight: 650; }
+#property-decision-summary .dirty { margin-left: 8px; }
+.fit-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fit-options button { padding: 12px; text-align: left; font-weight: 650; }
+.fit-options small { font-weight: 400; display: block; margin-top: 4px; color: var(--cp-text-muted); }
+.fields-two { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.photo-card { overflow: hidden; border: 1px solid var(--cp-border); border-radius: 0.625rem; background: var(--cp-surface); min-width: 0; }
+.photo-open { padding: 0; width: 100%; display: block; border: 0; border-radius: 0; background: var(--cp-surface-soft); }
+.photo-open img { width: 100%; height: 160px; display: block; object-fit: cover; color: var(--cp-text-muted); }
+.photo-body { padding: 12px; display: grid; gap: 8px; }
+.photo-body details { font-size: 12px; }
+.photo-body .row button { padding: 6px 8px; font-size: 12px; }
+.room-group { scroll-margin-top: 16px; }
+.room-group h3 { margin-bottom: 12px; }
+details > summary { cursor: pointer; color: var(--cp-text-muted); }
+details[open] > summary { margin-bottom: 8px; }
+.proposal { border-left: 3px solid var(--cp-accent); padding: 8px 12px; background: var(--cp-accent-soft); border-radius: 6px; }
+.counts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.count strong { display: block; font-size: 27px; font-weight: 650; margin-top: 4px; }
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.facts { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr; gap: 8px 16px; margin: 0; }
+.facts dt { color: var(--cp-text-muted); font-size: 13px; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+pre, code { font-family: Consolas, "Courier New", Courier, monospace; font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
+ul { margin: 0; padding-left: 20px; }
+.selection-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.selection-chips button { font-size: 12px; padding: 4px 8px; }
+.prompt-text { min-height: 200px; }
+.result-property { border: 1px solid var(--cp-border); border-radius: 0.625rem; padding: 16px; }
+.result-property > h3 { margin-bottom: 12px; overflow-wrap: anywhere; }
+.result-arms { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.result-arm { background: var(--cp-surface-soft); border-radius: 0.625rem; padding: 12px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.result-image { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 8px; padding-top: 8px; border-top: 1px solid var(--cp-border); }
+.result-image img { width: 80px; height: 64px; object-fit: cover; border-radius: 6px; }
+.job { padding: 10px 0; border-bottom: 1px solid var(--cp-border); overflow-wrap: anywhere; }
+.job:last-child { border-bottom: 0; }
+.job-error { color: var(--cp-danger); }
+dialog { padding: 0; width: min(1160px, 95vw); max-height: 94vh; border: 1px solid var(--cp-border); border-radius: 16px; color: var(--cp-text); background: var(--cp-surface); box-shadow: var(--cp-shadow); }
+dialog::backdrop { background: var(--cp-overlay); }
+.dialog-head { padding: 16px 20px; border-bottom: 1px solid var(--cp-border); }
+.dialog-layout { display: grid; grid-template-columns: 1.1fr 1fr; }
+.dialog-photo { padding: 16px; background: var(--cp-bg-elevated); min-width: 0; }
+#editor-image { width: 100%; max-height: 65vh; object-fit: contain; display: block; background: var(--cp-surface-soft); }
+.dialog-controls { padding: 20px; display: grid; gap: 16px; min-width: 0; }
+.feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.feature-grid label { font-weight: 400; font-size: 12px; }
+.approval-preview { font-size: 12px; display: grid; gap: 8px; overflow-wrap: anywhere; }
+.dialog-foot { padding: 16px 20px; border-top: 1px solid var(--cp-border); }
+.dirty { color: var(--cp-accent); font-size: 12px; font-weight: 600; }
+.footer { padding-top: 24px; color: var(--cp-text-muted); font-size: 12px; }
+@media (max-width: 1100px) { .counts { grid-template-columns: repeat(3, 1fr); } .review-layout { grid-template-columns: 250px minmax(0, 1fr); } .fields-two { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  header { padding: 12px 16px 0; }
+  main { padding: 16px 12px 28px; }
+  h1 { font-size: 23px; }
+  .onboarding { gap: 6px; }
+  .step { padding: 10px 8px; gap: 6px; font-size: 12px; }
+  .step-number { width: 22px; height: 22px; }
+  .step small { display: none; }
+  .review-layout, .columns, .dialog-layout, .result-arms { grid-template-columns: 1fr; }
+  .queue-panel { position: static; }
+  .queue-list { max-height: 220px; }
+  .card { padding: 16px; }
+  .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .photo-open img { height: 140px; }
+  .photo-body { padding: 8px; }
+  .fit-options button { padding: 10px 8px; }
+  .fit-options small { font-size: 11px; }
+  .counts { grid-template-columns: repeat(2, 1fr); }
+  .dialog-controls { padding: 16px; }
+  #editor-image { max-height: 40vh; }
+  .header-tools { width: 100%; justify-content: space-between; }
+  .facts { grid-template-columns: 1fr 1fr; }
+  .onboarding { display: none; }
+  .review-intro .eyebrow, .review-intro h1 + p { display: none; }
+  .review-intro h1 { font-size: 19px; }
+  .review-intro { gap: 8px; margin-bottom: 12px; }
+  .review-intro > label { display: flex; align-items: center; gap: 8px; }
+  .review-intro > label input { padding: 6px 8px; }
+  .queue-panel { padding: 12px 16px; }
+  .review-layout { gap: 12px; }
+  .property-header { padding: 12px; }
+}
+@media (prefers-reduced-motion: no-preference) { button { transition: background .12s, border-color .12s; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="row spread">
+    <div class="row"><span class="brand-mark" aria-hidden="true">A</span><div><div class="brand-title">ACQ Vision</div><p class="muted small">Your properties. Your judgment. Better proposals.</p></div></div>
+    <div class="row header-tools"><a href="/" class="button">← Back to reviewer</a><span id="connection-status" class="row small muted" role="status">Connecting to local studio…</span><button id="refresh-all" type="button">Refresh saved data</button><button id="theme-toggle" type="button" aria-label="Switch light or dark theme">◐ Theme</button></div>
+  </div>
+  <nav class="top-tabs" role="tablist" aria-label="Training studio">
+    <button id="tab-dataset" role="tab" aria-selected="false" aria-controls="dataset-panel" data-tab="dataset">Dataset</button>
+    <button id="tab-review" role="tab" aria-selected="true" aria-controls="review-panel" data-tab="review">Review</button>
+    <button id="tab-experiments" role="tab" aria-selected="false" aria-controls="experiments-panel" data-tab="experiments">Experiments</button>
+  </nav>
+</header>
+<main id="studio-main">
+  <div id="global-feedback" class="notice" hidden role="status" aria-live="polite"><div class="row spread"><p id="global-message" class="feedback-text grow"></p><button id="retry-action" hidden>Retry</button><button id="dismiss-feedback" aria-label="Dismiss notification">×</button></div></div>
+  <section class="onboarding" aria-label="How the studio works">
+    <button class="step" data-go="dataset"><span class="step-number">1</span><span><strong>Bring your dataset</strong><small class="muted">Existing labels stay intact</small></span></button>
+    <button class="step current" data-go="review"><span class="step-number">2</span><span><strong>Review proposed tags now</strong><small class="muted">Correct the exceptions</small></span></button>
+    <button class="step" data-go="experiments"><span class="step-number">3</span><span><strong>Improve the next draft</strong><small class="muted">Local model or scoped LLM test</small></span></button>
+  </section>
+
+  <section id="review-panel" role="tabpanel" aria-labelledby="tab-review">
+    <div class="toolbar review-intro">
+      <div class="stack-tight"><p class="eyebrow">Human judgment, not data entry</p><h1>Review the property. Correct what matters.</h1><p class="muted">Start with machine proposals. Photo tags and your property decision are saved separately.</p></div>
+      <label>Your name <input id="reviewer-name" maxlength="120" autocomplete="name" placeholder="Saved on this browser"></label>
+    </div>
+    <div class="toolbar">
+      <div class="segmented" aria-label="Review mode"><button id="mode-properties" aria-pressed="true">By property</button><button id="mode-rooms" aria-pressed="false">Room gallery</button></div>
+      <span class="small muted" id="selection-summary">Select up to 5 properties for an experiment.</span>
+    </div>
+    <div id="property-mode" class="review-layout">
+      <aside class="card queue-panel stack" aria-label="Property queue">
+        <details id="property-queue-disclosure" open>
+        <summary id="queue-toggle">Choose property</summary>
+        <div class="stack">
+        <div class="row spread"><h2>Review queue</h2><span id="queue-total" class="badge">…</span></div>
+        <form id="queue-search-form" class="stack-tight">
+          <label>Search properties<input id="queue-search" type="search" placeholder="Address, city, or ID"></label>
+          <label>Queue<select id="queue-filter"><option value="needs_review">Needs review</option><option value="all">All properties</option><option value="disagreement">Model disagreements</option><option value="missing_coverage">Missing room coverage</option><option value="reviewed">Reviewed properties</option></select></label>
+          <button type="submit">Apply filters</button>
+        </form>
+        <p class="muted small">Checkboxes select experiment scope only. They never approve labels.</p>
+        <div id="property-list" class="queue-list" aria-live="polite"><p class="empty">Loading saved properties…</p></div>
+        <div class="pagination"><button id="queue-prev" disabled aria-label="Previous property page">← Previous</button><span id="queue-page">—</span><button id="queue-next" disabled aria-label="Next property page">Next →</button></div>
+        </div>
+        </details>
+      </aside>
+      <section id="property-workspace" class="stack" aria-label="Selected property"><div class="card empty">Choose a property to review its original photos.</div></section>
+    </div>
+    <div id="room-mode" hidden class="stack">
+      <div class="card row spread">
+        <div class="row"><label>Room<select id="gallery-room"><option value="">All rooms</option><option value="kitchen">Kitchen</option><option value="bathroom">Bathroom</option><option value="living">Living</option><option value="bedroom">Bedroom</option><option value="exterior">Exterior</option><option value="outdoor">Outdoor</option><option value="other">Other</option></select></label><label>Photo status<select id="gallery-status"><option value="unreviewed">Unreviewed tags</option><option value="all">All photos</option></select></label></div>
+        <button id="gallery-refresh">Refresh photos</button>
+        <div class="row"><label class="check"><input id="gallery-score-filter" type="checkbox" checked>Raw room preference score &gt; 0.54</label><button id="gallery-clear-score">Show all scores</button></div>
+      </div>
+      <p class="muted small" id="gallery-score-description">Open a photo to approve or correct its tags. The optional strict &gt; 0.54 filter uses the current room's uncalibrated local preference score, excluding exactly 0.54 and missing scores. It filters this gallery only—not your dataset, human truth, or training examples.</p>
+      <div id="gallery-grid" class="photo-grid"></div>
+      <div class="pagination"><button id="gallery-prev" disabled>← Previous page</button><span id="gallery-page">—</span><button id="gallery-next" disabled>Next page →</button></div>
+    </div>
+  </section>
+
+  <section id="dataset-panel" role="tabpanel" aria-labelledby="tab-dataset" hidden class="stack">
+    <div><p class="eyebrow">Local dataset</p><h1>Grow the dataset without starting over.</h1><p class="muted">Import a few properties or hundreds. Review stays paginated and your existing labels stay separate.</p></div>
+    <div id="dataset-counts" class="counts"></div>
+    <div class="notice"><strong>Existing work is preserved.</strong><p id="existing-labels">Reading saved image reviews, property reviews, and preferences…</p><p class="small muted">Machine proposals never become human approvals automatically. Protected holdout groups are enforced by the server. Reference comps are context, not negative training labels.</p></div>
+    <div class="columns">
+      <section class="card stack">
+        <div><h2>Import a property ZIP</h2><p class="muted">The importer runs locally. Nothing is uploaded to an external provider.</p></div>
+        <label>Dataset archive (.zip, up to 1 GB)<input id="import-file" type="file" accept=".zip,application/zip"></label>
+        <p class="small muted">Maximum extracted contents: 2 GB. Both limits are enforced by the local server.</p>
+        <p class="notice warning small">Edited or cropped near-duplicate photos need a manual identity check. Exact-hash and physical-identity matching protect linked groups, but a different file hash does not establish a different property.</p>
+        <p id="import-file-info" class="small muted">Choose a ZIP containing dataset.json and local image files.</p>
+        <button id="import-preview-button" class="primary">Preview import</button>
+        <div id="import-preview" class="stack-tight" hidden></div>
+        <button id="import-confirm" class="primary" hidden disabled>Confirm import</button>
+        <p id="import-status" role="status" class="small muted"></p>
+      </section>
+      <section class="card stack">
+        <h2>A predictable, local format</h2>
+        <p>Your ZIP must contain <code>dataset.json</code> plus images referenced by relative paths inside that ZIP.</p>
+        <p><a id="download-template" class="button" href="/api/studio/import/template" download="dataset.json">Download manifest template</a></p>
+        <details id="manifest-help"><summary>Property and image manifest instructions</summary><div class="stack-tight small"><p>Use the downloaded template for the exact property, image, ID, and metadata fields. Keep dataset.json at the ZIP root.</p><p>Place originals in a folder such as <code>images\</code>. In the manifest, use the relative image paths specified by the template. Do not use absolute paths, parent-directory paths, or remote URLs.</p><p>Keep property and image IDs stable across imports. The preview reports duplicates, errors, and the exact scope before you confirm.</p><p>Only confirm a clean preview. Existing reviews and model artifacts are not replaced by this upload.</p></div></details>
+        <div class="soft small">Imported photos are automatically seeded with local machine proposals using cached SigLIP. No cloud calls are made. Review the drafts; approve only what the original photos support.</div>
+        <div class="stack-tight">
+          <h3>Refresh machine proposals locally</h3>
+          <p class="small muted">Preview the scope before creating local pre-tags. This never creates human approvals or deploys a production model.</p>
+          <button id="dataset-prelabel-button">Pre-tag locally</button>
+          <div id="dataset-prelabel-preview" hidden class="stack-tight"></div>
+          <button id="dataset-prelabel-confirm" hidden disabled class="primary">Confirm local pre-tagging</button>
+        </div>
+        <button data-go="review">Review existing proposed tags →</button>
+      </section>
+    </div>
+  </section>
+
+  <section id="experiments-panel" role="tabpanel" aria-labelledby="tab-experiments" hidden class="stack">
+    <div><p class="eyebrow">Deliberate improvements</p><h1>Better drafts, with a clear audit trail.</h1><p class="muted">Training and paid calls only start after their own preview and confirmation.</p></div>
+    <div class="columns">
+      <section class="card stack">
+        <div><h2>Local room &amp; preference model</h2><p class="muted">SigLIP workflow · learn from approved corrections</p></div>
+        <div id="candidate-info" class="soft small">Reading local candidate…</div>
+        <p class="small">Preview shows eligible images and protected groups. You do not need to manage train/validation splits to review. The server protects held-out groups.</p>
+        <div class="row"><button id="prelabel-preview-button">Pre-tag locally</button><button id="train-preview-button">Preview local training</button></div>
+        <div id="prelabel-preview" hidden class="stack-tight"></div>
+        <button id="prelabel-confirm" hidden disabled class="primary">Confirm local pre-tagging</button>
+        <div id="train-preview" hidden class="stack-tight"></div>
+        <button id="train-confirm" hidden disabled class="primary">Train local candidate</button>
+        <p class="small muted">Local pre-tagging uses cached SigLIP, not cloud calls. Training includes eligible imported images and approved labels, and saves a studio-job candidate only—not a production deployment. No automatic retraining. Previous metrics do not evaluate a newly trained candidate. Raw preference scores are not probabilities.</p>
+        <details><summary>What can the studio learn?</summary><ul id="learning-rules"></ul></details>
+      </section>
+      <section class="card stack">
+        <div class="row spread"><h2>Jobs &amp; saved comparisons</h2><button id="jobs-refresh">Refresh status</button></div>
+        <p id="jobs-updated" class="small muted">Waiting for server status.</p>
+        <div id="jobs-list" aria-live="polite"></div>
+        <div id="prompt-run-list" class="stack-tight"></div>
+        <p class="small muted">Failed jobs are not retried automatically. Read the error, fix the cause, and create a new preview to retry with an explicit scope.</p>
+      </section>
+    </div>
+    <section class="card stack">
+      <div><h2>Compare prompts / prelabel selected properties</h2><p class="muted">A small, bounded test: same model, same frozen image set, two prompt arms.</p></div>
+      <div class="columns">
+        <div class="stack">
+          <div class="stack-tight"><h3>1 · Choose scope</h3><p class="small muted">Defaults to 3 properties from your first queue page. Maximum 5 properties, 8 images each. Change selections in Review or add exact IDs below.</p><div id="selected-properties" class="selection-chips"></div></div>
+          <label>Add property IDs (comma or new line separated)<textarea id="property-ids-input" rows="2" placeholder="property-001, property-002"></textarea></label>
+          <div class="row"><button id="add-property-ids">Add IDs</button><button id="clear-selection">Clear selection</button></div>
+          <label>Baseline prompt<select id="baseline-prompt"><option value="">No saved prompts yet</option></select></label>
+          <details><summary>Read the selected baseline</summary><pre id="baseline-text"></pre></details>
+          <div class="fields-two"><label>Images / property<input id="images-per-property" type="number" value="8" min="1" max="8"></label><label>Configured model<input id="prompt-model" value="gpt-4.1-mini" maxlength="120" spellcheck="false"></label></div>
+        </div>
+        <div class="stack-tight">
+          <h3>2 · Draft the candidate</h3>
+          <label>Candidate prompt<textarea id="candidate-prompt" class="prompt-text" placeholder="Edit the prompt, not the human labels."></textarea></label>
+          <label>Prompt name<input id="candidate-name" maxlength="120" placeholder="e.g. Evidence-first condition v2"></label>
+          <button id="save-prompt">Save candidate prompt locally</button>
+          <p class="small muted">Saving text makes no model calls. Prelabeling uses this same two-arm comparison; applying proposals is a separate step.</p>
+        </div>
+      </div>
+      <button id="prompt-preview-button">Preview bounded comparison</button>
+      <div id="prompt-preview" hidden class="stack-tight"></div>
+      <label id="paid-authorization-label" class="check" hidden><input id="paid-authorization" type="checkbox">I authorize these scoped model calls</label>
+      <button id="prompt-run-button" class="primary" hidden disabled>Run paid comparison</button>
+      <p class="small muted">Images in the preview are sent to the configured OpenAI service only after authorization. A frozen image set does not make this a blinded study, and there is no fair accuracy claim without independent human labels.</p>
+    </section>
+    <section id="comparison-section" hidden class="card stack">
+      <div class="row spread"><div><h2>Comparison results</h2><p id="comparison-status" class="small muted"></p></div><button id="result-refresh">Refresh results</button></div>
+      <p class="notice small">These are machine proposals, not ground truth. Inspect image evidence side by side. There is no automatic winner and no automatic human approval.</p>
+      <div id="comparison-summary" class="small"></div>
+      <details><summary>Frozen scope and provenance</summary><pre id="comparison-manifest"></pre></details>
+      <div id="comparison-results" class="stack"></div>
+      <button id="apply-candidate" hidden class="primary">Use candidate as draft proposals</button>
+      <p id="apply-status" role="status" class="small muted"></p>
+    </section>
+  </section>
+  <footer class="footer">Local originals · explicit human approvals · protected holdout groups · no automatic paid calls</footer>
+</main>
+
+<dialog id="image-dialog" aria-labelledby="editor-title">
+  <div class="dialog-head row spread"><div><h2 id="editor-title">Review photo tags</h2><p id="editor-subtitle" class="small muted"></p></div><button id="close-editor" aria-label="Close photo review">× Close</button></div>
+  <div class="dialog-layout">
+    <div class="dialog-photo stack"><img id="editor-image" alt="Original property photo"><div id="editor-sources" class="stack-tight"></div><a id="original-image-link" target="_blank" rel="noopener">Open full original in a new tab</a></div>
+    <div class="dialog-controls">
+      <div class="notice small">Suggestions are prefilled as a draft. Verify what you can see. Unknown stays unknown; approval applies to this photo only.</div>
+      <label>Reviewer name<input id="editor-reviewer-name" maxlength="120" autocomplete="name" placeholder="Enter once; remembered on this browser"></label>
+      <label>Wrong room? Correct or confirm it<select id="editor-room"><option value="">Unknown — choose a room to approve</option><option value="kitchen">Kitchen</option><option value="bathroom">Bathroom</option><option value="living">Living</option><option value="bedroom">Bedroom</option><option value="exterior">Exterior</option><option value="outdoor">Outdoor</option><option value="other">Other</option></select></label>
+      <details id="feature-editor"><summary>Edit feature tags (present / absent / unknown)</summary><div id="feature-fields" class="feature-grid"></div></details>
+      <label>Is this room the kind of project you want?<select id="editor-preference"><option value="">Not judged</option><option value="target">Yes — target</option><option value="not_target">No — not target</option><option value="unsure">Unsure</option></select></label>
+      <label>Photo notes<textarea id="editor-notes" rows="2" placeholder="Optional evidence or correction"></textarea></label>
+      <div class="soft stack-tight"><h3>Exactly what will be saved</h3><div id="tag-approval-preview" class="approval-preview"></div></div>
+      <p id="editor-feedback" class="small feedback-text" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+  <div class="dialog-foot row spread"><span id="image-dirty" class="dirty">Prefilled proposal · not approved</span><div class="row"><button id="save-image-draft">Save draft</button><button id="approve-image" class="primary">Approve visible tags</button></div></div>
+</dialog>
+
+<script id="studio-app">
+'use strict';
+(() => {
+  const $ = id => document.getElementById(id);
+  const ROOMS = ['kitchen', 'bathroom', 'living', 'bedroom', 'exterior', 'outdoor', 'other'];
+  const FEATURES = ['dated_kitchen', 'dated_bathroom', 'old_flooring', 'old_cabinetry', 'dated_appliances',
+    'dated_lighting', 'dated_fixtures', 'damaged_surfaces', 'popcorn_ceiling', 'wood_paneling',
+    'clutter_obscures_condition', 'empty_presentation', 'visible_deferred_maintenance'];
+  const INTERIOR_ROOMS = ['kitchen', 'bathroom', 'living', 'bedroom', 'other'];
+  const FEATURE_ROOMS = {
+    dated_kitchen: ['kitchen'], dated_bathroom: ['bathroom'], dated_appliances: ['kitchen'],
+    old_cabinetry: ['kitchen', 'bathroom', 'other'], dated_fixtures: ['kitchen', 'bathroom'],
+    old_flooring: INTERIOR_ROOMS, dated_lighting: INTERIOR_ROOMS, popcorn_ceiling: INTERIOR_ROOMS,
+    wood_paneling: INTERIOR_ROOMS, clutter_obscures_condition: INTERIOR_ROOMS, empty_presentation: INTERIOR_ROOMS
+  };
+  const PAGE_SIZE = 24;
+  const MAX_ZIP_BYTES = 1024 * 1024 * 1024;
+  const mobileLayout = window.matchMedia('(max-width: 760px)');
+  const state = {
+    summary: null, tab: 'review', mode: 'properties', token: null, busy: false, retry: null,
+    properties: [], roles: new Map(), total: 0, offset: 0, search: '', queue: 'needs_review', listRequest: 0,
+    detail: null, propertyRequest: 0, propertyDirty: false, propertyFit: null,
+    gallery: [], galleryTotal: 0, galleryOffset: 0, galleryRequest: 0,
+    image: null, imageDraft: null, imageDirty: false, imageAvailable: false,
+    selected: new Map(), initializedSelection: false, importPreview: null, trainPreview: null, prelabelPreview: null,
+    promptPreview: null, promptFingerprint: null, candidateEdited: false,
+    result: null, resultId: null, resultRequest: 0, pollActive: false
+  };
+  const label = value => String(value ?? 'Unknown').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const text = value => typeof value === 'string' ? value : JSON.stringify(value ?? null, null, 2);
+  const tri = value => value === true || value === 1 ? true : value === false || value === 0 ? false : null;
+  const triText = value => value === true ? 'Present' : value === false ? 'Absent' : 'Unknown';
+  const reviewRecord = value => value && typeof value === 'object' ? value : {};
+  const revisionOf = review => Number.isInteger(review?.revision) && review.revision >= 0 ? review.revision : 0;
+  const imageURL = id => '/api/studio/image?' + new URLSearchParams({id: String(id)});
+  const roomOf = image => image.review?.room || image.room || image.suggestions?.find(s => s.room)?.room || image.local_model?.room || '';
+  const preferenceScore = (image, room = roomOf(image)) => {
+    const score = image.local_model?.preferences?.[room]?.score;
+    return typeof score === 'number' && Number.isFinite(score) ? score : null;
+  };
+  const scoreAbove = (score, threshold) => typeof score === 'number' && Number.isFinite(score) && score > threshold;
+  const isActive = status => ['queued', 'pending', 'running', 'starting', 'in_progress'].includes(String(status).toLowerCase());
+  const bytes = n => n >= 1024 ** 3 ? (n / 1024 ** 3).toFixed(2) + ' GB' : n >= 1024 ** 2 ? (n / 1024 ** 2).toFixed(1) + ' MB' : (n / 1024).toFixed(1) + ' KB';
+  const stored = key => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
+  function remember(key, value) {
+    try { localStorage.setItem(key, value); }
+    catch { notify('Browser storage is unavailable. Your server saves still work; your name and place may not persist here.', 'warning'); }
+  }
+  function node(tag, content, className) {
+    const element = document.createElement(tag);
+    if (content !== undefined && content !== null) element.textContent = String(content);
+    if (className) element.className = className;
+    return element;
+  }
+  function button(caption, action, className) {
+    const element = node('button', caption, className);
+    element.type = 'button'; element.onclick = action;
+    return element;
+  }
+  function badge(caption, kind = '') { return node('span', caption, 'badge ' + kind); }
+  function roleBadge(property) {
+    const role = property.source_role || state.roles.get(String(property.id)) || property.metadata?.source_role;
+    if (!role) return null;
+    const element = badge(role === 'comp' ? 'Reference comp' : role === 'subject' ? 'Subject' : role === 'imported' ? 'Imported' : label(role));
+    element.dataset.sourceRole = role;
+    element.title = role === 'comp' ? 'Reference comparable property. This is a source role, not a negative target-fit label.' : 'Dataset source role; not a target-fit label.';
+    return element;
+  }
+  function thumb(id, alt, className) {
+    const image = node('img', null, className);
+    image.src = imageURL(id); image.alt = alt; image.loading = 'lazy'; image.decoding = 'async';
+    image.onerror = () => { image.alt = 'Original unavailable — image ' + id; image.dataset.missing = 'true'; };
+    return image;
+  }
+  function listOf(values, className = '') {
+    const list = node('ul', null, className);
+    for (const value of Array.isArray(values) ? values : []) list.append(node('li', text(value)));
+    return list;
+  }
+  function facts(rows) {
+    const dl = node('dl', null, 'facts');
+    for (const [name, value] of rows) dl.append(node('dt', name), node('dd', typeof value === 'object' ? text(value) : String(value ?? '—')));
+    return dl;
+  }
+  function draftFor(image) {
+    const review = reviewRecord(image.review);
+    const suggestions = Array.isArray(image.suggestions) ? image.suggestions : [];
+    const proposed = image.features || suggestions.find(s => s.features)?.features || {};
+    const savedFeatures = review.features || {};
+    const keys = [...new Set([...FEATURES, ...Object.keys(proposed), ...Object.keys(savedFeatures)])];
+    const features = Object.fromEntries(keys.map(key => [key, tri(Object.hasOwn(savedFeatures, key) ? savedFeatures[key] : proposed[key])]));
+    const room = roomOf(image);
+    const preferenceRoomMismatch = review.preference_room && review.preference_room !== room;
+    return {room, features, preference: preferenceRoomMismatch ? null : review.preference ?? null, notes: review.notes || ''};
+  }
+  function tagGroups(features) {
+    const groups = {present: [], absent: [], unknown: []};
+    for (const [key, value] of Object.entries(features || {})) groups[tri(value) === true ? 'present' : tri(value) === false ? 'absent' : 'unknown'].push(label(key));
+    return groups;
+  }
+  function correctRoom(draft, room) {
+    if (draft.room === room) return {draft, changed: false, cleared: []};
+    const features = {...draft.features}, cleared = [];
+    for (const [feature, value] of Object.entries(features)) {
+      if (FEATURE_ROOMS[feature] && !FEATURE_ROOMS[feature].includes(room)) {
+        if (value !== null) cleared.push(feature);
+        features[feature] = null;
+      }
+    }
+    return {draft: {...draft, room, features, preference: null}, changed: true, cleared};
+  }
+  function parseIds(value) { return [...new Set(String(value).split(/[,\n]+/).map(v => v.trim()).filter(Boolean))]; }
+  function promptSpec() {
+    const property_ids = [...state.selected.keys()];
+    const images_per_property = Number($('images-per-property').value);
+    if (!property_ids.length || property_ids.length > 5) throw Error('Select between 1 and 5 properties.');
+    if (!Number.isInteger(images_per_property) || images_per_property < 1 || images_per_property > 8) throw Error('Images per property must be an integer from 1 to 8.');
+    const candidate_text = $('candidate-prompt').value.trim(), baseline_id = $('baseline-prompt').value, model = $('prompt-model').value.trim();
+    if (!baseline_id) throw Error('Choose a saved baseline prompt.');
+    if (!candidate_text) throw Error('Write or load a candidate prompt before previewing.');
+    if (!model) throw Error('Enter the configured model name.');
+    return {property_ids, baseline_id, candidate_text, model, images_per_property};
+  }
+  function fingerprint(spec) { return JSON.stringify({...spec, property_ids: [...spec.property_ids].sort()}); }
+  function imagePayload(image, draft, reviewer, status) {
+    return {kind: 'image', id: image.id, expected_revision: revisionOf(image.review), reviewer, status,
+      room: draft.room || null, features: {...draft.features}, preference: draft.preference || null, notes: draft.notes};
+  }
+  function notify(message, kind = '', retry = null) {
+    $('global-feedback').hidden = false; $('global-feedback').className = 'notice ' + kind;
+    $('global-feedback').setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    $('global-message').textContent = message;
+    state.retry = retry; $('retry-action').hidden = !retry;
+  }
+  function failure(error, retry = null) {
+    const conflict = error.status === 409;
+    const message = (conflict ? 'Saved data changed in another window. Your edits are still here. Copy them if needed, then use Refresh saved data to reconcile. ' : '') + error.message;
+    notify(message, 'error', conflict ? null : retry);
+    if ($('image-dialog').open) $('editor-feedback').textContent = message;
+  }
+  async function api(path, body, raw = false) {
+    if (!path.startsWith('/api/studio/')) throw Error('Only same-origin studio API calls are allowed.');
+    const options = {credentials: 'same-origin', redirect: 'error', cache: 'no-store', headers: {'Accept': 'application/json'}};
+    if (body !== undefined) {
+      if (!state.token) throw Error('No local review token. Refresh the connection before saving.');
+      options.method = 'POST'; options.headers['X-Review-Token'] = state.token;
+      options.headers['Content-Type'] = raw ? 'application/zip' : 'application/json';
+      options.body = raw ? body : JSON.stringify(body);
+    }
+    const controller = new AbortController();
+    options.signal = controller.signal;
+    const timer = setTimeout(() => controller.abort(), raw ? 240000 : body === undefined ? 20000 : 60000);
+    try {
+      let response;
+      try { response = await fetch(path, options); }
+      catch (error) {
+        if (controller.signal.aborted) throw error;
+        throw Error('Cannot reach the local studio server. No success was confirmed. Check that review_server.py is running, then retry.');
+      }
+      let data;
+      try { data = await response.json(); }
+      catch (error) {
+        if (controller.signal.aborted) throw error;
+        const invalid = Error('The studio returned an invalid response (HTTP ' + response.status + '). No success was confirmed.');
+        invalid.status = response.status; throw invalid;
+      }
+      if (!response.ok) { const error = Error(text(data.error || 'Request failed (HTTP ' + response.status + ').')); error.status = response.status; throw error; }
+      return data;
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw Error(body === undefined
+          ? 'Loading timed out. Your saved work is unchanged. Use Retry to reconnect.'
+          : 'The request timed out; it may still have completed. Refresh saved data or job status before retrying. Do not submit duplicate paid calls.');
+      }
+      throw error;
+    } finally { clearTimeout(timer); }
+  }
+  function setBusy(value) {
+    state.busy = value;
+    document.documentElement.setAttribute('aria-busy', String(value));
+    $('studio-main').inert = value;
+    $('image-dialog').inert = value;
+    document.querySelector('.top-tabs').inert = value;
+    const ids = ['save-property-next', 'save-property-only', 'save-image-draft', 'approve-image', 'import-preview-button',
+      'train-preview-button', 'prelabel-preview-button', 'dataset-prelabel-button', 'prompt-preview-button', 'save-prompt', 'refresh-all', 'close-editor', 'import-file'];
+    for (const id of ids) if ($(id)) $(id).disabled = value;
+    $('import-confirm').disabled = value || !state.importPreview?.can_commit;
+    $('train-confirm').disabled = value || !state.trainPreview;
+    for (const id of ['prelabel-confirm', 'dataset-prelabel-confirm']) $(id).disabled = value || !state.prelabelPreview;
+    $('prompt-run-button').disabled = value || !state.promptPreview || !$('paid-authorization').checked;
+    $('apply-candidate').disabled = value || !state.result?.results?.some(r => r.arm === 'candidate' && r.prediction && !r.error);
+  }
+  async function action(task, retry) {
+    if (state.busy) { notify('Please wait for the current request to finish.', 'warning'); return; }
+    setBusy(true);
+    try { await task(); }
+    catch (error) { failure(error, retry || (() => action(task, retry))); }
+    finally { setBusy(false); }
+  }
+  function discardAllowed(onlyImage = false) {
+    if (state.busy) { notify('Please wait for the current request to finish.', 'warning'); return false; }
+    if (!(state.imageDirty || (!onlyImage && state.propertyDirty))) return true;
+    return window.confirm('You have unsaved edits. Discard them and continue? Cancel keeps your edits.');
+  }
+  function discardEdits() {
+    state.propertyDirty = false; state.imageDirty = false;
+    if ($('image-dialog').open) $('image-dialog').close();
+  }
+  function reviewer() {
+    const input = $($('image-dialog').open ? 'editor-reviewer-name' : 'reviewer-name');
+    const name = input.value.trim();
+    if (!name) { input.focus(); throw Error('Enter your name once before saving a human review.'); }
+    $('reviewer-name').value = name; $('editor-reviewer-name').value = name;
+    remember('acq-studio-reviewer', name); return name;
+  }
+  function invalidateTrain() {
+    state.trainPreview = null; $('train-preview').hidden = true; $('train-confirm').hidden = true; $('train-confirm').disabled = true;
+  }
+  function invalidatePrelabel() {
+    state.prelabelPreview = null;
+    for (const id of ['prelabel-preview', 'dataset-prelabel-preview']) $(id).hidden = true;
+    for (const id of ['prelabel-confirm', 'dataset-prelabel-confirm']) { $(id).hidden = true; $(id).disabled = true; }
+  }
+  function invalidatePrompt() {
+    state.promptPreview = null; state.promptFingerprint = null; $('prompt-preview').hidden = true;
+    $('paid-authorization').checked = false; $('paid-authorization-label').hidden = true;
+    $('prompt-run-button').hidden = true; $('prompt-run-button').disabled = true;
+  }
+  function changedProperty() {
+    state.propertyDirty = true;
+    if ($('property-dirty')) $('property-dirty').textContent = 'Unsaved property decision';
+    if ($('property-decision-unsaved')) $('property-decision-unsaved').hidden = false;
+  }
+  async function refreshSummary() {
+    const summary = await api('/api/studio/summary');
+    state.summary = summary; state.token = summary.token;
+    drawSummary();
+    return summary;
+  }
+  function drawSummary() {
+    const summary = state.summary, counts = summary.counts || {};
+    const jobs = Array.isArray(summary.jobs) ? summary.jobs : [];
+    const running = jobs.filter(job => isActive(job.status)).length;
+    const failed = jobs.filter(job => ['failed', 'error'].includes(job.status)).length;
+    $('connection-status').replaceChildren(node('span', null, 'status-dot' + (running ? ' pending' : failed ? ' failed' : '')), node('span', running ? running + ' active job' + (running === 1 ? '' : 's') : failed ? 'Local studio · job needs attention' : 'Local studio connected'));
+    const stats = [['Properties', 'properties'], ['Original photos', 'images'], ['Approved photos', 'human_image_reviews'],
+      ['Approved properties', 'human_property_reviews'], ['Pending properties', 'pending_properties'], ['Missing images', 'missing_images']];
+    $('dataset-counts').replaceChildren(...stats.map(([name, key]) => {
+      const card = node('div', null, 'card count'); card.dataset.countKey = key; card.append(node('span', name, 'small muted'), node('strong', counts[key] ?? '—')); return card;
+    }));
+    const existing = summary.existing_reviews || {};
+    $('existing-labels').textContent = 'Legacy saved work: ' + (existing.images ?? 0) + ' image reviews · ' + (existing.properties ?? 0) + ' property reviews · ' + (existing.preferences ?? 0) + ' preferences. The approved totals above already include legacy and new reviews; these legacy counts are informational, not additional.';
+    const studioCandidate = summary.studio_candidate?.version ? summary.studio_candidate : null;
+    const candidate = studioCandidate || summary.candidate;
+    if (candidate?.version) {
+      const rows = [['Candidate', candidate.version], ['Model source', studioCandidate ? 'Latest studio training job · not deployed' : 'Legacy candidate · original pointer']];
+      if (candidate.review_revision != null) rows.push(['Review revision', candidate.review_revision]);
+      if (candidate.preference_heads != null) rows.push(['Preference heads', candidate.preference_heads]);
+      $('candidate-info').replaceChildren(facts(rows));
+      if (studioCandidate?.metrics) {
+        const metrics = node('details');
+        metrics.append(node('summary', 'Studio fit statistics and skipped heads'),
+          node('p', 'These are human-fit / internal grouped-validation statistics, not independent held-out production accuracy. Earlier legacy metrics do not evaluate this studio candidate.', 'small muted'),
+          node('pre', text(studioCandidate.metrics)));
+        $('candidate-info').append(metrics);
+      }
+    } else $('candidate-info').replaceChildren(node('p', 'No candidate reported yet. Review a few proposals, then preview local training.'));
+    $('learning-rules').replaceChildren(...(summary.learning_rules || []).map(rule => node('li', rule)));
+    $('jobs-updated').textContent = 'Server status checked ' + new Date().toLocaleTimeString() + '. Updates every 5 seconds while this page is visible.';
+    $('jobs-list').replaceChildren(...jobs.map(job => {
+      const card = node('div', null, 'job stack-tight');
+      card.append(node('strong', label(job.kind) + ' · ' + label(job.status)), node('small', 'Job ' + job.id, 'muted'));
+      if (job.detail) card.append(node('p', text(job.detail), 'small'));
+      if (job.error) card.append(node('p', text(job.error), 'small job-error'));
+      return card;
+    }));
+    if (!jobs.length) $('jobs-list').append(node('p', 'No jobs reported. Nothing runs automatically.', 'muted small'));
+    $('prompt-run-list').replaceChildren(...(summary.prompt_runs || []).map(run => {
+      const row = node('div', null, 'row spread soft');
+      row.append(node('span', 'Comparison ' + run.id + ' · ' + label(run.status), 'small'), button('View results', () => showRun(run.id)));
+      if (run.error) row.append(node('p', text(run.error), 'small job-error'));
+      return row;
+    }));
+    const select = $('baseline-prompt'), selected = select.value, prompts = summary.prompts || [];
+    const signature = JSON.stringify(prompts.map(p => [String(p.id), p.name, p.version, p.text]));
+    if (select.dataset.signature !== signature) {
+      select.dataset.signature = signature;
+      select.replaceChildren(...prompts.map(prompt => {
+        const option = node('option', prompt.name + ' · v' + (prompt.version ?? '—')); option.value = String(prompt.id); return option;
+      }));
+      if (!prompts.length) { const option = node('option', 'No saved prompts yet'); option.value = ''; select.append(option); }
+      if (prompts.some(p => String(p.id) === selected)) select.value = selected;
+      syncBaseline();
+      if (state.promptPreview) invalidatePrompt();
+    }
+  }
+  function syncBaseline() {
+    const baseline = (state.summary?.prompts || []).find(p => String(p.id) === $('baseline-prompt').value);
+    $('baseline-text').textContent = baseline?.text || 'Save a prompt to establish a baseline.';
+    const candidate = (state.summary?.prompts || []).find(p => String(p.id) === 'room-first-v1');
+    if (!state.candidateEdited && !$('candidate-prompt').value && candidate) $('candidate-prompt').value = candidate.text || '';
+  }
+  async function navigate(tab) {
+    if (tab === state.tab) return;
+    if (!discardAllowed()) return;
+    discardEdits();
+    state.tab = tab;
+    for (const name of ['dataset', 'review', 'experiments']) {
+      $(name + '-panel').hidden = name !== tab;
+      $('tab-' + name).setAttribute('aria-selected', String(name === tab));
+    }
+    if (tab === 'review' && state.detail) renderProperty();
+    if (tab === 'experiments') drawSelection();
+  }
+  function drawSelection() {
+    $('selection-summary').textContent = state.selected.size + ' / 5 properties selected for an experiment';
+    $('selected-properties').replaceChildren(...[...state.selected].map(([id, address]) => {
+      const chip = button((address || id) + ' ×', () => setSelected(id, address, false));
+      chip.setAttribute('aria-label', 'Remove ' + (address || id) + ' from experiment'); chip.title = id; return chip;
+    }));
+    if (!state.selected.size) $('selected-properties').append(node('p', 'No properties selected. Select queue checkboxes or add IDs.', 'small muted'));
+    for (const input of document.querySelectorAll('input[data-property-selection]')) input.checked = state.selected.has(input.dataset.propertySelection);
+  }
+  function setSelected(id, address, selected) {
+    id = String(id);
+    if (selected && !state.selected.has(id) && state.selected.size >= 5) { notify('A comparison is limited to 5 properties. Remove one first.', 'warning'); drawSelection(); return; }
+    if (selected) state.selected.set(id, address || id); else state.selected.delete(id);
+    state.initializedSelection = true; invalidatePrompt(); drawSelection();
+  }
+  async function loadProperties({offset = state.offset, choose = false, prefer = null} = {}) {
+    const request = ++state.listRequest;
+    const data = await api('/api/studio/properties?' + new URLSearchParams({search: state.search, queue: state.queue, offset, limit: PAGE_SIZE}));
+    if (request !== state.listRequest) return;
+    state.properties = data.items || []; state.total = Number(data.total) || 0; state.offset = Number(data.offset) || 0;
+    for (const property of state.properties) if (property.source_role) state.roles.set(String(property.id), property.source_role);
+    if (!state.initializedSelection && state.properties.length) {
+      for (const property of state.properties.slice(0, 3)) state.selected.set(String(property.id), property.address || String(property.id));
+      state.initializedSelection = true; drawSelection();
+    }
+    if (!state.properties.length && state.total > 0 && state.offset > 0) {
+      return loadProperties({offset: Math.max(0, Math.floor((state.total - 1) / PAGE_SIZE) * PAGE_SIZE), choose, prefer});
+    }
+    renderQueue();
+    if (choose) {
+      const preferred = state.properties.find(p => String(p.id) === String(prefer));
+      const next = preferred || state.properties[0];
+      if (next) await loadProperty(next.id);
+      else clearProperty();
+    }
+  }
+  function renderQueue() {
+    $('queue-total').textContent = state.total;
+    $('queue-page').textContent = state.total ? (state.offset + 1) + '–' + Math.min(state.offset + PAGE_SIZE, state.total) + ' of ' + state.total : '0 properties';
+    $('queue-prev').disabled = state.offset === 0; $('queue-next').disabled = state.offset + PAGE_SIZE >= state.total;
+    $('property-list').replaceChildren(...state.properties.map(property => {
+      const id = String(property.id), row = node('article', null, 'queue-item' + (String(state.detail?.property.id) === id ? ' current' : ''));
+      row.dataset.propertyId = id;
+      const checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.dataset.propertySelection = id;
+      checkbox.checked = state.selected.has(id); checkbox.setAttribute('aria-label', 'Select ' + (property.address || id) + ' for experiment');
+      checkbox.onchange = () => setSelected(id, property.address, checkbox.checked);
+      const open = button('', () => openProperty(id), 'queue-open');
+      if (property.hero_image_id) open.append(thumb(property.hero_image_id, 'Property thumbnail'));
+      else open.append(node('span', 'No photo', 'small muted'));
+      const content = node('span');
+      content.append(node('strong', property.address || id), node('small', [property.city, property.image_count + ' photos', label(property.review_status || 'pending')].filter(Boolean).join(' · ')));
+      const role = roleBadge(property); if (role) content.append(role);
+      if (property.signals?.length) content.append(node('small', property.signals.map(label).join(' · ')));
+      open.append(content); row.append(checkbox, open); return row;
+    }));
+    if (!state.properties.length) {
+      const empty = node('div', null, 'empty stack-tight');
+      empty.append(node('p', state.queue === 'needs_review' ? 'No pending properties in this queue.' : 'No properties match these filters.'),
+        button('Show all properties', () => { if (!discardAllowed()) return; discardEdits(); $('queue-filter').value = 'all'; $('queue-search').value = ''; state.queue = 'all'; state.search = ''; action(() => loadProperties({offset: 0, choose: true})); }),
+        button('Import properties', () => navigate('dataset')));
+      $('property-list').append(empty);
+    }
+  }
+  function clearProperty() {
+    state.detail = null; state.propertyDirty = false; ++state.propertyRequest;
+    $('property-queue-disclosure').open = true;
+    $('property-workspace').replaceChildren(node('div', 'No property selected. Adjust the queue, or import a dataset.', 'card empty'));
+  }
+  async function loadProperty(id) {
+    const request = ++state.propertyRequest;
+    const detail = await api('/api/studio/property?' + new URLSearchParams({id}));
+    if (request !== state.propertyRequest) return;
+    state.detail = detail; state.propertyDirty = false;
+    remember('acq-studio-resume', String(id)); renderProperty(); renderQueue();
+    if (mobileLayout.matches) $('property-queue-disclosure').open = false;
+  }
+  async function openProperty(id) {
+    if (String(state.detail?.property.id) === String(id)) {
+      if (mobileLayout.matches) $('property-queue-disclosure').open = false;
+      return;
+    }
+    if (!discardAllowed()) return;
+    discardEdits(); await action(() => loadProperty(id));
+  }
+  function sourceName(image) {
+    if (image.review?.room) return image.review.status === 'approved' ? 'Corrected · human approved' : 'Human draft';
+    const source = String(image.room_source || image.suggestions?.find(s => s.room)?.source || '').toLowerCase();
+    if (source.includes('gpt') || source.includes('llm') || source.includes('openai')) return 'GPT · AI draft';
+    if (source.includes('model') || source.includes('siglip') || (!source && image.local_model?.room)) return 'Local model · draft';
+    return source ? label(source) + ' · AI draft' : 'AI draft';
+  }
+  function sourceBadges(image) {
+    const row = node('div', null, 'row');
+    row.append(badge(sourceName(image), image.review?.status === 'approved' ? 'human' : 'ai'));
+    if (image.local_model?.version) row.append(badge('Model ' + image.local_model.version));
+    return row;
+  }
+  function featureSummary(features, compact = false) {
+    const groups = tagGroups(features), wrap = node('div', null, 'stack-tight');
+    const positive = node('div', null, 'row');
+    for (const tag of groups.present) positive.append(node('span', tag, 'chip'));
+    if (!groups.present.length) positive.append(node('span', 'No positive feature tags proposed', 'small muted'));
+    wrap.append(positive);
+    const rest = compact ? node('details') : node('div', null, 'stack-tight');
+    if (compact) rest.append(node('summary', groups.absent.length + ' absent · ' + groups.unknown.length + ' unknown'));
+    rest.append(node('p', 'Absent: ' + (groups.absent.join(', ') || 'None'), 'small muted'),
+      node('p', 'Unknown: ' + (groups.unknown.join(', ') || 'None'), 'small muted'));
+    wrap.append(rest); return wrap;
+  }
+  function imageTile(image, gallery = false) {
+    const tile = node('article', null, 'photo-card'); tile.dataset.imageId = String(image.id);
+    const open = button('', () => openEditor(image), 'photo-open');
+    open.setAttribute('aria-label', 'Review original photo ' + image.id);
+    open.append(thumb(image.id, label(roomOf(image) || 'Unclassified') + ' · photo ' + image.id));
+    const body = node('div', null, 'photo-body');
+    body.append(node('strong', label(roomOf(image) || 'Unclassified')), sourceBadges(image));
+    if (gallery) body.append(button(image.address || String(image.property_id || ''), () => openFromGallery(image), 'link small'));
+    if (image.local_model?.room && image.local_model.room !== roomOf(image)) body.append(node('p', 'Local model differs: ' + label(image.local_model.room), 'small muted'));
+    const score = preferenceScore(image);
+    if (score !== null) body.append(node('p', label(roomOf(image)) + ' preference score ' + String(score) + ' (raw, not probability)', 'small muted'));
+    else if (gallery) body.append(node('p', 'No local preference score for this room', 'small muted'));
+    body.append(featureSummary(draftFor(image).features, true));
+    if (image.warnings?.length) body.append(listOf(image.warnings, 'small muted'));
+    const actions = node('div', null, 'row');
+    actions.append(button('Review tags', () => openEditor(image)), button('Wrong room?', () => { openEditor(image); if ($('image-dialog').open) $('editor-room').focus(); }));
+    body.append(actions); tile.append(open, body); return tile;
+  }
+  function renderProperty() {
+    const detail = state.detail;
+    if (!detail) return;
+    const property = detail.property, review = reviewRecord(property.review);
+    const workspace = $('property-workspace'); workspace.replaceChildren();
+    const card = node('section', null, 'card property-header stack-tight');
+    const header = node('div', null, 'row spread'), title = node('div', null, 'stack-tight');
+    title.append(node('h2', property.address || property.id),
+      node('p', [property.city, property.year_built ? 'Built ' + property.year_built : null, label(property.property_type || 'Property'), 'ID ' + property.id].filter(Boolean).join(' · '), 'small muted'));
+    header.append(title, badge(review.status ? 'Human ' + review.status : 'Awaiting your judgment', review.status === 'approved' ? 'human' : '')); card.append(header);
+    const sourceRole = roleBadge(property);
+    if (sourceRole) {
+      header.append(sourceRole);
+      if (sourceRole.dataset.sourceRole === 'comp') card.append(node('p', 'Reference comp: included for comparison, not automatically a negative example. Make your own target-fit judgment below.', 'small muted'));
+    }
+    const coverage = node('div', null, 'row');
+    for (const room of ['kitchen', 'bathroom', 'living']) {
+      const value = detail.coverage?.[room];
+      coverage.append(badge(label(room) + ': ' + (value === undefined || value === null ? 'unknown coverage' : typeof value === 'boolean' ? value ? 'covered' : 'missing' : text(value))));
+    }
+    card.append(coverage);
+    const ai = node('details', null, 'soft stack-tight'); ai.id = 'ai-assessment';
+    ai.append(node('summary', 'AI assessment — propose an answer, then verify'));
+    ai.append(node('p', 'GPT drafts are not approved labels. Scores describe visible renovation scope, not profit or calibrated target probability.', 'small muted'));
+    const aiControls = node('div', null, 'row');
+    aiControls.append(button('Preview AI assessment', previewAssessment));
+    const job = detail.assessment;
+    if (job) {
+      ai.append(node('p', 'Assessment: ' + job.status + ' · ' + (job.image_count || 0) + ' selected photos', 'small'));
+      if (job.error) ai.append(node('p', job.error, 'notice error'));
+      if (job.status === 'preview') {
+        ai.append(node('p', 'One paid GPT-4.1 mini request, up to 8 selected photos. Cost estimate unavailable; not every property photo is assessed.', 'notice warning'));
+        if (job.warnings?.length) ai.append(listOf(job.warnings, 'small'));
+        const authorize = node('label', null, 'check'), check = node('input'); check.type = 'checkbox'; check.id = 'authorize-assessment';
+        authorize.append(check, node('span', 'I authorize this one paid assessment')); ai.append(authorize);
+        const run = button('Generate AI draft', runAssessment, 'primary'); run.id = 'generate-assessment'; run.disabled = true;
+        check.onchange = () => run.disabled = !check.checked; aiControls.append(run);
+      }
+      if (job.status === 'running') ai.append(node('p', 'Running. Refresh assessment to check progress; do not submit another paid request.', 'small'));
+      aiControls.append(button('Refresh assessment', refreshAssessment));
+      if (job.prediction) {
+        ai.append(node('strong', 'Condition: ' + label(job.prediction.condition_label)),
+          node('p', 'AI visual target: ' + label(job.review_target)),
+          node('p', job.prediction.target_reason),
+          node('p', job.prediction.summary),
+          node('p', 'Final sourcing: Needs review — comps and economics are not connected here.', 'notice warning'));
+        if (job.review_warnings?.length) ai.append(listOf(job.review_warnings, 'notice warning small'));
+        const evidence = node('div', null, 'stack-tight');
+        for (const photo of job.prediction.images || []) {
+          const row = node('div', null, 'row');
+          const image = detail.images.find(i => i.id === photo.image_id);
+          if (image) row.append(button('Photo ' + photo.image_id, () => openEditor(image)));
+          row.append(node('span', label(photo.room) + ' · ' + label(photo.context) + ' · scope score: ' +
+            (photo.renovation_scope_score == null ? 'Unknown' : photo.renovation_scope_score.toFixed(2)), 'small'));
+          evidence.append(row);
+        }
+        ai.append(evidence);
+        const fill = button('Use draft in my review', () => {
+          if (!discardAllowed()) return;
+          const map = {UPDATED_TURNKEY:'updated',DATED_VALUE_ADD:'dated',ROUGH_HEAVY_VALUE_ADD:'rough',MAJOR_REHAB:'major',UNKNOWN:'unknown'};
+          $('property-decision-details').open = true;
+          state.propertyFit = job.review_target || 'unsure';
+          for (const b of $('property-fit-options').children) b.setAttribute('aria-pressed', String(b.dataset.fit === state.propertyFit));
+          $('property-condition').value = job.prediction.update_consistency === 'mixed' ? 'mixed' : map[job.prediction.condition_label] || 'unknown';
+          $('property-reason').value = job.prediction.target_reason;
+          changedProperty();
+          notify('Draft copied. Correct it if needed, then Save property to approve your answer. No photo labels or training eligibility changed.');
+        });
+        aiControls.append(fill);
+      }
+    } else ai.append(node('p', 'No GPT property assessment yet. Preview first; no paid requests run automatically.', 'small'));
+    ai.append(aiControls); card.append(ai);
+    const historical = detail.historical_source;
+    if (historical) {
+      const era = node('details', null, 'soft');
+      era.append(node('summary', 'Historical photo match — separate from target fit'),
+        node('p', 'Spreadsheet rows: ' + historical.source_rows.join(', ') + '. Prior sale: ' +
+          historical.source['Prior Sale Date'] + '. Last sale: ' + historical.source['Last Sale Date'], 'small'),
+        node('p', historical.timing_verified ? 'You confirmed this collected photo set as the correct era.' :
+          'Listing matched, but photo era is not human-confirmed. Not training-ready.', 'notice warning'),
+        node('p', historical.training_gate, 'small'));
+      const select = node('select'); select.id='era-decision';
+      for (const [value,caption] of [['unsure','Cannot verify yet'],['correct_era','These are the right acquisition-era photos'],['wrong_era','Wrong era or wrong property']]) {
+        const option=node('option',caption);option.value=value;select.append(option);
+      }
+      select.value=historical.review?.decision || 'unsure';
+      const notes=node('textarea');notes.id='era-reason';notes.placeholder='Evidence supporting your verification';notes.value=historical.review?.reason || '';
+      era.append(select,notes,button('Save photo-era verification',saveEra));card.append(era);
+    }
+    const protectedFlag = property.metadata?.protected || property.metadata?.holdout || review.training_allowed === false || ['validation', 'test', 'holdout'].includes(property.metadata?.split);
+    if (protectedFlag) card.append(node('p', 'Protected holdout property. Your review can be recorded, but the server excludes protected groups from training.', 'notice warning small'));
+    if (detail.property_suggestions?.length) {
+      const proposals = node('details'); proposals.append(node('summary', 'Machine property proposals (' + detail.property_suggestions.length + ') — not your decision'));
+      const items = node('div', null, 'stack-tight');
+      for (const proposal of detail.property_suggestions) {
+        const item = node('div', null, 'proposal stack-tight');
+        item.append(node('strong', label(proposal.source || 'AI') + ' · ' + label(proposal.condition_label || 'unknown')),
+          node('p', proposal.summary || 'No summary', 'small'), node('p', 'Proposed target fit: ' + label(proposal.target_fit || 'unknown'), 'small'));
+        if (proposal.evidence_ids?.length) {
+          const links = node('div', null, 'row');
+          for (const id of proposal.evidence_ids) {
+            const photo = (detail.images || []).find(image => String(image.id) === String(id));
+            if (photo) links.append(button('Photo ' + id, () => openEditor(photo), 'link small'));
+            else links.append(node('span', 'Evidence ' + id + ' not available', 'small muted'));
+          }
+          item.append(links);
+        }
+        if (proposal.limitations?.length) item.append(listOf(proposal.limitations, 'small muted'));
+        items.append(item);
+      }
+      proposals.append(items); card.append(proposals);
+    }
+    const disclosure = node('details', null, 'property-decision'); disclosure.id = 'property-decision-details';
+    const summary = node('summary', 'Property decision: Yes / No / Unsure'); summary.id = 'property-decision-summary';
+    const unsaved = node('span', 'Unsaved', 'dirty'); unsaved.id = 'property-decision-unsaved'; unsaved.hidden = true; summary.append(unsaved);
+    disclosure.append(summary);
+    const decision = node('div', null, 'stack');
+    decision.append(node('h3', 'Is this the kind of property you want?'));
+    const choices = node('div', null, 'fit-options'); choices.id = 'property-fit-options'; state.propertyFit = review.target_fit ?? null;
+    for (const [value, caption, help] of [['target', 'Yes', 'A project I want'], ['not_target', 'No', 'Not my target'], ['unsure', 'Unsure', 'Need more evidence']]) {
+      const choice = button(caption, () => {
+        state.propertyFit = value; changedProperty();
+        for (const b of choices.children) b.setAttribute('aria-pressed', String(b.dataset.fit === value));
+      });
+      choice.dataset.fit = value; choice.setAttribute('aria-pressed', String(state.propertyFit === value)); choice.append(node('small', help)); choices.append(choice);
+    }
+    const fields = node('div', null, 'fields-two'), conditionLabel = node('label', 'Visible condition (separate from fit)'), condition = node('select');
+    condition.id = 'property-condition';
+    for (const value of ['unknown', 'updated', 'mixed', 'dated', 'rough', 'major']) { const option = node('option', value === 'major' ? 'Major work' : label(value)); option.value = value; condition.append(option); }
+    condition.value = review.condition_label || 'unknown'; condition.onchange = changedProperty; conditionLabel.append(condition);
+    const reasonLabel = node('label', 'Short reason'), reason = node('textarea'); reason.id = 'property-reason'; reason.rows = 2;
+    reason.placeholder = 'What made this a yes, no, or unsure?'; reason.value = review.reason || ''; reason.oninput = changedProperty; reasonLabel.append(reason);
+    fields.append(conditionLabel, reasonLabel);
+    const controls = node('div', null, 'row spread'), dirty = node('span', review.status ? 'Saved ' + review.status + ' · revision ' + revisionOf(review) : 'No human property decision yet', 'small muted'); dirty.id = 'property-dirty';
+    const buttons = node('div', null, 'row');
+    const save = button('Save property', () => saveProperty(false)); save.id = 'save-property-only';
+    const next = button('Save property & next', () => saveProperty(true), 'primary'); next.id = 'save-property-next';
+    buttons.append(save, next); controls.append(dirty, buttons);
+    decision.append(choices, fields, controls, node('p', 'This saves only your property decision. It does NOT approve any photo tags. Open a photo to explicitly approve its visible tags.', 'small muted'));
+    disclosure.append(decision); card.append(disclosure); workspace.append(card);
+    const images = detail.images || [], nav = node('div', null, 'row');
+    const heading = node('div', null, 'row spread');
+    heading.append(node('h2', images.length + ' original photos'), node('span', 'Grouped by proposed or corrected room · tap to inspect', 'small muted')); workspace.append(heading);
+    if (!images.length) workspace.append(node('div', 'No local images are available for this property. A missing room is not evidence of good condition.', 'notice warning'));
+    const groups = new Map();
+    for (const image of images) { const room = roomOf(image) || 'unclassified'; if (!groups.has(room)) groups.set(room, []); groups.get(room).push(image); }
+    const order = [...ROOMS, ...[...groups.keys()].filter(room => !ROOMS.includes(room))];
+    for (const room of order) if (groups.has(room)) {
+      const section = node('section', null, 'room-group'); section.id = 'photos-' + encodeURIComponent(room);
+      const link = node('a', label(room) + ' ' + groups.get(room).length, 'chip'); link.href = '#' + section.id; nav.append(link);
+      section.append(node('h3', label(room) + ' · ' + groups.get(room).length));
+      const grid = node('div', null, 'photo-grid'); grid.append(...groups.get(room).map(image => imageTile(image))); section.append(grid); workspace.append(section);
+    }
+    heading.after(nav);
+    const metadata = node('details'); metadata.append(node('summary', 'Property metadata and saved review'), node('pre', text({metadata: property.metadata || {}, review}))); workspace.append(metadata);
+  }
+  async function saveProperty(advance) {
+    if (!state.detail) return;
+    await action(async () => {
+      if (!state.propertyFit) throw Error('Choose Yes, No, or Unsure before saving the property decision.');
+      const property = state.detail.property, id = property.id;
+      const index = state.properties.findIndex(p => String(p.id) === String(id));
+      const preferred = state.properties[index + 1]?.id;
+      const payload = {kind: 'property', id, expected_revision: revisionOf(property.review), reviewer: reviewer(),
+        status: 'approved', target_fit: state.propertyFit, condition_label: $('property-condition').value, reason: $('property-reason').value};
+      const saved = await api('/api/studio/review', payload);
+      property.review = saved.review || saved; state.propertyDirty = false; invalidateTrain(); invalidatePrelabel();
+      $('property-dirty').textContent = 'Property saved · photo tags unchanged';
+      notify('Property decision saved. No photo tags were approved.', 'success');
+      try {
+        await refreshSummary();
+        await loadProperties({offset: state.offset});
+        if (advance) {
+          let next = state.properties.find(p => String(p.id) === String(preferred));
+          if (!next) {
+            const currentIndex = state.properties.findIndex(p => String(p.id) === String(id));
+            next = currentIndex >= 0 ? state.properties[currentIndex + 1] : state.properties[Math.min(Math.max(index, 0), state.properties.length - 1)];
+          }
+          if (next) await loadProperty(next.id);
+          else if (state.offset + PAGE_SIZE < state.total) await loadProperties({offset: state.offset + PAGE_SIZE, choose: true});
+          else if (state.queue === 'needs_review') clearProperty();
+          else renderProperty();
+        } else renderProperty();
+      } catch (error) { notify('The property was saved, but the refreshed queue could not be loaded. ' + error.message, 'warning', refreshAll); }
+    });
+  }
+  async function previewAssessment() {
+    if (!state.detail || !discardAllowed()) return;
+    await action(async () => {
+      state.detail.assessment = await api('/api/studio/assessment/preview', {property_id:state.detail.property.id});
+      renderProperty(); $('ai-assessment').open=true;
+    });
+  }
+  async function runAssessment() {
+    if (!$('authorize-assessment')?.checked || !state.detail?.assessment) return;
+    const id=state.detail.assessment.id;$('authorize-assessment').checked=false;
+    await action(async () => {
+      state.detail.assessment=await api('/api/studio/assessment/run',{id,approved:true});
+      renderProperty();$('ai-assessment').open=true;
+    },()=>notify('Check assessment status before starting another paid request.','warning'));
+  }
+  async function refreshAssessment() {
+    if (!state.detail?.assessment || !discardAllowed()) return;
+    await action(async () => {
+      state.detail.assessment=await api('/api/studio/assessment?'+new URLSearchParams({id:state.detail.assessment.id}));
+      renderProperty();$('ai-assessment').open=true;
+    });
+  }
+  async function saveEra() {
+    if (!state.detail?.historical_source) return;
+    await action(async () => {
+      const h=state.detail.historical_source;
+      await api('/api/studio/era-review',{property_id:state.detail.property.id,reviewer:reviewer(),
+        decision:$('era-decision').value,reason:$('era-reason').value,evidence_hash:h.evidence_hash,
+        expected_revision:h.review?.revision || 0});
+      await loadProperty(state.detail.property.id);
+      notify('Photo-era verification saved separately. Target labels and training split unchanged.','success');
+    });
+  }
+  function openEditor(image) {
+    if (!discardAllowed(true)) return;
+    state.image = image; state.imageDraft = draftFor(image); state.imageDirty = false; state.imageAvailable = false;
+    $('editor-title').textContent = 'Review photo ' + image.id;
+    $('editor-subtitle').textContent = [image.address || state.detail?.property.address, image.review?.status ? 'Human ' + image.review.status + ' · revision ' + revisionOf(image.review) : 'Machine proposal — unapproved'].filter(Boolean).join(' · ');
+    $('editor-image').onload = () => { state.imageAvailable = true; };
+    $('editor-image').onerror = () => { state.imageAvailable = false; $('editor-feedback').textContent = 'This original could not be loaded. Do not approve visual tags without checking the image.'; };
+    $('editor-image').src = imageURL(image.id); $('editor-image').alt = 'Original photo ' + image.id;
+    $('original-image-link').href = imageURL(image.id);
+    $('editor-room').value = state.imageDraft.room; $('editor-preference').value = state.imageDraft.preference || ''; $('editor-notes').value = state.imageDraft.notes;
+    $('editor-reviewer-name').value = $('reviewer-name').value;
+    $('feature-editor').open = false;
+    $('feature-fields').replaceChildren(...Object.entries(state.imageDraft.features).map(([key, value]) => {
+      const wrapper = node('label', label(key)), select = node('select'); select.dataset.feature = key;
+      select.setAttribute('aria-label', label(key));
+      for (const [val, caption] of [['', 'Unknown / not visible'], ['true', 'Present'], ['false', 'Absent']]) { const option = node('option', caption); option.value = val; select.append(option); }
+      select.value = value === null ? '' : String(value);
+      select.onchange = () => { state.imageDraft.features[key] = select.value === '' ? null : select.value === 'true'; changedImage(); };
+      wrapper.append(select); return wrapper;
+    }));
+    $('editor-sources').replaceChildren(sourceBadges(image));
+    const priorReview = reviewRecord(image.review);
+    if (priorReview.preference_room && priorReview.preference_room !== roomOf(image)) {
+      const vote = {target: 'Yes — target', not_target: 'No — not target', unsure: 'Unsure'}[priorReview.preference] || 'Not judged';
+      $('editor-sources').append(node('p', 'Preserved prior-room preference: ' + label(priorReview.preference_room) + ' · ' + vote +
+        '. This is a separate legacy record, not a vote for the current ' + label(roomOf(image) || 'unknown') +
+        ' room. The current preference starts unselected and requires reconfirmation. The legacy record has not been changed or deleted.', 'notice warning small'));
+    }
+    const model = image.local_model;
+    if (model) {
+      const score = preferenceScore(image);
+      $('editor-sources').append(node('p', 'Local model room: ' + label(model.room || 'unknown') +
+        (score !== null ? ' · ' + label(roomOf(image)) + ' preference score ' + String(score) + ' (raw, not probability)' : ' · no preference score for the current room'), 'small muted'));
+    }
+    for (const suggestion of image.suggestions || []) {
+      const proposal = node('details');
+      proposal.append(node('summary', label(suggestion.source || 'AI') + ' proposal · ' + label(suggestion.room || 'unknown')), node('pre', text(suggestion)));
+      $('editor-sources').append(proposal);
+    }
+    if (image.warnings?.length) $('editor-sources').append(listOf(image.warnings, 'notice warning small'));
+    $('editor-feedback').textContent = '';
+    $('image-dirty').textContent = image.review?.status === 'approved' ? 'Existing human approval · edit only if needed' : 'Prefilled proposal · not approved';
+    drawApprovalPreview();
+    if (!$('image-dialog').open) $('image-dialog').showModal();
+  }
+  function changedImage() {
+    state.imageDirty = true; $('image-dirty').textContent = 'Unsaved photo edits'; drawApprovalPreview();
+  }
+  function drawApprovalPreview() {
+    const draft = state.imageDraft; if (!draft) return;
+    const groups = tagGroups(draft.features);
+    $('tag-approval-preview').replaceChildren(
+      node('p', 'Room: ' + label(draft.room || 'unknown')),
+      node('p', 'Present: ' + (groups.present.join(', ') || 'None')),
+      node('p', 'Absent: ' + (groups.absent.join(', ') || 'None')),
+      node('p', 'Unknown: ' + (groups.unknown.join(', ') || 'None')),
+      node('p', 'Room preference: ' + label(draft.preference || 'not judged')),
+      node('p', 'Notes: ' + (draft.notes || 'None')),
+      node('p', 'Photo ' + state.image.id + ' only · expected revision ' + revisionOf(state.image.review), 'muted')
+    );
+  }
+  function closeEditor() {
+    if (!discardAllowed(true)) return;
+    state.imageDirty = false; $('image-dialog').close();
+  }
+  async function saveImage(status) {
+    if (!state.image || !state.imageDraft) return;
+    await action(async () => {
+      if (status === 'approved' && !ROOMS.includes(state.imageDraft.room)) throw Error('Choose a supported room before approving this photo.');
+      if (status === 'approved' && !state.imageAvailable) throw Error('The original photo must load before its visible tags can be approved. Reopen the photo or check the original file.');
+      const payload = imagePayload(state.image, state.imageDraft, reviewer(), status);
+      try {
+        const saved = await api('/api/studio/review', payload);
+        state.image.review = saved.review || saved; state.imageDirty = false; invalidateTrain(); invalidatePrelabel();
+        $('editor-feedback').textContent = status === 'approved' ? 'Photo tags approved and saved. Property decision unchanged.' : 'Photo draft saved. Not approved for training.';
+        $('image-dirty').textContent = 'Saved ' + status; drawApprovalPreview();
+        notify($('editor-feedback').textContent, 'success');
+        const matching = state.detail?.images?.find(image => String(image.id) === String(state.image.id));
+        if (matching) matching.review = state.image.review;
+        if (!state.propertyDirty && state.detail) renderProperty();
+        else if (matching) {
+          for (const tile of $('property-workspace').querySelectorAll('[data-image-id]')) {
+            if (tile.dataset.imageId === String(matching.id)) tile.replaceWith(imageTile(matching));
+          }
+        }
+        try { await refreshSummary(); await loadProperties(); if (state.mode === 'rooms') await loadGallery(); }
+        catch (error) { notify('Photo saved, but updated queue status could not be loaded. ' + error.message, 'warning', refreshAll); }
+      } catch (error) { $('editor-feedback').textContent = error.message; throw error; }
+    });
+  }
+  async function switchMode(mode) {
+    if (mode === state.mode) return;
+    if (!discardAllowed()) return;
+    discardEdits(); state.mode = mode;
+    $('property-mode').hidden = mode !== 'properties'; $('room-mode').hidden = mode !== 'rooms';
+    $('mode-properties').setAttribute('aria-pressed', String(mode === 'properties')); $('mode-rooms').setAttribute('aria-pressed', String(mode === 'rooms'));
+    if (mode === 'rooms') await action(() => loadGallery(0));
+    else if (state.detail) renderProperty();
+  }
+  async function loadGallery(offset = state.galleryOffset) {
+    const request = ++state.galleryRequest;
+    const query = new URLSearchParams({room: $('gallery-room').value, status: $('gallery-status').value, offset, limit: PAGE_SIZE});
+    const threshold = $('gallery-score-filter').checked ? 0.54 : null;
+    if (threshold !== null) query.set('score_above', String(threshold));
+    const data = await api('/api/studio/images?' + query);
+    if (request !== state.galleryRequest) return;
+    if (threshold !== null && (data.items || []).some(image => !scoreAbove(preferenceScore(image), threshold))) {
+      $('gallery-grid').replaceChildren(node('p', 'The server did not apply the strict room-score filter. No filtered results are shown. Choose Show all scores or update the local studio API.', 'notice error'));
+      $('gallery-page').textContent = 'Filtered page unavailable';
+      $('gallery-prev').disabled = true; $('gallery-next').disabled = true;
+      throw Error('The room gallery requires server-side score_above=0.54 filtering before pagination, using the current room preference score. It must exclude 0.54 and missing scores.');
+    }
+    state.gallery = data.items || []; state.galleryTotal = Number(data.total) || 0; state.galleryOffset = Number(data.offset ?? offset);
+    if (!state.gallery.length && state.galleryTotal > 0 && offset > 0) return loadGallery(Math.max(0, Math.floor((state.galleryTotal - 1) / PAGE_SIZE) * PAGE_SIZE));
+    $('gallery-grid').replaceChildren(...state.gallery.map(image => imageTile(image, true)));
+    if (!state.gallery.length) $('gallery-grid').append(node('p', 'No photos match. Try all photos or a different room.', 'empty'));
+    $('gallery-page').textContent = state.galleryTotal ? (state.galleryOffset + 1) + '–' + Math.min(state.galleryOffset + PAGE_SIZE, state.galleryTotal) + ' of ' + state.galleryTotal : '0 photos';
+    $('gallery-prev').disabled = state.galleryOffset === 0; $('gallery-next').disabled = state.galleryOffset + PAGE_SIZE >= state.galleryTotal;
+  }
+  async function openFromGallery(image) {
+    if (!image.property_id || !discardAllowed()) return;
+    discardEdits(); state.mode = 'properties';
+    $('property-mode').hidden = false; $('room-mode').hidden = true;
+    $('mode-properties').setAttribute('aria-pressed', 'true'); $('mode-rooms').setAttribute('aria-pressed', 'false');
+    await action(() => loadProperty(image.property_id));
+  }
+  async function refreshAll() {
+    if (!discardAllowed()) return;
+    discardEdits(); invalidateTrain(); invalidatePrelabel(); invalidatePrompt();
+    await action(async () => {
+      const id = state.detail?.property.id;
+      await refreshSummary(); await loadProperties({choose: false});
+      if (state.mode === 'rooms') await loadGallery();
+      if (id) await loadProperty(id); else if (state.properties.length) await loadProperty(state.properties[0].id);
+      notify('Saved data reloaded from the local server.', 'success');
+    }, refreshAll);
+  }
+  function resetImport() {
+    state.importPreview = null; $('import-preview').hidden = true; $('import-confirm').hidden = true; $('import-confirm').disabled = true;
+    const file = $('import-file').files?.[0];
+    $('import-file-info').textContent = file ? file.name + ' · ' + bytes(file.size) : 'Choose a ZIP containing dataset.json and local image files.';
+    $('import-status').textContent = '';
+  }
+  async function previewImport() {
+    await action(async () => {
+      const file = $('import-file').files?.[0];
+      if (!file) throw Error('Choose a .zip file before previewing.');
+      if (!/\.zip$/i.test(file.name)) throw Error('Only .zip archives are accepted.');
+      if (!file.size) throw Error('The archive is empty.');
+      if (file.size > MAX_ZIP_BYTES) throw Error('This archive is ' + bytes(file.size) + '. The local importer accepts at most 1 GB; split this dataset into smaller ZIPs.');
+      resetImport(); $('import-status').textContent = 'Uploading ' + bytes(file.size) + ' to the local server and checking the archive…';
+      try {
+        const preview = await api('/api/studio/import/preview', file, true); state.importPreview = preview;
+        $('import-preview').hidden = false;
+        $('import-preview').replaceChildren(facts([['Preview ID', preview.id], ['Properties', preview.properties], ['Images', preview.images], ['Duplicates', preview.duplicates]]));
+        if (preview.warnings?.length) $('import-preview').append(listOf(preview.warnings, 'notice warning small'));
+        if (preview.errors?.length) $('import-preview').append(listOf(preview.errors, 'notice error small'));
+        $('import-confirm').hidden = false; $('import-confirm').disabled = !preview.can_commit;
+        $('import-status').textContent = preview.can_commit ? 'Preview ready. Nothing has been committed. Review the scope, then confirm.' : 'Import blocked. Fix the reported errors and preview a new archive.';
+      } catch (error) { $('import-status').textContent = 'Preview failed. ' + error.message; throw error; }
+    });
+  }
+  async function commitImport() {
+    if (!state.importPreview?.can_commit) return;
+    await action(async () => {
+      const id = state.importPreview.id;
+      $('import-status').textContent = 'Committing the previewed local import…';
+      try {
+        const result = await api('/api/studio/import/commit', {id});
+        state.importPreview = null; $('import-confirm').hidden = true; invalidateTrain(); invalidatePrelabel(); invalidatePrompt();
+        $('import-status').textContent = 'Import confirmed by server. ' + (result.summary ? text(result.summary) : 'New records are ready for review.');
+        notify($('import-status').textContent, 'success');
+        try { await refreshSummary(); await loadProperties(); }
+        catch (error) { notify('Import was committed, but the refreshed dataset could not be loaded. ' + error.message, 'warning', refreshAll); }
+      } catch (error) { $('import-status').textContent = 'Import not confirmed. ' + error.message; throw error; }
+    });
+  }
+  async function previewTrain() {
+    await action(async () => {
+      invalidateTrain();
+      const preview = await api('/api/studio/train/preview', {}); state.trainPreview = preview;
+      $('train-preview').replaceChildren(facts([['Preview', preview.id], ['Approved room labels', preview.approved_rooms], ['Approved preferences', preview.approved_preferences],
+        ['Eligible images', preview.eligible_images], ['New embeddings needed', preview.new_embeddings_needed], ['Property / duplicate groups', preview.groups], ['Protected groups', preview.protected_groups]]));
+      if (preview.warnings?.length) $('train-preview').append(listOf(preview.warnings, 'notice warning small'));
+      $('train-preview').hidden = false; $('train-confirm').hidden = false;
+    });
+  }
+  async function previewPrelabel() {
+    await action(async () => {
+      invalidatePrelabel();
+      const preview = await api('/api/studio/prelabel/preview', {}); state.prelabelPreview = preview;
+      for (const id of ['prelabel-preview', 'dataset-prelabel-preview']) {
+        const panel = $(id);
+        panel.replaceChildren(facts([['Preview', preview.id], ['Eligible images', preview.eligible_images],
+          ['New embeddings needed', preview.new_embeddings_needed], ['Property / duplicate groups', preview.groups],
+          ['Protected groups', preview.protected_groups], ['Approved room labels', preview.approved_rooms],
+          ['Approved preferences', preview.approved_preferences]]));
+        panel.append(node('p', 'Cached SigLIP only · no cloud calls. Outputs are machine drafts, never human approvals. Protected groups stay protected for training.', 'notice small'));
+        if (preview.warnings?.length) panel.append(listOf(preview.warnings, 'notice warning small'));
+        panel.hidden = false;
+      }
+      for (const id of ['prelabel-confirm', 'dataset-prelabel-confirm']) $(id).hidden = false;
+    });
+  }
+  async function confirmPrelabel() {
+    if (!state.prelabelPreview) return;
+    await action(async () => {
+      const result = await api('/api/studio/prelabel', {id: state.prelabelPreview.id});
+      invalidatePrelabel();
+      notify('Local pre-tagging request accepted by server. ' + (result.status ? 'Status: ' + result.status + '. ' : '') +
+        'No cloud calls or human approvals. Check Jobs in Experiments, then Refresh saved data when the job completes to inspect the machine drafts.', 'success');
+      try { await refreshSummary(); }
+      catch (error) { notify('Local pre-tagging was accepted, but status could not be refreshed. ' + error.message, 'warning', () => action(refreshSummary)); }
+    });
+  }
+  async function confirmTrain() {
+    if (!state.trainPreview) return;
+    await action(async () => {
+      const result = await api('/api/studio/train', {id: state.trainPreview.id});
+      invalidateTrain(); notify('Local training request accepted by server. ' + (result.status ? 'Status: ' + result.status + '. ' : '') + 'Follow the Jobs panel for the actual outcome.', 'success');
+      try { await refreshSummary(); } catch (error) { notify('Training was accepted, but status could not be refreshed. ' + error.message, 'warning', () => action(refreshSummary)); }
+    });
+  }
+  async function savePrompt() {
+    await action(async () => {
+      const name = $('candidate-name').value.trim(), promptText = $('candidate-prompt').value.trim();
+      if (!name || !promptText) throw Error('Enter a prompt name and candidate text before saving.');
+      const saved = await api('/api/studio/prompts', {name, text: promptText});
+      state.candidateEdited = false;
+      notify('Prompt "' + (saved.name || name) + '" saved locally. No model calls were made.', 'success');
+      try { await refreshSummary(); } catch (error) { notify('The prompt was saved, but the prompt list could not be refreshed. ' + error.message, 'warning', () => action(refreshSummary)); }
+    });
+  }
+  async function previewPrompt() {
+    await action(async () => {
+      const spec = promptSpec(), key = fingerprint(spec); invalidatePrompt();
+      const preview = await api('/api/studio/prompt/preview', spec);
+      if (fingerprint(promptSpec()) !== key) { notify('Scope or prompt changed during preview. Preview the current selection again.', 'warning'); return; }
+      state.promptPreview = preview; state.promptFingerprint = key;
+      $('prompt-preview').replaceChildren(facts([['Preview ID', preview.id], ['Properties / images', preview.property_count + ' / ' + preview.image_count],
+        ['Planned calls / maximum', preview.planned_calls + ' / ' + preview.max_calls],
+        ['Estimated cost', preview.estimated_cost == null ? 'Not available. Calls are paid; review your provider limits.' : '$' + Number(preview.estimated_cost).toFixed(4)],
+        ['Baseline hash', preview.baseline_hash], ['Candidate hash', preview.candidate_hash]]));
+      $('prompt-preview').append(node('p', 'Both arms use the same selected images and model. The previewed images will be sent to the configured OpenAI service only after you authorize the calls.', 'notice small'));
+      if (preview.warnings?.length) $('prompt-preview').append(listOf(preview.warnings, 'notice warning small'));
+      const details = node('details'); details.append(node('summary', 'Exact selected image scope'), node('pre', text(preview.selected_images || []))); $('prompt-preview').append(details);
+      $('prompt-preview').hidden = false; $('paid-authorization-label').hidden = false; $('prompt-run-button').hidden = false;
+    });
+  }
+  async function runPrompt() {
+    if (!state.promptPreview || !$('paid-authorization').checked) { notify('Preview a bounded comparison and explicitly authorize its scoped model calls first.', 'warning'); return; }
+    await action(async () => {
+      if (fingerprint(promptSpec()) !== state.promptFingerprint) { invalidatePrompt(); throw Error('The scope or prompt changed. Preview again before authorizing paid calls.'); }
+      const id = state.promptPreview.id;
+      // Never retain authorization after submitting: a failed response may still represent a started job.
+      $('paid-authorization').checked = false;
+      const result = await api('/api/studio/prompt/run', {id, approved: true});
+      invalidatePrompt(); state.resultId = result.id || id;
+      notify('Comparison request accepted. See real job status below; no result has been approved.', 'success');
+      try { await refreshSummary(); await loadResult(state.resultId); }
+      catch (error) { notify('The comparison request was accepted, but its status could not be loaded. Do not start duplicate paid calls. ' + error.message, 'warning', () => action(() => loadResult(state.resultId))); }
+    }, () => notify('Check Jobs & saved comparisons before retrying. Create a fresh preview and authorize again only if no run was started.', 'warning'));
+  }
+  async function showRun(id) {
+    await navigate('experiments');
+    if (state.tab !== 'experiments') return;
+    await action(() => loadResult(id));
+  }
+  async function loadResult(id) {
+    const request = ++state.resultRequest;
+    const result = await api('/api/studio/prompt/result?' + new URLSearchParams({id}));
+    if (request !== state.resultRequest) return;
+    state.result = result; state.resultId = result.id || id; renderResult();
+  }
+  function renderResult() {
+    const result = state.result;
+    $('comparison-section').hidden = false; $('comparison-status').textContent = 'Run ' + result.id + ' · ' + label(result.status);
+    $('comparison-summary').textContent = text(result.summary || 'No summary available yet.');
+    $('comparison-manifest').textContent = text(result.manifest || {});
+    const groups = new Map();
+    for (const record of result.results || []) { const key = String(record.property_id); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(record); }
+    $('comparison-results').replaceChildren(...[...groups].map(([id, records]) => {
+      const card = node('article', null, 'result-property'); card.append(node('h3', state.selected.get(id) || 'Property ' + id));
+      const arms = node('div', null, 'result-arms');
+      for (const arm of ['baseline', 'candidate']) {
+        const record = records.find(row => row.arm === arm), panel = node('div', null, 'result-arm');
+        panel.append(node('h3', label(arm)));
+        if (!record) panel.append(node('p', 'No output yet.', 'small muted'));
+        else {
+          panel.append(badge(label(record.status || 'unknown')));
+          if (record.error) panel.append(node('p', text(record.error), 'job-error small'));
+          const prediction = record.prediction;
+          if (prediction) {
+            panel.append(node('strong', 'Condition: ' + label(prediction.condition_label || 'unknown')), node('p', prediction.summary || 'No summary', 'small'));
+            if (prediction.coverage) panel.append(node('p', 'Coverage: ' + text(prediction.coverage), 'small muted'));
+            if (prediction.limitations?.length) panel.append(listOf(prediction.limitations, 'small muted'));
+            for (const image of prediction.images || []) {
+              const evidence = node('div', null, 'result-image'), link = node('a');
+              link.href = imageURL(image.image_id); link.target = '_blank'; link.rel = 'noopener'; link.append(thumb(image.image_id, 'Evidence ' + image.image_id));
+              const info = node('div', null, 'stack-tight');
+              info.append(node('strong', label(image.room || 'unknown') + ' · ' + image.image_id, 'small'), featureSummary(image.features || {}, true));
+              if (image.observations?.length) info.append(listOf(image.observations, 'small'));
+              evidence.append(link, info); panel.append(evidence);
+            }
+          }
+          if (record.usage) panel.append(node('p', 'Usage: ' + text(record.usage), 'small muted'));
+        }
+        arms.append(panel);
+      }
+      card.append(arms); return card;
+    }));
+    if (!groups.size) $('comparison-results').append(node('p', isActive(result.status) ? 'The server is still working. Results update while this page is visible.' : 'No outputs were returned. Check job errors before retrying.', 'empty'));
+    $('apply-candidate').hidden = isActive(result.status) || !(result.results || []).some(record => record.arm === 'candidate' && record.prediction && !record.error);
+    $('apply-candidate').disabled = state.busy;
+    $('apply-status').textContent = '';
+  }
+  async function applyCandidate() {
+    if (!state.resultId || isActive(state.result?.status)) return;
+    await action(async () => {
+      await api('/api/studio/prompt/apply', {id: state.resultId, arm: 'candidate'});
+      $('apply-status').textContent = 'Candidate outputs saved as machine draft proposals. No human reviews were approved or replaced.';
+      notify($('apply-status').textContent + ' Refresh Review to inspect the new proposals.', 'success'); invalidateTrain(); invalidatePrelabel();
+      try { await refreshSummary(); }
+      catch (error) { notify('Proposals were applied, but summary refresh failed. ' + error.message, 'warning', () => action(refreshSummary)); }
+    });
+  }
+  async function poll() {
+    if (document.hidden || state.pollActive || state.busy) return;
+    state.pollActive = true;
+    try {
+      await refreshSummary();
+      if (state.resultId && isActive(state.result?.status)) await loadResult(state.resultId);
+    } catch (error) {
+      $('connection-status').replaceChildren(node('span', null, 'status-dot failed'), node('span', 'Status unavailable · last data may be stale'));
+      notify('Background status refresh failed. ' + error.message, 'error', () => action(refreshSummary));
+    } finally { state.pollActive = false; }
+  }
+  function attachEvents() {
+    $('property-queue-disclosure').open = !mobileLayout.matches;
+    mobileLayout.addEventListener?.('change', () => {
+      $('property-queue-disclosure').open = !mobileLayout.matches || !state.detail;
+    });
+    for (const tab of document.querySelectorAll('[data-tab]')) tab.onclick = () => navigate(tab.dataset.tab);
+    for (const control of document.querySelectorAll('[data-go]')) control.onclick = () => navigate(control.dataset.go);
+    $('theme-toggle').onclick = () => document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    $('refresh-all').onclick = refreshAll; $('jobs-refresh').onclick = () => action(refreshSummary);
+    $('retry-action').onclick = () => { const retry = state.retry; $('retry-action').hidden = true; if (retry) retry(); };
+    $('dismiss-feedback').onclick = () => { $('global-feedback').hidden = true; state.retry = null; };
+    $('reviewer-name').value = stored('acq-studio-reviewer');
+    for (const id of ['reviewer-name', 'editor-reviewer-name']) $(id).onchange = () => {
+      const name = $(id).value.trim(); $('reviewer-name').value = name; $('editor-reviewer-name').value = name;
+      remember('acq-studio-reviewer', name);
+    };
+    $('queue-search-form').onsubmit = event => {
+      event.preventDefault(); if (!discardAllowed()) return; discardEdits();
+      state.search = $('queue-search').value.trim(); state.queue = $('queue-filter').value;
+      action(() => loadProperties({offset: 0, choose: true}));
+    };
+    for (const [id, delta] of [['queue-prev', -PAGE_SIZE], ['queue-next', PAGE_SIZE]]) $(id).onclick = () => {
+      if (!discardAllowed()) return; discardEdits(); action(() => loadProperties({offset: Math.max(0, state.offset + delta), choose: true}));
+    };
+    $('mode-properties').onclick = () => switchMode('properties'); $('mode-rooms').onclick = () => switchMode('rooms');
+    for (const id of ['gallery-room', 'gallery-status', 'gallery-score-filter']) $(id).onchange = () => action(() => loadGallery(0));
+    $('gallery-clear-score').onclick = () => { $('gallery-score-filter').checked = false; action(() => loadGallery(0)); };
+    $('gallery-refresh').onclick = () => action(() => loadGallery());
+    $('gallery-prev').onclick = () => action(() => loadGallery(Math.max(0, state.galleryOffset - PAGE_SIZE)));
+    $('gallery-next').onclick = () => action(() => loadGallery(state.galleryOffset + PAGE_SIZE));
+    $('editor-room').onchange = () => {
+      const correction = correctRoom(state.imageDraft, $('editor-room').value);
+      if (!correction.changed) return;
+      state.imageDraft = correction.draft; $('editor-preference').value = '';
+      for (const select of $('feature-fields').querySelectorAll('[data-feature]')) {
+        const value = state.imageDraft.features[select.dataset.feature];
+        select.value = value === null ? '' : String(value);
+      }
+      changedImage();
+      $('image-dirty').textContent = 'Room changed · review tags before approving';
+      $('editor-feedback').textContent = 'Room changed. Prior room preference cleared. ' +
+        (correction.cleared.length ? 'Reset to Unknown: ' + correction.cleared.map(label).join(', ') + '. ' : '') +
+        'This correction requires a fresh review of the visible tags before approval.';
+    };
+    $('editor-preference').onchange = () => { state.imageDraft.preference = $('editor-preference').value || null; changedImage(); };
+    $('editor-notes').oninput = () => { state.imageDraft.notes = $('editor-notes').value; changedImage(); };
+    $('close-editor').onclick = closeEditor;
+    $('image-dialog').addEventListener('cancel', event => { event.preventDefault(); closeEditor(); });
+    $('save-image-draft').onclick = () => saveImage('draft'); $('approve-image').onclick = () => saveImage('approved');
+    $('import-file').onchange = resetImport; $('import-preview-button').onclick = previewImport; $('import-confirm').onclick = commitImport;
+    $('train-preview-button').onclick = previewTrain; $('train-confirm').onclick = confirmTrain;
+    for (const id of ['prelabel-preview-button', 'dataset-prelabel-button']) $(id).onclick = previewPrelabel;
+    for (const id of ['prelabel-confirm', 'dataset-prelabel-confirm']) $(id).onclick = confirmPrelabel;
+    $('add-property-ids').onclick = () => {
+      const ids = parseIds($('property-ids-input').value), combined = new Set([...state.selected.keys(), ...ids]);
+      if (combined.size > 5) { notify('That selection has ' + combined.size + ' properties. Comparisons are capped at 5.', 'warning'); return; }
+      for (const id of ids) state.selected.set(id, state.selected.get(id) || id);
+      state.initializedSelection = true; $('property-ids-input').value = ''; invalidatePrompt(); drawSelection();
+    };
+    $('clear-selection').onclick = () => { state.selected.clear(); state.initializedSelection = true; invalidatePrompt(); drawSelection(); };
+    $('baseline-prompt').onchange = () => { syncBaseline(); invalidatePrompt(); };
+    $('candidate-prompt').oninput = () => { state.candidateEdited = true; invalidatePrompt(); };
+    for (const id of ['prompt-model', 'images-per-property']) $(id).oninput = invalidatePrompt;
+    $('save-prompt').onclick = savePrompt; $('prompt-preview-button').onclick = previewPrompt; $('prompt-run-button').onclick = runPrompt;
+    $('paid-authorization').onchange = () => $('prompt-run-button').disabled = state.busy || !state.promptPreview || !$('paid-authorization').checked;
+    $('result-refresh').onclick = () => { if (state.resultId) action(() => loadResult(state.resultId)); };
+    $('apply-candidate').onclick = applyCandidate;
+    window.addEventListener('beforeunload', event => {
+      if (state.propertyDirty || state.imageDirty || state.candidateEdited || state.busy) { event.preventDefault(); event.returnValue = ''; }
+    });
+    window.addEventListener('keydown', event => {
+      const target = event.target;
+      if (state.tab !== 'review' || state.mode !== 'properties' || $('image-dialog').open || state.busy || event.ctrlKey || event.metaKey || event.altKey ||
+          ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(target?.tagName) || target?.isContentEditable) return;
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      const index = state.properties.findIndex(property => String(property.id) === String(state.detail?.property.id));
+      const next = state.properties[index + (event.key === 'ArrowRight' ? 1 : -1)];
+      if (next) { event.preventDefault(); openProperty(next.id); }
+    });
+  }
+  async function initialize() {
+    attachEvents(); drawSelection();
+    await action(async () => {
+      await refreshSummary(); await loadProperties({offset: 0, choose: true, prefer: stored('acq-studio-resume')});
+    });
+    const tab = new URLSearchParams(location.search).get('tab');
+    if (['dataset','experiments'].includes(tab)) await navigate(tab);
+    window.setInterval(poll, 5000);
+  }
+  // Pure helpers are exposed for the offline synthetic regression suite.
+  window.AcqStudioHelpers = Object.freeze({tri, triText, label, draftFor, tagGroups, correctRoom, parseIds, revisionOf, imagePayload, imageURL, fingerprint, bytes, isActive, preferenceScore, scoreAbove});
+  initialize();
+})();
+</script>
+</body>
+</html>

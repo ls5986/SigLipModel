@@ -1,0 +1,122 @@
+# SigLipModel — ACQ Vision Studio
+
+Image-first review and training tools for property-condition research. This repository
+contains the Studio frontend, its local Python API, frozen SigLIP 2 embedding and
+classification-head training, historical-listing safeguards, and regression tests.
+
+**Code lives here. Photos, MLS records, human reviews, trained weights, database
+backups, and credentials do not.** Existing copies are not deleted by this project.
+
+## Run the existing Studio from this checkout
+
+Requires Python 3.12. In PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Edit the ignored `.env` file:
+
+```dotenv
+ACQ_DATA_ROOT=C:\absolute\path\to\your\existing\ACQVisionPilot
+ACQ_EVIDENCE_ROOT=C:\absolute\path\to\your\record-evidence
+OPENAI_API_KEY=
+```
+
+`ACQ_DATA_ROOT` contains `data`, `artifacts`, `.cache`, and optionally
+`historical_samples`. `ACQ_EVIDENCE_ROOT` contains the original
+`records.json`, `media.json`, `visual.json`, and `media` directory.
+The previous private datasets can be used in place; do not copy them into Git.
+
+```powershell
+.\.venv\Scripts\python.exe -B launch.py --open
+```
+
+The default address is `http://127.0.0.1:8768`. Use `--port 0` for an available
+port. Keep the process running. `start_ui.ps1` is an equivalent launcher.
+The saved runtime address is under `ACQ_DATA_ROOT`, not in the code checkout.
+
+A code-only clone has **no private dataset or model weights**. Startup reports
+missing artifacts explicitly. Either use the existing dataset locations or restore
+your private backup first. Some older saved manifests contain absolute paths:
+moving those files requires verified path reconciliation, not just copying a pointer.
+Absent environment settings, private runtime files default to `~/.siglipmodel`.
+
+## Review workflow
+
+- **Review:** property queue, large original photo, room thumbnails, model evidence,
+  and Agree / Correct / Can't tell actions.
+- **Photo matching:** review listing/transaction identity separately from target fit.
+  Prior-acquisition candidates, ambiguous later sales, and other references are separate.
+- **Models & results / Data:** advanced model, prompt-comparison, and import tools.
+- **Score this property:** previews one explicitly approved paid GPT request. It is
+  a bounded selected-photo draft, not a full photographic inspection.
+
+An approved property judgment does not approve every photo. Human corrections take
+precedence over model drafts. Shared amenities, floor plans, and unrelated images
+cannot silently become subject-property condition evidence. A match to a later
+resale is not an acquisition-positive label.
+
+## Model and implementation status
+
+The image backbone is `google/siglip2-base-patch16-224`; it stays frozen while
+lightweight classifiers learn room, visible-feature and photo-preference labels.
+The exact downloaded revision and model hashes belong in private artifact metadata.
+Unknown labels are not negatives. Training uses grouped splits and preserves
+protected test groups; user-provided cohort labels are not independent gold labels.
+
+The Studio includes a GPT-generated **draft** whole-property assessment with context
+and coverage guards. It does **not** yet provide a proven whole-property investment
+classifier or an integrated comp/economics recommendation. Raw photo scores are not
+profit probabilities.
+
+This is currently a **loopback-only local application**, not a hosted service.
+Supabase record/storage migration is separate from deployment. Uploading backups
+does not automatically switch the Studio to remote data. Hosted authentication,
+restricted runtime credentials, remote workers, and verified cutover remain work
+to complete before deleting local datasets.
+
+## Source layout
+
+| Files | Responsibility |
+|---|---|
+| `launch.py`, `review_ui.html`, `review_queue.py` | Focused image-first UI, thumbnails and queue |
+| `studio_api.py`, `review_server.py` | Local API, same-origin token checks, saved reviews |
+| `assessments.py`, `prompt_lab.py` | Explicit GPT drafts and frozen prompt comparisons |
+| `historical_store.py`, `acquisition_policy.py`, `photo_view.py` | Listing provenance and unified photo labels |
+| `studio_data.py` | Durable SQLite catalog and bounded import |
+| `pilot.py`, `studio_worker.py`, `train_reviewed.py` | Embeddings and trained heads |
+| `studio_jobs.py`, `guarded_jobs.py`, `training_jobs.py` | Versioned training previews, jobs and eligibility |
+| `tools/migration` | Administrative database/storage backup and restore tooling |
+
+## Tests
+
+```powershell
+.\.venv\Scripts\python.exe -B -m pytest -q
+```
+
+Default tests use synthetic/temporary data and mocked paid providers; they do not
+train a real model or need your private dataset. Browser regression testing:
+
+```powershell
+npm ci
+npx playwright install chromium
+.\.venv\Scripts\python.exe -B verify_browser.py
+```
+
+`requirements.lock.txt` records the original pilot environment; `requirements.txt`
+is the supported installation entry point. Browser dependencies have their own
+`package-lock.json`.
+
+## Safety
+
+- Never commit `.env`, API keys, MLS data, photos, review exports, or model binaries.
+- OpenAI credentials come from this checkout's ignored `.env` or environment only;
+  the Studio no longer reads credentials from the MLS application repository.
+- Do not expose the loopback server publicly. Its local token is not hosted auth.
+- Only load trusted model artifacts: `joblib` files can execute Python code.
+- Follow source-image licensing, retention, and training rights.
+- Migration is administrative and explicit. Database rows and storage objects must
+  be verified independently. No script here authorizes deletion after upload alone.

@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ACQ Vision Pilot — Results & Review</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+*{box-sizing:border-box}body{margin:0;background:var(--cp-bg);color:var(--cp-text);font-family:"Segoe UI",Aptos,Calibri,-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.5}
+header{position:sticky;top:0;z-index:3;display:flex;gap:20px;align-items:center;padding:16px 28px;border-bottom:1px solid var(--cp-border);background:var(--cp-bg-elevated)}
+header strong{letter-spacing:.06em}header span{color:var(--cp-text-muted);font-size:13px}nav{display:flex;gap:8px;margin-left:auto}
+main{max-width:1440px;margin:0 auto;padding:28px}h1{margin:0 0 8px;font-size:32px}h2{margin:0 0 12px;font-size:23px}h3{margin:0 0 8px}
+p{margin:8px 0 16px}.muted{color:var(--cp-text-muted)}button,input,select,textarea{font:inherit;border:1px solid var(--cp-border-strong);border-radius:.625rem;background:var(--cp-surface);color:var(--cp-text);padding:9px 12px;max-width:100%}
+button{cursor:pointer}button:hover{background:var(--cp-highlight)}button.primary,nav button[aria-current="page"]{background:var(--cp-accent);color:var(--cp-accent-fg);border-color:var(--cp-accent)}button:disabled{opacity:.55;cursor:not-allowed}
+a{color:var(--cp-link)}:focus-visible{outline:3px solid var(--cp-accent);outline-offset:2px}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:24px 0}.card,.panel{background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:20px;min-width:0}.metric{font-size:32px;font-weight:750;display:block}.small{font-size:13px}
+.notice{background:var(--cp-accent-soft);border-left:4px solid var(--cp-accent);padding:14px 18px;border-radius:.625rem;margin:16px 0}.warning{color:var(--cp-warning)}.good{color:var(--cp-success)}
+.columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.table-scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid var(--cp-border);padding:10px;white-space:nowrap}th{color:var(--cp-text-muted)}
+.filters{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:20px 0}.filters label,.field{display:grid;gap:5px;font-size:13px}.filters input{min-width:240px}.gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.photo-card{padding:0;overflow:hidden;text-align:left}.photo-card img{width:100%;height:170px;object-fit:cover;display:block}.photo-card .info{padding:12px}.pill{display:inline-block;font-size:12px;border:1px solid var(--cp-border);padding:2px 8px;border-radius:.625rem;margin:3px 4px 3px 0}.disagree{border-color:var(--cp-warning)}.spaced{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.right{margin-left:auto}
+.review-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px}.property-list{display:grid;align-content:start;gap:8px}.property-list button{text-align:left}.property-list button.active{border-color:var(--cp-accent);background:var(--cp-accent-soft)}
+.review-layout>* , .review-main>*{min-width:0}.review-layout,.review-main{min-width:0}.property-list,.filmstrip{max-width:100%}p,.small,.muted,h2,h3{overflow-wrap:anywhere}
+.review-main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr);gap:20px}.hero-image{width:100%;max-height:500px;object-fit:contain;background:var(--cp-surface-soft);border-radius:.625rem}.filmstrip{display:flex;gap:8px;overflow:auto;margin:12px 0;padding:4px}.filmstrip button{padding:3px;flex:0 0 86px}.filmstrip button.active{border:3px solid var(--cp-accent)}.filmstrip img{width:76px;height:58px;object-fit:cover;display:block}
+.features{display:grid;gap:8px;margin:16px 0}.feature{display:grid;grid-template-columns:minmax(0,1fr) 115px;gap:10px;align-items:center;font-size:13px}.feature small{display:block;color:var(--cp-text-muted)}textarea{width:100%;min-height:80px}.save-actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.feedback{padding:10px 0;min-height:32px;font-weight:600}.error{color:var(--cp-danger)}[hidden]{display:none!important}
+dialog{width:min(1000px,94vw);max-height:92vh;overflow:auto;border:1px solid var(--cp-border);border-radius:16px;background:var(--cp-surface);color:var(--cp-text);padding:20px}dialog::backdrop{background:var(--cp-overlay)}dialog img{max-height:65vh;width:100%;object-fit:contain}footer{padding:24px;color:var(--cp-text-muted);font-size:13px}
+.guide{max-width:1120px;margin:auto}.guide-top{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}.guide-photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}.guide-photo{padding:0;overflow:hidden;background:var(--cp-surface);border:1px solid var(--cp-border)}.guide-photo img{display:block;width:100%;height:210px;object-fit:contain;background:var(--cp-surface-soft)}.guide-photo span{display:block;padding:6px;font-size:13px;color:var(--cp-text-muted)}.choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}.choices button{text-align:left;padding:18px;font-weight:700}.choices button small{display:block;font-weight:400;margin-top:6px}.choices button[aria-pressed="true"],.reason-options button[aria-pressed="true"]{background:var(--cp-accent-soft);border:2px solid var(--cp-accent)}.reason-options{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.guide-steps{font-size:16px}.guide-saved{font-size:14px;color:var(--cp-success);min-height:24px}.guide-reviewer{margin:0 0 16px;max-width:260px}.guide-reason{max-width:700px}header details{margin-left:auto}header details nav{margin-top:8px;flex-wrap:wrap}header details summary{cursor:pointer;font-size:13px;color:var(--cp-text-muted)}
+.room-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.room-tabs button[aria-pressed="true"]{background:var(--cp-accent);color:var(--cp-accent-fg);border-color:var(--cp-accent)}.room-card{padding:0;overflow:hidden}.room-card .room-photo{border:0;border-radius:0;padding:0;width:100%;display:block}.room-card img{width:100%;height:210px;object-fit:contain;display:block;background:var(--cp-surface-soft)}.room-card-body{padding:12px}.room-votes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.room-votes button{flex:1;min-width:70px;font-size:13px;padding:10px 6px}.room-votes button[aria-pressed="true"]{background:var(--cp-accent-soft);border-color:var(--cp-accent);font-weight:700}.room-status{font-size:12px;min-height:22px;color:var(--cp-success)}.room-note{font-size:12px;min-height:38px}.room-number{font-size:12px;color:var(--cp-text-muted)}
+@media(max-width:650px){.guide-photos{grid-template-columns:repeat(2,minmax(0,1fr))}.guide-photo img{height:155px}.choices{grid-template-columns:minmax(0,1fr)}.choices button{padding:12px}.guide h1{font-size:26px}header details{margin-left:0}.guide-top{gap:8px}}
+@media(max-width:1000px){.gallery{grid-template-columns:repeat(3,minmax(0,1fr))}.review-main{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){header{padding:12px;flex-wrap:wrap;gap:8px}nav{margin-left:0;width:100%;overflow:auto}main{padding:16px}.columns,.review-layout,.review-main{grid-template-columns:minmax(0,1fr)}.gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.property-list{display:flex;overflow:auto}.property-list button{flex:0 0 180px}.cards{gap:8px}.metric{font-size:26px}.filters input{min-width:0;width:100%}.filters label{width:100%}.photo-card img{height:130px}}
+</style>
+</head>
+<body>
+<header><strong>ACQ PHOTO REVIEW</strong><button data-view="rooms">Review by room</button><button data-view="guide">Property decisions</button><details id="advanced-menu"><summary>Advanced tools — not needed now</summary><nav aria-label="Advanced"><button data-view="results">Training results</button><button data-view="browse">Browse predictions</button><button data-view="review">Detailed photo labels</button></nav></details><button id="theme" aria-label="Switch color theme">◐</button></header>
+<main>
+<div id="loading" class="notice" role="status">Loading your saved model results…</div>
+<div id="fatal" class="notice error" role="alert" hidden></div>
+<section id="rooms" hidden>
+<h1>Which rooms have the kind of work you want?</h1>
+<p>Compare <strong>kitchens together</strong>, then bathrooms. On each photo, choose <strong>Yes — work I want</strong>, <strong>No</strong>, or <strong>Can't tell</strong>. Clicking saves your choice.</p>
+<div id="room-completed-review" class="notice"></div>
+<div id="candidate-summary" class="panel" hidden></div>
+<div class="panel" style="margin:16px 0"><h3>Teach → train → see new predictions</h3><p id="learning-status" role="status" aria-live="polite">Loading model status…</p><button id="train-changes" class="primary">Train with my changes & predict again</button><p class="small muted">Every answer in the learning queue is available to the next training round. “Can't tell” stays uncertain. Previously reviewed validation examples are now learning data by explicit request; they no longer count as unseen evaluation.</p></div>
+<div class="room-tabs" role="group" aria-label="Choose room type">
+<button data-room-group="kitchen" aria-pressed="true">Kitchens</button><button data-room-group="bathroom" aria-pressed="false">Bathrooms</button><button data-room-group="living" aria-pressed="false">Living rooms</button><button data-room-group="bedroom" aria-pressed="false">Bedrooms</button><button data-room-group="exterior" aria-pressed="false">Exteriors</button><button data-room-group="outdoor" aria-pressed="false">Yards / pools</button><button data-room-group="other" aria-pressed="false">Other / uncertain rooms</button>
+</div>
+<div class="filters"><label>Your name or initials<input id="room-reviewer" maxlength="100" placeholder="Enter once"></label><label>Show<select id="room-filter"><option value="">All in this room</option><option value="unreviewed">Not yet answered</option><option value="candidate_new">New property groups — candidate's best matches first</option><option value="target">Your Yes choices</option><option value="not_target">Your No choices</option><option value="unsure">Your Can't tell choices</option></select></label><label>Examples<select id="room-split"><option value="train">Training examples — you can label these</option><option value="validation">Validation — viewing only</option><option value="test">Held-out test — viewing only</option></select></label><label>Model score strictly above<input id="room-threshold" type="number" min="0" max="1" step="0.01" value="0.54" aria-describedby="threshold-note"></label><button id="room-all-scores">Show all scores</button></div>
+<div class="spaced"><button id="refresh-rooms">Reload saved answers</button><label><input id="room-auto-next" type="checkbox" checked> Hide answered photos and bring in the next ones</label></div>
+<p id="threshold-note" class="small muted">Display filter only: scores above 0.54 are shown; exactly 0.54 is excluded. This is not a probability of investment success. Your labels and the model are unchanged.</p>
+<p class="small muted">Wrong room? Correct it on the photo. Otherwise answer Yes / No / Can't tell. Then press “Train with my changes” when ready—the new version will re-score the photos. Original data and old models remain preserved.</p>
+<p id="room-feedback" class="feedback" role="status" aria-live="polite"></p>
+<p id="room-count" class="muted"></p><div id="room-gallery" class="gallery"></div><button id="room-more" style="margin-top:16px">Show more photos</button>
+<p class="muted small">Start with one screen of kitchens and one screen of bathrooms. We can then use these choices for a room-preference training experiment. Nothing retrains or changes production automatically.</p>
+</section>
+<section id="guide" class="guide" hidden>
+<h1>Show me the kind of property you want.</h1>
+<p class="guide-steps"><strong>1.</strong> Look at these photos. <strong>2.</strong> Choose Yes, No or Can't tell. <strong>3.</strong> Pick a reason and save.</p>
+<p class="muted">Judge only whether the visible renovation opportunity interests you. You are <strong>not</strong> judging the model, estimating profit, or approving every room tag.</p>
+<div id="guide-save-message" class="guide-saved" role="status" aria-live="polite"></div>
+<div class="guide-top"><div><span id="guide-progress" class="muted small"></span><h2 id="guide-address"></h2></div><span id="guide-total" class="pill"></span></div>
+<div id="guide-photos" class="guide-photos"></div>
+<div class="spaced"><button id="guide-more">See more photos</button><span id="guide-photo-note" class="muted small"></span></div>
+<h2 style="margin-top:24px">Is this the kind of renovation opportunity you want?</h2>
+<div class="choices" role="group" aria-label="Your property preference">
+<button data-choice="target" aria-pressed="false">Yes — looks like my kind of project<small>There appears to be work I would want to take on.</small></button>
+<button data-choice="not_target" aria-pressed="false">No — not my kind of project<small>Too updated, too much work, or not the type I want.</small></button>
+<button data-choice="unsure" aria-pressed="false">Can't tell from these photos<small>I need better photos or more information.</small></button>
+</div>
+<div id="guide-reason-panel" class="panel guide-reason" hidden>
+<h3>What is the main reason?</h3>
+<div id="guide-reasons" class="reason-options"></div>
+<label class="field">Your reason (edit it if you want)<input id="guide-reason" maxlength="2000" placeholder="A short explanation is enough"></label>
+<label class="field guide-reviewer" style="margin-top:16px">Your name or initials<input id="guide-reviewer" maxlength="100" autocomplete="name" placeholder="Only needed once"></label>
+<button id="guide-save" class="primary">Save answer & next property</button>
+<p id="guide-error" class="feedback error" role="alert"></p>
+</div>
+<div class="spaced" style="margin-top:20px"><button id="guide-back">Previous property</button><button id="guide-skip">Skip for now</button></div>
+<p class="muted small" style="margin-top:20px">Your answers are saved on this computer. They teach your buying preferences; they do not automatically label the individual photos or retrain the model.</p>
+<div id="guide-finished" class="panel" hidden><h2>That's enough for this first pass.</h2><p>Your answers are saved. You do not need to interpret any model scores. We can use these decisions to clarify your target definition before reviewing individual photo tags.</p><button id="guide-review-again">Look over my answers</button></div>
+</section>
+<section id="results" hidden>
+<h1>Your first trained visual baseline</h1><p class="muted">SigLIP 2 vision features + locally trained room and feature classifiers. The foundation model stayed frozen.</p>
+<div class="notice"><strong>Draft-label agreement, not verified accuracy.</strong> These models learned from earlier GPT-4.1 mini suggestions. Human corrections are still needed. This is not a “good deal” or profit model.</div>
+<div id="metrics" class="cards"></div>
+<div class="spaced"><button class="primary" data-view="review">Start reviewing 10 properties</button><button data-view="browse">See model predictions on real photos</button><span id="review-progress" class="muted right"></span></div>
+<div class="columns" style="margin-top:24px"><div class="panel"><h2>Room results on held-out properties</h2><p class="muted small">Compared with machine draft labels. Precision/recall are not human-validated.</p><div class="table-scroll"><table><thead><tr><th>Room</th><th>Precision</th><th>Recall</th><th>Examples</th></tr></thead><tbody id="room-table"></tbody></table></div></div><div class="panel"><h2>What changed—and what didn’t</h2><p><strong>Trained:</strong> seven room categories and thirteen visual-feature prediction heads.</p><p><strong>Not trained:</strong> your target/non-target judgment, investment outcomes or a whole-property condition model.</p><p><strong>Still required:</strong> confirm rooms and visible features. An “old flooring” score does not establish that a floor is visible.</p><p><strong>Your next step:</strong> review the first ten training properties. Your approved labels are saved separately; nothing retrains automatically.</p></div></div>
+<details class="panel" style="margin-top:20px"><summary>Feature-head results and majority-class baselines</summary><p class="small muted">Rare-feature accuracy can look good by predicting “absent.” Inspect the positive-class precision and recall.</p><div class="table-scroll"><table><thead><tr><th>Feature</th><th>Known test labels</th><th>Agreement</th><th>Majority baseline</th><th>Present precision</th><th>Present recall</th></tr></thead><tbody id="feature-table"></tbody></table></div></details>
+</section>
+<section id="browse" hidden>
+<h1>Browse actual photos and predictions</h1><p class="muted">Draft label = previous GPT annotation. SigLIP = the new local classifier. Disagreement does not tell us which is right.</p>
+<div class="filters"><label>Dataset split<select id="split"><option value="test">Held-out test</option><option value="validation">Validation</option><option value="train">Training</option><option value="">All</option></select></label><label>Predicted room<select id="browse-room"><option value="">All rooms</option></select></label><label>Compare labels<select id="disagreement"><option value="">All predictions</option><option value="yes">Disagreements only</option></select></label><label>Listing or image ID<input id="search" placeholder="Search IDs"></label></div>
+<p id="browse-count" class="muted"></p><div id="gallery" class="gallery"></div><button id="more" style="margin-top:20px">Show more</button>
+</section>
+<section id="review" hidden>
+<h1>Teach it what you actually mean</h1><p class="muted">Review training properties only. Confirm image facts separately from your property-level target decision.</p>
+<div class="spaced"><label class="field">Reviewer name or initials<input id="reviewer" placeholder="Your name or initials" maxlength="100"></label><button id="export" class="right">Export saved human reviews</button></div>
+<div class="notice small">Nothing is approved until you explicitly save it. Unknown is not absent. Holdout images cannot be edited here. Saving labels does not retrain or update your MLS app.</div>
+<div class="review-layout"><aside id="properties" class="property-list" aria-label="Review properties"></aside><div>
+<h2 id="property-title"></h2><div class="review-main"><div><img id="review-image" class="hero-image" alt=""><div id="filmstrip" class="filmstrip" aria-label="Property images"></div><div id="image-meta" class="muted small"></div><div id="comparison" class="panel" style="margin-top:16px"></div>
+<details class="panel" style="margin-top:16px"><summary>Property-level target decision—not an image label</summary><p class="small muted">Consider the available rooms and your criteria. A single photo is not enough to judge the whole property.</p><label class="field">Your decision<select id="target"><option value="">Not reviewed</option><option value="target">Target</option><option value="not_target">Not target</option><option value="unsure">Unsure / need evidence</option></select></label><label class="field">Why?<textarea id="target-reason" placeholder="Too turnkey, meaningful cosmetic work, missing rooms…" maxlength="2000"></textarea></label><button id="save-property" style="margin-top:12px">Save property decision</button><div id="property-feedback" class="feedback" role="status"></div></details></div>
+<div class="panel"><div class="spaced"><h3>Review this photo</h3><span id="saved-status" class="pill right"></span></div><label class="field">Correct room<select id="review-room"><option value="">Unknown / not reviewed</option></select></label><div class="spaced" style="margin-top:12px"><button id="use-draft">Fill from GPT suggestions</button><button id="use-model">Use SigLIP room</button></div><p class="small muted">Filling suggestions is not approval. For each feature, choose present, absent or unknown based on what is actually visible.</p><div id="feature-inputs" class="features"></div><label class="field">Notes<textarea id="image-notes" placeholder="What is wrong or unclear?" maxlength="4000"></textarea></label><div class="save-actions"><button id="save-draft">Save draft</button><button id="approve" class="primary">Approve image labels</button></div><div id="image-feedback" class="feedback" role="status"></div><div class="spaced"><button id="previous">Previous photo</button><button id="next">Next photo</button></div></div></div>
+</div></div>
+</section>
+</main>
+<dialog id="photo-dialog"><div class="spaced"><h2 id="dialog-title">Photo details</h2><button id="close-dialog" class="right">Close</button></div><img id="dialog-image" alt=""><div id="dialog-detail"></div></dialog>
+<footer>Private loopback UI. Reviews save locally. “Train with my changes” runs only the local pilot classifiers and regenerates predictions—no photo uploads, live MLS calls or production changes.</footer>
+<script>
+const $=id=>document.getElementById(id), label=s=>String(s).replaceAll('_',' '), pct=n=>n==null?'Unknown':`${(n*100).toFixed(1)}%`;
+function el(tag,text,cls){const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n}
+function imageURL(id){return '/images/'+encodeURIComponent(id)}
+let D,view='results',propertyKey,imageIndex=0,shown=24,dirty=false,propertyDirty=false;
+const featureSelects={};
+function feedback(id,message,error=false){$(id).textContent=message;$(id).className='feedback'+(error?' error':' good')}
+function progress(){const approved=Object.values(D.reviews.images).filter(x=>x.status==='approved').length;$('review-progress').textContent=`${approved} / ${D.review_batch.length} review images approved`}
+function navigate(next){if((dirty||propertyDirty||guideDirty)&&!confirm('Discard unsaved review changes?'))return;dirty=false;propertyDirty=false;guideDirty=false;view=next;['rooms','guide','results','browse','review'].forEach(x=>$(x).hidden=x!==next);document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-current',b.dataset.view===next?'page':'false'));if(next==='browse')drawBrowse();if(next==='review')drawProperty();if(next==='guide')drawGuide();if(next==='rooms')drawRooms();window.scrollTo(0,0)}
+function drawResults(){const m=D.metrics,s=D.dataset_summary;const values=[['Room-label agreement',pct(m.room.test.accuracy_vs_draft_labels),`${m.room.test.n} held-out images; machine labels`],['Images embedded',s.usable_unique_images,'Frozen SigLIP 2 vision tower'],['Property/duplicate groups',s.physical_or_duplicate_groups,'Kept separate across data splits'],['Trainable feature heads',Object.keys(m.features).length,'Unreviewed baseline, not deployment-ready']];$('metrics').replaceChildren(...values.map(([a,b,c])=>{const n=el('article',null,'card');n.append(el('span',a,'muted small'),el('strong',b,'metric'),el('span',c,'muted small'));return n}));$('room-table').replaceChildren();for(const name of D.rooms){const r=m.room.test.classification_report[name],tr=el('tr');[label(name),pct(r.precision),pct(r.recall),r.support].forEach(x=>tr.append(el('td',x)));$('room-table').append(tr)}$('feature-table').replaceChildren();for(const [name,r]of Object.entries(m.features)){const tr=el('tr'),p=r.test?.classification_report?.['1'];[label(name),r.test_known,pct(r.test?.accuracy_vs_draft_labels),pct(r.majority_baseline_test_accuracy),pct(p?.precision),pct(p?.recall)].forEach(x=>tr.append(el('td',x)));$('feature-table').append(tr)}progress()}
+function showPhoto(row){$('dialog-title').textContent=`${label(row.siglip_room)} · ${row.id}`;$('dialog-image').src=imageURL(row.id);$('dialog-image').alt=`Listing ${row.listing_key}, image ${row.image_order}`;const box=$('dialog-detail');box.replaceChildren(el('p',`Draft room: ${label(row.draft_room)} · SigLIP: ${label(row.siglip_room)} · Split: ${row.split}`),el('p',row.draft_observation,'muted'),el('p','Feature scores are uncalibrated suggestions, not proof of visibility or condition.','notice small'));const t=el('table');for(const [name,score]of Object.entries(row.feature_scores)){const tr=el('tr');tr.append(el('td',label(name)),el('td',pct(score)));t.append(tr)}box.append(t);$('photo-dialog').showModal()}
+function drawBrowse(){const split=$('split').value,room=$('browse-room').value,q=$('search').value.toLowerCase();const rows=D.images.filter(r=>(!split||r.split===split)&&(!room||r.siglip_room===room)&&(!$('disagreement').value||r.room_disagreement)&&(!q||r.id.toLowerCase().includes(q)));$('browse-count').textContent=`${rows.length} matching images · ${Math.min(shown,rows.length)} shown`;$('gallery').replaceChildren(...rows.slice(0,shown).map(r=>{const b=el('button',null,'card photo-card'+(r.room_disagreement?' disagree':''));const img=el('img');img.src=imageURL(r.id);img.loading='lazy';img.alt=`${label(r.draft_room)} draft, listing ${r.listing_key}`;const info=el('div',null,'info');info.append(el('strong',`SigLIP: ${label(r.siglip_room)}`),el('div',`Draft: ${label(r.draft_room)}`,'small'),el('span',r.split,'pill'),el('span',r.source_role,'pill'),el('div',r.listing_key,'muted small'));b.append(img,info);b.onclick=()=>showPhoto(r);return b}));$('more').hidden=shown>=rows.length}
+function batchProperties(){const result=new Map();for(const r of D.review_batch){if(!result.has(r.listing_key))result.set(r.listing_key,[]);result.get(r.listing_key).push(r)}return result}
+function current(){return batchProperties().get(propertyKey)[imageIndex]}
+function drawProperty(){const groups=batchProperties();if(!propertyKey)propertyKey=groups.keys().next().value;$('properties').replaceChildren(...[...groups].map(([key,rows],i)=>{const n=el('button',`${i+1}. ${rows[0].address||key}`,key===propertyKey?'active':'');const approved=rows.filter(r=>D.reviews.images[r.id]?.status==='approved').length;n.append(el('div',`${approved}/${rows.length} images approved`,'small muted'));n.onclick=()=>{if((dirty||propertyDirty)&&!confirm('Discard unsaved review changes?'))return;dirty=false;propertyDirty=false;propertyKey=key;imageIndex=0;drawProperty()};return n}));const rows=groups.get(propertyKey);$('property-title').textContent=rows[0].address||propertyKey;const propertyReview=D.reviews.properties[propertyKey];if(!propertyDirty){$('target').value=propertyReview?.target_fit||'';$('target-reason').value=propertyReview?.reason||'';feedback('property-feedback',propertyReview?'Saved property decision':'')}$('filmstrip').replaceChildren(...rows.map((r,i)=>{const b=el('button',null,i===imageIndex?'active':'');const img=el('img');img.src=imageURL(r.id);img.alt=`Photo ${i+1}, draft ${label(r.draft_room)}`;b.append(img);b.onclick=()=>switchPhoto(i);return b}));drawReview()}
+function switchPhoto(index){if(dirty&&!confirm('Discard unsaved image changes?'))return;dirty=false;imageIndex=index;drawProperty()}
+function drawReview(){const r=current(),saved=D.reviews.images[r.id];$('review-image').src=imageURL(r.id);$('review-image').alt=`Review listing ${r.listing_key}, photo order ${r.image_order}`;$('image-meta').textContent=`${imageIndex+1} / ${batchProperties().get(propertyKey).length} · Media ${r.id} · Training split`;$('comparison').replaceChildren(el('h3','Machine suggestions—not ground truth'),el('p',`GPT draft room: ${label(r.draft_room)} · SigLIP room: ${label(r.siglip_room)}`),el('p',r.draft_observation,'small muted'));$('review-room').value=saved?.room||'';$('saved-status').textContent=saved?.status||'unreviewed';$('image-notes').value=saved?.notes||'';$('feature-inputs').replaceChildren();for(const name of D.features){const wrapper=el('label',null,'feature');const description=el('span',label(name));const draft=r.draft_features[name];description.append(el('small',`Draft: ${draft===1?'present':draft===0?'absent':'unknown'} · SigLIP ${pct(r.feature_scores[name])}`));const select=el('select');select.setAttribute('aria-label',label(name));[['','Unknown'],['1','Present'],['0','Absent']].forEach(([v,t])=>{const o=el('option',t);o.value=v;select.append(o)});const value=saved?.features?.[name];select.value=value==null?'':String(value);select.onchange=()=>dirty=true;featureSelects[name]=select;wrapper.append(description,select);$('feature-inputs').append(wrapper)}feedback('image-feedback',saved?`Saved ${saved.updated_at}`:'');$('previous').disabled=imageIndex===0;$('next').disabled=imageIndex===batchProperties().get(propertyKey).length-1}
+async function post(payload){const response=await fetch('/api/reviews',{method:'POST',headers:{'Content-Type':'application/json','X-Review-Token':D.token},body:JSON.stringify({...payload,reviewer:$('reviewer').value,expected_revision:D.reviews.revision})});const value=await response.json();if(!response.ok)throw Error(value.error||'Save failed');D.reviews=value;if(payload.kind==='property')propertyDirty=false;progress();return value}
+async function saveImage(status){const features={};for(const [name,select]of Object.entries(featureSelects))features[name]=select.value===''?null:Number(select.value);try{await post({kind:'image',id:current().id,status,room:$('review-room').value||null,features,notes:$('image-notes').value});dirty=false;drawProperty();feedback('image-feedback',status==='approved'?'Approved labels saved to disk. Model unchanged.':'Draft saved to disk.')}catch(e){feedback('image-feedback',e.message,true)}}
+function exportReviews(){const blob=new Blob([JSON.stringify(D.reviews,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download='acq-human-reviews.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+async function init(){try{const response=await fetch('/api/bootstrap');if(!response.ok)throw Error('Could not load saved results');D=await response.json();D.rooms.forEach(name=>{for(const id of ['browse-room','review-room']){const o=el('option',label(name));o.value=name;$(id).append(o)}});drawResults();$('loading').hidden=true;$('results').hidden=false;document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>navigate(b.dataset.view));['split','browse-room','disagreement','search'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{shown=24;drawBrowse()}));$('more').onclick=()=>{shown+=24;drawBrowse()};$('previous').onclick=()=>switchPhoto(imageIndex-1);$('next').onclick=()=>switchPhoto(imageIndex+1);$('review-room').onchange=()=>dirty=true;$('image-notes').oninput=()=>dirty=true;$('use-draft').onclick=()=>{$('review-room').value=current().draft_room;for(const [name,select]of Object.entries(featureSelects)){const value=current().draft_features[name];select.value=value==null?'':String(value)}dirty=true};$('use-model').onclick=()=>{$('review-room').value=current().siglip_room;dirty=true};$('save-draft').onclick=()=>saveImage('draft');$('approve').onclick=()=>saveImage('approved');$('save-property').onclick=async()=>{try{await post({kind:'property',id:propertyKey,status:'approved',target_fit:$('target').value||null,reason:$('target-reason').value,notes:''});feedback('property-feedback','Property decision saved separately. Image labels and model unchanged.')}catch(e){feedback('property-feedback',e.message,true)}};$('export').onclick=exportReviews;$('close-dialog').onclick=()=>$('photo-dialog').close();$('theme').onclick=()=>document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue=''}})}catch(error){$('loading').hidden=true;$('fatal').hidden=false;$('fatal').textContent=error.message+' — start review_server.py from ACQVisionPilot.'}}
+$('target').addEventListener('change',()=>propertyDirty=true);
+$('target-reason').addEventListener('input',()=>propertyDirty=true);
+window.addEventListener('beforeunload',event=>{if(propertyDirty){event.preventDefault();event.returnValue=''}});
+let guideIndex=0,guideChoice=null,guideDirty=false,guideExpanded=false,guideSaving=false;
+const GUIDE_REASONS={
+target:['Dated kitchen or bathrooms I would update','Mixed updates, with worthwhile work remaining','Cosmetic work fits what I want to buy'],
+not_target:['Too updated / turnkey for me','More renovation or risk than I want','Not the property or layout I want'],
+unsure:['Not enough interior or bathroom photos','Cannot tell how much work is needed','Need more property information']
+};
+function guideGroups(){return [...batchProperties().entries()]}
+function guideCurrent(){return guideGroups()[guideIndex]}
+function guideReviewed(){return guideGroups().filter(([key])=>D.reviews.properties[key]?.status==='approved').length}
+function openGuidePhoto(row){$('dialog-title').textContent=guideCurrent()[1][0].address||row.listing_key;$('dialog-image').src=imageURL(row.id);$('dialog-image').alt='Original property photo';$('dialog-detail').replaceChildren(el('p',`Photo order ${row.image_order??'not reported'}. Judge only what is visible; this is not an inspection.`,'muted small'));$('photo-dialog').showModal()}
+function drawGuide(){
+ const groups=guideGroups(),[key,batch]=groups[guideIndex],saved=D.reviews.properties[key];
+ $('guide-progress').textContent=`Property ${guideIndex+1} of ${groups.length}`;
+ $('guide-address').textContent=batch[0].address||key;
+ $('guide-total').textContent=`${guideReviewed()} of ${groups.length} answered`;
+ $('guide-finished').hidden=true;
+ guideChoice=saved?.target_fit||null;
+ $('guide-reason').value=saved?.reason||'';
+ const chosen=new Set(batch.map(r=>r.id)),extra=D.images.filter(r=>r.listing_key===key&&!chosen.has(r.id));
+ const rows=guideExpanded?[...batch,...extra]:batch;
+ $('guide-photos').replaceChildren(...rows.map((r,i)=>{const button=el('button',null,'guide-photo');button.type='button';button.setAttribute('aria-label',`Enlarge photo ${i+1}`);const img=el('img');img.src=imageURL(r.id);img.alt=`Property photo ${i+1}`;img.loading=i<3?'eager':'lazy';button.append(img,el('span',`Photo ${i+1} — click to enlarge`));button.onclick=()=>openGuidePhoto(r);return button}));
+ $('guide-more').hidden=extra.length===0;
+ $('guide-more').textContent=guideExpanded?'Show selected photos only':`See ${extra.length} more available photos`;
+ $('guide-photo-note').textContent=`${rows.length} photos shown. Missing important rooms? Choose “Can't tell.”`;
+ $('guide-back').disabled=guideIndex===0;
+ drawGuideChoice();
+}
+function drawGuideChoice(){
+ document.querySelectorAll('[data-choice]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.choice===guideChoice?'true':'false'));
+ $('guide-reason-panel').hidden=!guideChoice;
+ $('guide-reasons').replaceChildren(...(GUIDE_REASONS[guideChoice]||[]).map(reason=>{const b=el('button',reason);b.type='button';b.setAttribute('aria-pressed',$('guide-reason').value===reason?'true':'false');b.onclick=()=>{if(guideSaving)return;$('guide-reason').value=reason;guideDirty=true;drawGuideChoice()};return b}));
+ $('guide-save').textContent=guideSaving?'Saving…':'Save answer & next property';
+ $('guide-save').disabled=guideSaving;
+ $('guide-error').textContent='';
+}
+function moveGuide(direction,discard=true){
+ if(guideSaving)return;
+ if(discard&&guideDirty&&!confirm('Discard this unsaved answer?'))return;
+ guideDirty=false;guideExpanded=false;
+ const groups=guideGroups();
+ if(direction>0&&guideReviewed()===groups.length){$('guide-finished').hidden=false;$('guide-finished').scrollIntoView({behavior:'smooth',block:'center'});return}
+ const wasLast=guideIndex===groups.length-1;
+ guideIndex=Math.max(0,Math.min(groups.length-1,guideIndex+direction));
+ if(direction>0&&wasLast){
+  const next=groups.findIndex(([key],i)=>i!==guideIndex&&D.reviews.properties[key]?.status!=='approved');
+  if(next>=0)guideIndex=next;
+ }
+ if(direction>0&&D.reviews.properties[groups[guideIndex][0]]?.status==='approved'){
+  const next=groups.findIndex(([key],i)=>i>guideIndex&&D.reviews.properties[key]?.status!=='approved');
+  const first=groups.findIndex(([key])=>D.reviews.properties[key]?.status!=='approved');
+  if(next>=0)guideIndex=next;else if(first>=0)guideIndex=first;
+ }
+ drawGuide();$('guide-address').scrollIntoView({behavior:'smooth',block:'center'});
+}
+async function saveGuide(){
+ if(guideSaving)return;
+ const name=$('guide-reviewer').value.trim(),reason=$('guide-reason').value.trim();
+ if(!name){$('guide-error').textContent='Enter your name or initials once so your answers have a reviewer.';$('guide-reviewer').focus();return}
+ if(!guideChoice||!reason){$('guide-error').textContent='Pick one reason, or type your own.';return}
+ const [key,batch]=guideCurrent();guideSaving=true;drawGuideChoice();
+ try{
+  const response=await fetch('/api/reviews',{method:'POST',headers:{'Content-Type':'application/json','X-Review-Token':D.token},body:JSON.stringify({kind:'property',id:key,expected_revision:D.reviews.revision,reviewer:name,status:'approved',target_fit:guideChoice,reason,notes:D.reviews.properties[key]?.notes||''})});
+  const value=await response.json();if(!response.ok)throw Error(value.error||'Your answer was not saved.');
+  D.reviews=value;$('reviewer').value=name;guideDirty=false;progress();guideSaving=false;
+  $('guide-save-message').textContent=`Saved your answer for ${batch[0].address||key}.`;
+  moveGuide(1,false);
+ }catch(error){guideSaving=false;drawGuideChoice();$('guide-error').textContent=error.message+' Your answer has not been saved; stay here and retry.'}
+}
+function initializeGuide(){
+ const groups=guideGroups(),first=groups.findIndex(([key])=>D.reviews.properties[key]?.status!=='approved');
+ guideIndex=first<0?0:first;
+ const prior=[...Object.values(D.reviews.images),...Object.values(D.reviews.properties)].sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));
+ if(prior[0]?.reviewer){$('guide-reviewer').value=prior[0].reviewer;$('reviewer').value=prior[0].reviewer}
+ document.querySelectorAll('[data-choice]').forEach(button=>button.onclick=()=>{if(guideSaving)return;if(guideChoice!==button.dataset.choice)$('guide-reason').value='';guideChoice=button.dataset.choice;guideDirty=true;drawGuideChoice();$('guide-reason-panel').scrollIntoView({behavior:'smooth',block:'nearest'})});
+ $('guide-more').onclick=()=>{if(guideSaving)return;const reason=$('guide-reason').value,choice=guideChoice;guideExpanded=!guideExpanded;drawGuide();guideChoice=choice;$('guide-reason').value=reason;drawGuideChoice()};
+ $('guide-reason').oninput=()=>guideDirty=true;
+ $('guide-save').onclick=saveGuide;$('guide-back').onclick=()=>moveGuide(-1);$('guide-skip').onclick=()=>moveGuide(1);
+ $('guide-review-again').onclick=()=>{guideIndex=0;drawGuide()};
+ window.addEventListener('beforeunload',event=>{if(guideDirty){event.preventDefault();event.returnValue=''}});
+ initializeRooms();
+ navigate(new URLSearchParams(location.search).get('view')==='rooms'||first<0?'rooms':'guide');
+ if(first<0)$('guide-save-message').textContent='Your first ten property answers are already saved. You can look over them below.';
+}
+let roomGroup='kitchen',roomShown=20,roomSaving=false;
+function effectiveRoom(row){const correction=D.reviews.room_corrections?.[row.id];if(correction?.status==='approved')return correction.room;const reviewed=D.reviews.images[row.id];return reviewed?.status==='approved'&&reviewed.room?reviewed.room:row.candidate?.room||row.siglip_room}
+function roomPreference(row){const answers=[D.reviews.room_preferences?.[row.id],D.reviews.evaluation_preferences?.[row.id]].filter(Boolean).sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));const answer=answers[0];return answer?.status==='approved'&&answer.room===effectiveRoom(row)?answer:null}
+function inRoomPool(row,split){return split==='learn'?row.learning_allowed!==false&&row.split!=='test':row.split===split}
+function candidatePreference(row){return row.candidate?.preferences?.[roomGroup]}
+function parseScoreThreshold(raw){
+ const text=String(raw??'').trim();
+ if(text==='')return {valid:true,value:null};
+ const value=Number(text);
+ return {valid:Number.isFinite(value)&&value>=0&&value<=1,value};
+}
+function scoreAboveThreshold(score,threshold){
+ return typeof score==='number'&&Number.isFinite(score)&&score>threshold;
+}
+function selectedScoreThreshold(){const input=$('room-threshold');return input.validity.badInput?{valid:false,value:null}:parseScoreThreshold(input.value)}
+function passesScoreFilter(row){
+ if(!D.candidate?.preference_heads?.[roomGroup])return true;
+ const threshold=selectedScoreThreshold();if(!threshold.valid)return false;
+ return threshold.value===null||scoreAboveThreshold(candidatePreference(row)?.score,threshold.value);
+}
+function thresholdNote(){
+ const input=$('room-threshold'),enabled=Boolean(D.candidate?.preference_heads?.[roomGroup]);
+ input.disabled=!enabled;$('room-all-scores').disabled=!enabled;
+ if(!enabled){$('threshold-note').textContent='This room has no trained preference model yet. No score filter is applied; no score is invented.';input.setAttribute('aria-invalid','false');return}
+ const threshold=selectedScoreThreshold();input.setAttribute('aria-invalid',String(!threshold.valid));
+ $('threshold-note').textContent=!threshold.valid?'Enter a score from 0 to 1, or choose Show all scores. No results shown for invalid input.':threshold.value===null?'All scores shown. Display filtering never changes your labels or trains the model.':`Display filter only: score > ${threshold.value}. Exactly ${threshold.value} and unscored photos are excluded. Not a success probability. Published cross-validation metrics still use the original 0.50 boundary, not this browsing cutoff.`;
+}
+function matchesRoomFilter(row,filter){const answer=roomPreference(row);if(!filter)return !$('room-auto-next').checked||!answer;if(filter==='unreviewed')return !answer;if(filter==='candidate_new'){const p=candidatePreference(row);return !answer&&p&&!p.property_group_used_for_training}return answer?.preference===filter}
+function candidateSummary(){
+ const summary=$('candidate-summary');if(!D.candidate){summary.hidden=true;return}
+ summary.hidden=false;const head=D.candidate.preference_heads[roomGroup];summary.replaceChildren();
+ if(!head){const trained=Object.keys(D.candidate.preference_heads).map(label).join(', ');summary.append(el('h3',`${label(roomGroup)} preference model: not trained yet`),el('p',`Trained preference models: ${trained}. Other room preferences remain separate; nothing is guessed from a different room.`,'small muted'));return}
+ summary.append(el('h3',`New ${label(roomGroup)}-preference candidate is trained`),
+  el('p',`${head.training_labels} decisive human choices (${head.yes} Yes / ${head.no} No), spanning ${head.independent_groups} property groups. ${D.candidate.room_corrections} room-label corrections were also incorporated.`),
+  el('p',`Property-grouped cross-validation agreement: ${pct(head.evaluation.accuracy)}. This is preliminary internal validation—not a production accuracy claim or proof it beats GPT.`,'small muted'),
+  el('p','Your saved learning-queue answers will be used when you press Train with my changes. No background retraining or production rollout.','small'),
+  el('p',`Candidate ${D.candidate.version} · trained from review revision ${D.candidate.review_revision}`,'small muted'));
+ if(D.reviews.revision>D.candidate.review_revision)summary.append(el('p','You have newer saved reviews. They are preserved for a later training round; this displayed model does not update automatically.','small muted'));
+ const examples=el('button',`See new ${label(roomGroup)} suggestions`,'primary');
+ examples.onclick=()=>{if(roomSaving)return;$('room-filter').value='unreviewed';$('room-split').value='learn';roomShown=20;roomFeedback('New unanswered learning examples, highest model scores first. Your answers teach the next version.');drawRooms()};
+ summary.append(examples);
+}
+function updateRoomCount(){
+ const split=$('room-split').value,filter=$('room-filter').value;
+ const population=D.images.filter(row=>inRoomPool(row,split)&&effectiveRoom(row)===roomGroup);
+ const matched=population.filter(row=>matchesRoomFilter(row,filter)&&passesScoreFilter(row));
+ const answered=population.filter(row=>roomPreference(row)?.status==='approved').length;
+ $('room-count').textContent=`${label(roomGroup)} · ${matched.length} photos match · ${Math.min(roomShown,matched.length)} shown · ${answered} saved room choices${split==='test'?' · Reserved test: not a learning queue':' · Your answers teach the next version'}`;
+}
+function spreadProperties(rows){
+ const buckets=new Map();for(const row of rows){if(!buckets.has(row.listing_key))buckets.set(row.listing_key,[]);buckets.get(row.listing_key).push(row)}
+ const output=[];let added=true;
+ while(added){added=false;for(const bucket of buckets.values()){if(bucket.length){output.push(bucket.shift());added=true}}}
+ return output;
+}
+function roomFeedback(message,error=false){$('room-feedback').textContent=message;$('room-feedback').className='feedback'+(error?' error':' good')}
+function openRoomPhoto(row){$('dialog-title').textContent=`${label(effectiveRoom(row))} — listing ${row.listing_key}`;$('dialog-image').src=imageURL(row.id);$('dialog-image').alt=`Room review photo, listing ${row.listing_key}`;$('dialog-detail').replaceChildren(el('p','Judge only the visible work in this room. This is not a whole-property or profit decision.','muted'));$('photo-dialog').showModal()}
+function drawRooms(){
+ candidateSummary();
+ renderTrainingStatus();
+ thresholdNote();
+ $('refresh-rooms').disabled=roomSaving;
+ const decisions=Object.values(D.reviews.properties).filter(x=>x.status==='approved'),total=guideGroups().length;
+ const counts={target:0,not_target:0,unsure:0};decisions.forEach(x=>{if(x.target_fit in counts)counts[x.target_fit]++});
+ $('room-completed-review').textContent=`Your first property review: ${decisions.length}/${total} saved — ${counts.target} targets, ${counts.not_target} not targets, ${counts.unsure} uncertain. These answers are preserved. This screen adds separate room preferences.`;
+ document.querySelectorAll('[data-room-group]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.roomGroup===roomGroup?'true':'false'));
+ const split=$('room-split').value,filter=$('room-filter').value;
+ const population=D.images.filter(row=>inRoomPool(row,split)&&effectiveRoom(row)===roomGroup);
+ const filtered=population.filter(row=>matchesRoomFilter(row,filter)&&passesScoreFilter(row));
+ if(filter==='candidate_new'||filter==='unreviewed')filtered.sort((a,b)=>(candidatePreference(b)?.score||0)-(candidatePreference(a)?.score||0));
+ const rows=['candidate_new','unreviewed'].includes(filter)?filtered:spreadProperties(filtered);
+ const answered=population.filter(row=>roomPreference(row)?.status==='approved').length;
+ $('room-count').textContent=`${label(roomGroup)} · ${rows.length} photos match · ${Math.min(roomShown,rows.length)} shown · ${answered} saved room choices${split==='test'?' · Reserved test: not a learning queue':' · Your answers teach the next version'}`;
+ $('room-gallery').replaceChildren(...rows.slice(0,roomShown).map(row=>{
+  const article=el('article',null,'card room-card'),photo=el('button',null,'room-photo');
+  article.dataset.imageId=row.id;
+  photo.setAttribute('aria-label',`Enlarge ${label(effectiveRoom(row))} ${row.id}`);
+  const img=el('img');img.src=imageURL(row.id);img.loading='lazy';img.alt=`${label(effectiveRoom(row))}, listing ${row.listing_key}`;photo.append(img);photo.onclick=()=>openRoomPhoto(row);
+  const body=el('div',null,'room-card-body'),human=D.reviews.images[row.id]?.status==='approved'||D.reviews.room_corrections?.[row.id]?.status==='approved';
+  body.append(el('strong',label(effectiveRoom(row))),el('div',human?'Room confirmed by you':row.candidate?'Candidate room — not yet confirmed':'Suggested room — not yet confirmed','room-number'),
+    el('div',row.address||`Listing ${row.listing_key}`,'room-number'));
+  const correction=el('details',null,'room-correction');correction.append(el('summary','Wrong room?'));
+  const correctionLabel=el('label','This photo actually shows','field'),select=el('select');
+  select.setAttribute('aria-label','Correct room for this photo');
+  for(const name of D.rooms){const option=el('option',name==='other'?'Other / uncertain room':label(name));option.value=name;select.append(option)}
+  select.value=effectiveRoom(row);correctionLabel.append(select);
+  const correct=el('button','Save room correction');correct.dataset.roomAction='correction';correct.disabled=roomSaving;
+  correct.onclick=()=>saveRoomCorrection(row,select.value);
+  correction.append(correctionLabel,correct,el('p','This corrects the room only. It does not mark the photo or property as a target.','small muted'));body.append(correction);
+  const preference=candidatePreference(row);
+  if(preference){
+   const threshold=selectedScoreThreshold();
+   body.append(el('p',`Model score: ${preference.score.toFixed(3)}`,'small'));
+   body.append(el('p',threshold.valid&&threshold.value!==null?(scoreAboveThreshold(preference.score,threshold.value)?'Above your display cutoff':'Not above your display cutoff'):(preference.score>=.5?'Candidate: more like your Yes examples':'Candidate: more like your No examples'),'small'));
+   body.append(el('p',preference.used_for_training?'This photo helped train the candidate—not an independent prediction.':preference.property_group_used_for_training?'Other photos from this property group helped train the candidate.':'Property group not used to train this preference head.','room-note muted'));
+   const detail=el('details');detail.append(el('summary','Model score (uncalibrated)'),el('p',`${preference.score.toFixed(3)} on a 0–1 scale. Not an acceptance, profit, or certainty probability.`,'small muted'));body.append(detail);
+  }
+  const answer=roomPreference(row),saved=el('div',answer?`Saved: ${answer.preference==='target'?'Yes — work I want':answer.preference==='not_target'?'No':'Can’t tell'}`:'Not answered','room-status');
+  const votes=el('div',null,'room-votes');
+  for(const [choice,title]of [['target','Yes — work I want'],['not_target','No'],['unsure',"Can't tell"]]){
+   const b=el('button',title);b.dataset.roomVote=choice;b.setAttribute('aria-pressed',answer?.preference===choice?'true':'false');b.disabled=roomSaving||row.learning_allowed===false;
+   b.onclick=()=>saveRoomPreference(row,choice,votes,saved);votes.append(b);
+  }
+  body.append(saved,votes);body.append(el('p',row.learning_allowed===false?'Reserved test example, not used for interactive preference teaching.':'Learning example: this answer is available to the next training round.','small muted'));
+  article.append(photo,body);return article;
+ }));
+ $('room-more').hidden=roomShown>=rows.length;
+ if(!rows.length){
+  const empty=el('div',null,'panel');empty.append(el('h3','No unanswered photos match these filters.'),el('p','Press Train with my changes to learn from your saved feedback and re-score the existing photos. Or show all scores to inspect a broader learning set. This does not fetch more MLS photos.','muted'));$('room-gallery').append(empty);
+ }
+}
+function disableRoomActions(value){document.querySelectorAll('[data-room-vote],[data-room-action],#refresh-rooms').forEach(button=>{const id=button.closest('[data-image-id]')?.dataset.imageId;const row=id?D.images.find(x=>x.id===id):null;button.disabled=value||Boolean(button.dataset.roomVote&&row?.learning_allowed===false)})}
+async function persistRoomFeedback(payload){
+ const reviewer=$('room-reviewer').value.trim();if(!reviewer)throw Error('Enter your name or initials once before saving.');
+ const response=await fetch('/api/reviews',{method:'POST',headers:{'Content-Type':'application/json','X-Review-Token':D.token},body:JSON.stringify({...payload,reviewer,status:'approved',expected_revision:D.reviews.revision})});
+ const value=await response.json();if(!response.ok)throw Error(value.error||'Feedback not saved');
+ D.reviews=value;$('reviewer').value=reviewer;$('guide-reviewer').value=reviewer;
+ renderTrainingStatus();
+}
+async function saveRoomCorrection(row,room){
+ if(roomSaving)return;
+ if(room===effectiveRoom(row)){roomFeedback('Choose the correct room first. No change saved.');return}
+ roomSaving=true;disableRoomActions(true);
+ try{
+  await persistRoomFeedback({kind:'room_correction',id:row.id,room,reason:'User corrected the displayed room bucket',notes:''});
+  roomSaving=false;drawRooms();roomFeedback(`Room corrected to ${label(room)}. The next photo is shown.${row.learning_allowed!==false?' Saved to teach the next training round.':' Reserved test correction; not added to training without an explicit split revision.'}`);
+ }catch(error){roomSaving=false;disableRoomActions(false);roomFeedback(error.message+' Not saved. Use Refresh photos if another window changed your reviews.',true)}
+}
+async function refreshRoomQueue(){
+ if(roomSaving)return;roomSaving=true;disableRoomActions(true);
+ try{
+  const response=await fetch('/api/bootstrap');if(!response.ok)throw Error('Could not refresh photos');
+  const next=await response.json();const oldVersion=D.candidate?.version;D=next;roomSaving=false;drawRooms();if(D.training?.status==='running')pollTraining();roomFeedback(oldVersion!==D.candidate?.version?'Loaded the new trained model and regenerated predictions.':'Saved answers reloaded. To change model predictions, use Train with my changes.');
+ }catch(error){roomSaving=false;disableRoomActions(false);roomFeedback(error.message+' Your saved reviews were not changed.',true)}
+}
+async function saveRoomPreference(row,choice,votes,status){
+ if(roomSaving)return;
+ const reviewer=$('room-reviewer').value.trim();
+ if(!reviewer){roomFeedback('Enter your name or initials once, then choose Yes, No or Can’t tell.',true);$('room-reviewer').focus();return}
+ roomSaving=true;disableRoomActions(true);status.textContent='Saving…';
+ const reason={target:'Visible room has renovation work I want',not_target:'Visible room does not match the renovation work I want',unsure:'Cannot judge suitable work from this photo'}[choice];
+ try{
+  if(row.learning_allowed===false)throw Error('Reserved test example is not a learning item.');
+  await persistRoomFeedback({kind:'room_preference',id:row.id,room:effectiveRoom(row),preference:choice,reason,notes:roomPreference(row)?.notes||''});
+  roomSaving=false;drawRooms();
+  roomFeedback('Saved for the next training round. Press Train with my changes when ready; property decisions are unchanged.');
+ }catch(error){roomSaving=false;status.textContent='Not saved';roomFeedback(error.message+' Reload if another window changed your reviews; no labels were overwritten.',true)}
+ disableRoomActions(false);
+}
+function initializeRooms(){
+ $('room-reviewer').value=$('guide-reviewer').value||$('reviewer').value;
+ $('room-split').replaceChildren();for(const [value,title]of [['learn','Learning queue — all answers teach'],['test','Reserved test — read only']]){const option=el('option',title);option.value=value;$('room-split').append(option)}
+ $('room-filter').value='unreviewed';
+ const entry=new URLSearchParams(location.search);
+ const requestedRoom=entry.get('room');
+ if([...document.querySelectorAll('[data-room-group]')].some(button=>button.dataset.roomGroup===requestedRoom))roomGroup=requestedRoom;
+ const requestedFilter=entry.get('show');
+ if([...$('room-filter').options].some(option=>option.value===requestedFilter))$('room-filter').value=requestedFilter==='candidate_new'?'unreviewed':requestedFilter;
+ const requestedSplit=entry.get('split');
+ if(requestedSplit==='test')$('room-split').value='test';else $('room-split').value='learn';
+ if(entry.has('scoreAbove')){
+  const requestedThreshold=parseScoreThreshold(entry.get('scoreAbove'));
+  if(requestedThreshold.valid)$('room-threshold').value=requestedThreshold.value??'';
+ }
+ document.querySelectorAll('[data-room-group]').forEach(b=>b.onclick=()=>{if(roomSaving)return;roomGroup=b.dataset.roomGroup;roomShown=20;roomFeedback('');drawRooms()});
+ $('room-filter').onchange=()=>{roomShown=20;drawRooms()};
+ $('room-split').onchange=()=>{roomShown=20;roomFeedback('');drawRooms()};
+ $('room-threshold').oninput=()=>{roomShown=20;drawRooms()};
+ $('room-all-scores').onclick=()=>{$('room-threshold').value='';roomShown=20;drawRooms()};
+ $('room-more').onclick=()=>{roomShown+=20;drawRooms()};
+ $('refresh-rooms').onclick=refreshRoomQueue;
+ $('room-auto-next').onchange=()=>{roomShown=20;drawRooms()};
+ $('train-changes').onclick=trainWithChanges;
+ if(D.training?.status==='running')pollTraining();
+}
+let trainingTimer=null,trainingRequest=false;
+function renderTrainingStatus(){
+ const status=D.training||{},pending=D.reviews.revision>(D.candidate?.review_revision??-1),running=status.status==='running'||trainingRequest;
+ $('train-changes').disabled=running||!pending&&D.candidate?.learning_mode;
+ $('train-changes').textContent=running?'Training… then refreshing predictions':'Train with my changes & predict again';
+ $('learning-status').textContent=running?`Training saved review revision ${status.review_revision??D.reviews.revision}. You can keep reviewing; later answers are saved for the following run.`:
+ status.status==='failed'?`Training failed: ${status.message}. Your reviews and prior model are safe.`:
+ pending?`Saved review revision ${D.reviews.revision}; current model uses revision ${D.candidate?.review_revision??'none'}. Press Train to apply your new feedback.`:
+ `Model is up to date with review revision ${D.candidate?.review_revision}. The photos below use that model.`;
+}
+async function trainWithChanges(){
+ if(trainingRequest||D.training?.status==='running'||roomSaving)return;
+ trainingRequest=true;renderTrainingStatus();
+ try{
+  const response=await fetch('/api/train',{method:'POST',headers:{'Content-Type':'application/json','X-Review-Token':D.token},body:JSON.stringify({expected_revision:D.reviews.revision})});
+  const value=await response.json();if(!response.ok)throw Error(value.error||'Could not start training');
+  D.training=value;trainingRequest=false;renderTrainingStatus();
+  if(value.status==='running')pollTraining();else await refreshRoomQueue();
+ }catch(error){trainingRequest=false;renderTrainingStatus();roomFeedback(error.message+' No model change was claimed. Reload saved answers and retry.',true)}
+}
+function pollTraining(){
+ if(trainingTimer)return;
+ const poll=async()=>{
+  try{
+   const response=await fetch('/api/training');if(!response.ok)throw Error('Could not read training status');
+   D.training=await response.json();renderTrainingStatus();
+   if(D.training.status==='running'){trainingTimer=setTimeout(poll,2000);return}
+   trainingTimer=null;
+   if(D.training.status==='completed'){const response=await fetch('/api/bootstrap');if(!response.ok)throw Error('New model is saved but results could not reload');D=await response.json();roomShown=20;drawRooms();roomFeedback('Training finished. New model scores and photo suggestions are loaded. Your saved answers remain preserved.')}
+   else roomFeedback(D.training.message||'Training did not complete. Previous model retained.',true);
+  }catch(error){trainingTimer=null;roomFeedback(error.message+' Your reviews remain saved; reload to reconnect.',true)}
+ };
+ trainingTimer=setTimeout(poll,1000);
+}
+init().then(()=>{if(D)initializeGuide()});
+</script>
+</body>
+</html>

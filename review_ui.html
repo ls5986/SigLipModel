@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ACQ Vision · Review</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+*{box-sizing:border-box}body{margin:0;color:var(--cp-text);background:var(--cp-bg);font:14px/1.45 "Segoe UI",Aptos,Calibri,-apple-system,BlinkMacSystemFont,sans-serif;height:100dvh;display:flex;flex-direction:column}
+button,input,select,textarea{font:inherit;color:inherit}button,.button{border:1px solid var(--cp-border);background:var(--cp-surface);border-radius:.625rem;padding:9px 13px;cursor:pointer;text-decoration:none;white-space:nowrap}
+button:hover,.button:hover{border-color:var(--cp-accent);background:var(--cp-accent-soft)}button:disabled{opacity:.45;cursor:not-allowed}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--cp-accent);outline-offset:2px}
+.primary{background:var(--cp-accent);border-color:var(--cp-accent);color:var(--cp-accent-fg)}.primary:hover{background:var(--cp-accent-hover);color:var(--cp-accent-fg)}a{color:var(--cp-link)}h1,h2,h3,p{margin:0}h1{font-size:20px;line-height:1.3}h2{font-size:16px}h3{font-size:14px}
+.muted,small{color:var(--cp-text-muted)}small,.small{font-size:12px}.eyebrow{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cp-text-soft)}
+.row{display:flex;align-items:center;gap:10px}.spread{justify-content:space-between}.wrap{flex-wrap:wrap}.stack{display:grid;gap:12px}.badge{display:inline-block;font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--cp-border);background:var(--cp-surface-soft)}.accent{color:var(--cp-accent);background:var(--cp-accent-soft)}.notice{padding:12px;border-radius:.625rem;background:var(--cp-surface-soft);border:1px solid var(--cp-border);font-size:13px}.warning{border-left:3px solid var(--cp-warning)}.error{border-left:3px solid var(--cp-danger)}
+header{height:64px;padding:0 24px;background:var(--cp-surface);border-bottom:1px solid var(--cp-border);display:flex;align-items:center;justify-content:space-between;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;white-space:nowrap}.logo{display:grid;place-items:center;background:var(--cp-accent);color:var(--cp-accent-fg);border-radius:10px;width:32px;height:32px;font-weight:800}
+nav{display:flex;gap:8px;align-items:center}nav button{border:0;background:var(--cp-surface)}nav button[aria-current="page"]{color:var(--cp-accent);background:var(--cp-accent-soft);font-weight:600}nav a{color:var(--cp-text-muted);text-decoration:none;padding:8px}
+.statusbar{min-height:52px;padding:10px 24px;border-bottom:1px solid var(--cp-border);background:var(--cp-bg-elevated)}#message{margin:8px 24px;display:flex;align-items:center;gap:12px}#message[hidden]{display:none}#message-text{flex:1}
+.workspace{display:grid;grid-template-columns:232px minmax(320px,1fr) 320px;flex:1;min-height:0;gap:0}
+.queue{background:var(--cp-surface);border-right:1px solid var(--cp-border);display:flex;flex-direction:column;min-height:0}.queue-tools{padding:16px;display:grid;gap:10px}.queue-tools input,.queue-tools select{width:100%;min-width:0;padding:8px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface)}
+#queue-list{overflow:auto;flex:1;padding:0 8px}.queue-item{display:flex;gap:9px;text-align:left;white-space:normal;width:100%;padding:10px 8px;margin-bottom:5px;border-color:var(--cp-surface)}.queue-item[aria-current="true"]{border-color:var(--cp-accent);background:var(--cp-accent-soft)}.queue-item img{width:54px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0}.queue-item strong{font-size:12px;display:block}.queue-item small{display:block;font-size:11px}.queue-item .copy{min-width:0;overflow-wrap:anywhere}.pagination{padding:12px 10px;border-top:1px solid var(--cp-border)}
+.viewer{padding:18px;display:flex;flex-direction:column;min-width:0;min-height:0;gap:12px}.property-heading{min-height:48px}.photo-stage{position:relative;flex:1;min-height:180px;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:12px;overflow:hidden;display:grid;place-items:center}.photo-stage img{width:100%;height:100%;object-fit:contain;position:absolute}.photo-stage .image-state{z-index:1;background:var(--cp-panel-strong);padding:16px;border-radius:10px;max-width:90%;text-align:center}.photo-stage .image-state[hidden]{display:none}.photo-step{position:absolute;bottom:12px;right:12px;z-index:2;background:var(--cp-panel-strong);padding:5px;border-radius:10px}.photo-step button{padding:5px 12px}
+.room-tabs{display:flex;gap:6px;overflow:auto;flex-shrink:0}.room-tabs button{font-size:12px;padding:6px 10px}.room-tabs button[aria-pressed="true"]{color:var(--cp-accent);background:var(--cp-accent-soft);border-color:var(--cp-accent)}
+.filmstrip{display:flex;gap:8px;overflow:auto;min-height:82px;padding:2px}.filmstrip button{padding:2px;flex:0 0 90px;border-radius:7px;font-size:10px;background:var(--cp-surface);white-space:normal}.filmstrip img{display:block;width:84px;height:53px;object-fit:cover;border-radius:4px}.filmstrip button[aria-current="true"]{border:2px solid var(--cp-accent);padding:1px}
+.inspector{background:var(--cp-surface);border-left:1px solid var(--cp-border);padding:20px;overflow:auto;display:flex;flex-direction:column;gap:18px}.decision-title{font-size:27px;font-weight:700;line-height:1.2;letter-spacing:-.02em}.section{border-top:1px solid var(--cp-border);padding-top:16px}.kv{display:grid;grid-template-columns:1fr auto;gap:8px;font-size:12px}.context-tags{display:flex;flex-wrap:wrap;gap:6px}.score{font-size:22px;font-variant-numeric:tabular-nums}#model-reason{font-size:13px}#score-button{width:100%}#photo-notes{font-size:12px}#matching{display:none}.matching-mode #matching{display:grid}.matching-mode #assessment{display:none}.matching-mode #economics{display:none}
+footer{min-height:80px;background:var(--cp-surface);border-top:1px solid var(--cp-border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}.footer-copy{max-width:420px}.footer-copy small{display:block}.actions{display:flex;gap:8px}.actions button{padding:11px 18px}label{display:grid;gap:6px}input,select,textarea{padding:10px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface);min-width:0}textarea{resize:vertical;width:100%;min-height:75px}
+dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:24px;max-width:560px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}dialog::backdrop{background:var(--cp-overlay)}dialog form{display:grid;gap:16px}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}.features{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px}dialog img{max-height:170px;max-width:100%;object-fit:contain}ul{padding-left:19px;margin:5px 0}#queue-toggle{display:none}
+@media(min-width:1600px){.workspace{grid-template-columns:260px minmax(320px,1fr) 350px}.viewer{padding:24px}}
+@media(max-width:1050px){.workspace{grid-template-columns:200px minmax(260px,1fr) 270px}.viewer{padding:12px}.inspector{padding:14px}.actions button{padding:10px 12px}.footer-copy{max-width:260px}}
+@media(max-width:780px){body{height:auto;min-height:100dvh}header{height:auto;min-height:60px;padding:12px;flex-wrap:wrap;gap:8px}nav{width:100%;justify-content:space-between}nav a{font-size:12px}.statusbar{padding:10px 12px}.workspace{display:flex;flex-direction:column;height:auto;min-height:0}.queue{display:none;max-height:360px;border-bottom:1px solid var(--cp-border)}.queue.expanded{display:flex}#queue-toggle{display:inline-block}.viewer{padding:12px}.photo-stage{height:40dvh;flex:none;min-height:230px}.inspector{border-left:0;border-top:1px solid var(--cp-border)}footer{position:sticky;bottom:0;z-index:5;flex-direction:column;padding:10px;gap:8px}.footer-copy{max-width:none;font-size:12px}.footer-copy small{display:none}.actions{width:100%}.actions button{flex:1;padding:10px 5px;font-size:12px}#message{margin:8px 12px}.features{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+ <div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span class="badge">Local preview</span></div>
+ <nav aria-label="Workspace"><button id="review-nav" aria-current="page">Review</button><button id="match-nav">Photo matching</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a></nav>
+ <button id="reviewer-button" class="small">Your name</button>
+</header>
+<div class="statusbar row spread wrap">
+ <div class="row wrap"><button id="queue-toggle">Properties</button><strong id="task-heading">Review properties</strong><span id="progress" class="muted small">Connecting…</span></div>
+ <div class="row"><button id="ready-button" class="primary small" disabled>Review ready properties</button><button id="refresh" class="small">Reload</button></div>
+</div>
+<div id="message" role="status" hidden class="notice"><span id="message-text"></span><button id="retry" hidden>Retry</button><button id="dismiss" aria-label="Dismiss message">×</button></div>
+<main class="workspace">
+ <aside class="queue" aria-label="Property queue">
+  <form class="queue-tools" id="search-form">
+   <div class="row spread"><strong id="queue-title">Properties</strong><small id="queue-count"></small></div>
+   <input id="search" type="search" placeholder="Search address or MLS ID" aria-label="Search properties">
+   <select id="dataset-scope" aria-label="Dataset"><option value="acquisitions">Your acquisition candidates</option><option value="quarantine">Wrong era / needs earlier listing</option><option value="reference">Other reference properties</option></select>
+   <select id="queue-filter" aria-label="Review queue"><option value="all">All properties</option><option value="ready">Ready to review</option><option value="unscored">Not scored / retry needed</option><option value="reviewed">Reviewed</option></select>
+  </form>
+  <div id="queue-list"><p class="muted" style="padding:12px">Loading your properties…</p></div>
+  <div class="pagination row spread"><button id="queue-prev" aria-label="Previous property page">←</button><small id="page-number">—</small><button id="queue-next" aria-label="Next property page">→</button></div>
+ </aside>
+ <section class="viewer" aria-label="Property photos">
+  <div class="property-heading row spread"><div><h1 id="address">Your photos belong here</h1><p id="property-meta" class="muted small">Choose a property to get started.</p></div><a id="original-link" class="button small" target="_blank" rel="noopener" hidden>Original ↗</a></div>
+  <div class="photo-stage">
+   <img id="hero" alt="" hidden>
+   <div id="image-state" class="image-state">Loading the review queue…</div>
+   <div class="photo-step row"><button id="photo-prev" aria-label="Previous photo">←</button><small id="photo-position">0 / 0</small><button id="photo-next" aria-label="Next photo">→</button></div>
+  </div>
+  <div class="row spread"><strong id="photo-caption">Property photos</strong><button id="edit-photo" class="small" disabled>Correct this photo</button></div>
+  <div id="rooms" class="room-tabs" aria-label="Filter photos by room"></div>
+  <div id="filmstrip" class="filmstrip" aria-label="Photo thumbnails"></div>
+ </section>
+ <aside class="inspector" aria-label="Assessment and photo details">
+  <section id="assessment" class="stack">
+   <div id="listing-evidence" class="notice small"></div>
+   <button id="flag-era" class="small">These look like the later remodel</button>
+   <span class="eyebrow">AI visual assessment</span><h2 id="decision-title" class="decision-title">Not scored yet</h2>
+   <p id="model-reason" class="muted">No invented scores. Choose a property, then score it to get an AI draft.</p>
+   <div id="coverage" class="context-tags"></div><p id="condition" class="small"></p>
+   <div id="assessment-warning" class="notice warning" hidden></div>
+   <button id="score-button" class="primary" disabled>Score this property</button><small id="model-version"></small>
+  </section>
+  <section id="matching" class="stack">
+   <span class="eyebrow">Historical photo check</span><h2>Is this the right photo set?</h2>
+   <p class="small muted">Match the property and acquisition era. This does not approve its investment potential.</p>
+   <div id="sale-context" class="stack"></div><p id="era-state" class="notice warning"></p>
+  </section>
+  <section class="section stack">
+   <div class="row spread"><h3>This photo</h3><span id="photo-context" class="badge">Unknown</span></div>
+   <div class="kv"><span>Room</span><strong id="photo-room">—</strong><span>Local preference score</span><strong id="local-score">Not scored</strong><span>GPT scope score</span><strong id="gpt-score">Not scored</strong></div>
+   <small>Different raw scores—not accuracy or profit probabilities.</small>
+   <div id="feature-tags" class="context-tags"></div><p id="photo-notes" class="muted"></p>
+  </section>
+  <section id="economics" class="section stack"><span class="eyebrow">Deal economics</span><strong>Not connected yet</strong><p class="muted small">Comps and costs are not wired into this reviewer. A visual Yes is not a buy recommendation.</p></section>
+  <p id="saved-answer" class="notice" hidden></p>
+ </aside>
+</main>
+<footer><div class="footer-copy"><strong id="next-instruction">Start by scoring a property.</strong><small id="action-note">Then confirm or correct the proposed answer. Your review saves separately.</small></div>
+ <div class="actions"><button id="agree" class="primary" disabled>Agree &amp; next</button><button id="correct" disabled>Correct answer</button><button id="unsure" disabled>Can’t tell</button><button id="skip" disabled>Skip →</button></div>
+</footer>
+<dialog id="name-dialog"><form id="name-form"><h2>What name should go on your reviews?</h2><p class="muted">Enter it once. Your original answers stay separate from model drafts.</p><input id="name-input" maxlength="100" required autocomplete="name" aria-label="Reviewer name"><div class="dialog-actions"><button type="button" data-close="name-dialog">Cancel</button><button class="primary">Continue</button></div></form></dialog>
+<dialog id="answer-dialog"><form id="answer-form"><h2 id="answer-heading">Correct the property answer</h2><p class="muted small">Visual renovation fit only. Photo labels and economics are unchanged.</p><label>Your answer<select id="answer-fit"><option value="target">Yes — target project</option><option value="not_target">No — not my target</option><option value="unsure">Can’t tell</option></select></label><label>Condition<select id="answer-condition"><option value="unknown">Unknown</option><option value="mixed">Mixed updates</option><option value="dated">Dated / cosmetic work</option><option value="updated">Updated</option><option value="rough">Rough / substantial work</option><option value="major">Major rehab</option></select></label><label>What should the model learn?<textarea id="answer-reason" required maxlength="2000" placeholder="e.g. Kitchen updated, but two dated bathrooms still make this a target."></textarea></label><div class="dialog-actions"><button type="button" data-close="answer-dialog">Cancel</button><button class="primary">Save &amp; next</button></div></form></dialog>
+<dialog id="score-dialog"><form id="score-form"><h2>Generate an AI draft</h2><p id="score-summary"></p><p class="notice warning">One paid GPT-4.1 mini call. Up to 8 selected photos—not the full photo set. Cost estimate unavailable. Nothing runs until you authorize it.</p><div id="score-thumbnails" class="filmstrip"></div><label class="row"><input type="checkbox" id="paid-check"> I authorize this one paid request.</label><p class="small muted">Results are drafts. Missing or uncertain evidence can produce “Can’t tell.”</p><div class="dialog-actions"><button type="button" data-close="score-dialog">Cancel</button><button id="run-score" class="primary" disabled>Generate draft</button></div></form></dialog>
+<dialog id="photo-dialog"><form id="photo-form"><h2>Correct this photo</h2><img id="photo-dialog-image" alt="Photo being reviewed"><label>Actual room<select id="photo-edit-room"></select></label><label>Is this the room work you want?<select id="photo-preference"><option value="">Not judged</option><option value="target">Yes</option><option value="not_target">No</option><option value="unsure">Can’t tell</option></select></label><p class="small muted">Review the proposed tags below. Unknown means not established, not absent.</p><div id="photo-features" class="features"></div><label>Notes<textarea id="photo-edit-notes" maxlength="4000"></textarea></label><p class="notice small">Saves this photo’s room, tags and preference only. It does not approve the property or verify photo dates.</p><div class="dialog-actions"><button type="button" data-close="photo-dialog">Cancel</button><button class="primary">Save photo labels</button></div></form></dialog>
+<dialog id="era-dialog"><form id="era-form"><h2>Verify the historical photo set</h2><label>Photo-era judgment<select id="era-decision"><option value="correct_era">Right property and acquisition era</option><option value="wrong_era">Wrong property or era</option><option value="unsure">Cannot verify</option></select></label><label>What supports your answer?<textarea id="era-reason" required maxlength="2000" placeholder="Compare the original listing and sale dates—not just the current address."></textarea></label><p class="notice small">This records your photo-era judgment. Duplicate, amenity and train/test checks remain separate.</p><div class="dialog-actions"><button type="button" data-close="era-dialog">Cancel</button><button class="primary">Save &amp; next</button></div></form></dialog>
+<script>
+(() => {
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'acquisitions',mode:'review',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false};
+ const ROOMS=['kitchen','bathroom','living','bedroom','exterior','outdoor','other'];
+ const FEATURES=['dated_kitchen','dated_bathroom','old_flooring','old_cabinetry','dated_appliances','dated_lighting','dated_fixtures','damaged_surfaces','popcorn_ceiling','wood_paneling','clutter_obscures_condition','empty_presentation','visible_deferred_maintenance'];
+ const INTERIOR=['kitchen','bathroom','living','bedroom','other'];
+ const SCOPES={dated_kitchen:['kitchen'],dated_bathroom:['bathroom'],old_cabinetry:['kitchen','bathroom','other'],dated_appliances:['kitchen'],old_flooring:INTERIOR,dated_lighting:INTERIOR,dated_fixtures:['kitchen','bathroom'],popcorn_ceiling:INTERIOR};
+ const captions={target:'Yes — target',not_target:'No — not my target',unsure:'Can’t tell',ready:'Ready to review',unscored:'Not scored',reviewed:'Reviewed',running:'Scoring…',failed:'Scoring needs retry',UPDATED_TURNKEY:'Updated',DATED_VALUE_ADD:'Dated / value-add',ROUGH_HEAVY_VALUE_ADD:'Rough / substantial work',MAJOR_REHAB:'Major rehab',UNKNOWN:'Unknown',shared_amenity:'Shared amenity',subject:'Subject property',floor_plan:'Floor plan',unknown:'Unknown'};
+ const label=x=>captions[x] || String(x||'Unknown').replaceAll('_',' ').replace(/^\w/,c=>c.toUpperCase());
+ const imageURL=id=>'/api/studio/image?'+new URLSearchParams({id});
+ const thumbURL=id=>'/api/studio/thumbnail?'+new URLSearchParams({id});
+ const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;};
+ const btn=(text,fn,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=fn;return b;};
+ const score=v=>typeof v==='number'&&Number.isFinite(v)?v.toFixed(2):'Not scored';
+ const current=()=>S.detail?.images.find(i=>i.id===S.photo);
+ const aiPhoto=id=>S.detail?.assessment?.prediction?.images?.find(i=>i.image_id===id);
+ const roomOf=i=>i.effective?.room || i.review?.room || aiPhoto(i.id)?.room || i.room || 'other';
+ const condition=job=>job?.prediction?.update_consistency==='mixed'?'mixed':({UPDATED_TURNKEY:'updated',DATED_VALUE_ADD:'dated',ROUGH_HEAVY_VALUE_ADD:'rough',MAJOR_REHAB:'major'}[job?.prediction?.condition_label]||'unknown');
+ function note(message,error=false,retry=null){$('message').hidden=false;$('message').className='notice '+(error?'error':'');$('message-text').textContent=message;S.retry=retry;$('retry').hidden=!retry;
+  const dialog=document.querySelector('dialog[open]');if(error&&dialog){let feedback=dialog.querySelector('.dialog-error');if(!feedback){feedback=el('p',null,'notice error dialog-error');feedback.setAttribute('role','alert');dialog.append(feedback);}feedback.textContent=message;}
+ }
+ async function api(path,body){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),body===undefined?20000:60000);
+  try{
+   const options={signal:controller.signal,cache:'no-store',redirect:'error',credentials:'same-origin'};
+   if(body!==undefined){if(!S.token)throw Error('Reload to reconnect before saving.');options.method='POST';options.headers={'Content-Type':'application/json','X-Review-Token':S.token};options.body=JSON.stringify(body);}
+   const response=await fetch('/api/studio/'+path,options);const data=await response.json();
+   if(!response.ok){const error=Error(data.error||'Request failed');error.status=response.status;throw error;}
+   return data;
+  }catch(error){if(controller.signal.aborted)throw Error(body===undefined?'Loading timed out. Use Reload to reconnect.':'Request timed out. Check saved data or job status before resubmitting.');throw error;}finally{clearTimeout(timer);}
+ }
+ function controls(){
+  const has=!!S.detail,job=S.detail?.assessment,blocked=!!S.detail?.historical_source?.blocked,ready=job?.status==='completed'&&!!job.prediction;
+  $('agree').disabled=S.busy||!has||blocked||(S.mode==='review'&&!ready);
+  $('correct').disabled=S.busy||!has||(S.mode==='review'&&blocked);$('unsure').disabled=S.busy||!has||(S.mode==='review'&&blocked);$('skip').disabled=S.busy||!has;
+  $('score-button').disabled=S.busy||!has||blocked||!S.detail?.images?.length||job?.status==='running';
+  $('flag-era').disabled=S.busy||!S.detail?.historical_source;
+  $('edit-photo').disabled=S.busy||blocked||!current()||!S.imageLoaded;
+  $('refresh').disabled=S.busy;$('queue-prev').disabled=S.busy||S.offset===0;$('queue-next').disabled=S.busy||S.offset+20>=S.total;
+  $('ready-button').disabled=S.busy||!S.counts.ready;
+  document.documentElement.setAttribute('aria-busy',String(S.busy));
+ }
+ async function action(fn){
+  if(S.busy)return;for(const e of document.querySelectorAll('.dialog-error'))e.remove();S.busy=true;controls();
+  try{await fn();}catch(e){note((e.status===409?'Another window changed this answer. Your edits are preserved; reload before saving. ':'')+e.message,true,e.status===409?null:()=>action(loadQueue));}
+  finally{S.busy=false;controls();}
+ }
+ function editing(){return !!document.querySelector('dialog[open]');}
+ function remember(){try{localStorage.setItem('acq-studio-reviewer',S.name);}catch{}$('reviewer-button').textContent=S.name||'Your name';}
+ function withName(fn){if(S.name)return fn();S.pending=fn;$('name-input').value='';$('name-dialog').showModal();}
+ function drawQueue(){
+  $('queue-count').textContent=S.total;
+  $('page-number').textContent=S.total?`${S.offset+1}–${Math.min(S.offset+20,S.total)}`:'0 properties';
+  $('queue-list').replaceChildren(...S.items.map(i=>{
+   const button=btn('',()=>action(()=>openProperty(i.id)),'queue-item');button.dataset.propertyId=i.id;button.setAttribute('aria-current',String(S.detail?.property.id===i.id));
+   if(i.hero_image_id){const img=el('img');img.src=thumbURL(i.hero_image_id);img.alt='';img.loading='lazy';button.append(img);}
+   const copy=el('span',null,'copy');copy.append(el('strong',i.address),el('small',[i.city,`${i.image_count} photos`].filter(Boolean).join(' · ')),el('small',S.mode==='matching'?'Photo era unverified':label(i.status)));
+   button.append(copy);return button;
+  }));
+  if(!S.items.length)$('queue-list').append(el('p','No properties in this queue. Choose All properties or score an unscored property.','notice'));
+ }
+ async function loadQueue(prefer=null){
+  const data=await api('review-queue?'+new URLSearchParams({queue:S.mode==='matching'?'photo_match':S.filter,scope:S.scope,search:$('search').value.trim(),offset:S.offset,limit:20}));
+  S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
+  if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
+  $('progress').textContent=`${S.counts.ready} ready · ${S.counts.unscored} not scored · ${S.counts.reviewed} reviewed`;
+  $('ready-button').textContent=`Review ready (${S.counts.ready})`;drawQueue();
+  const next=S.items.find(i=>i.id===prefer)||S.items.find(i=>i.id===S.detail?.property.id)||S.items[0];
+  if(next)await openProperty(next.id);else{S.detail=null;draw();}
+ }
+ async function openProperty(id){
+  const ticket=++S.request;const detail=await api('property?'+new URLSearchParams({id}));
+  if(ticket!==S.request)return;
+  const same=S.detail?.property.id===id,oldPhoto=S.photo;S.detail=detail;S.room='all';
+  S.photo=same&&detail.images.some(i=>i.id===oldPhoto)?oldPhoto:(detail.images.find(i=>roomOf(i)==='kitchen')||detail.images[0])?.id;
+  document.querySelector('.queue').classList.remove('expanded');drawQueue();draw();
+ }
+ function draw(){
+  const d=S.detail,p=d?.property,job=d?.assessment;
+  $('address').textContent=p?.address||'No property selected';
+  const m=p?.metadata||{};
+  $('property-meta').textContent=p?[p.city,p.year_built?'Built '+p.year_built:null,m.ListingId?'MLS '+m.ListingId:null,m.CloseDate?'Sold '+m.CloseDate:null].filter(Boolean).join(' · '):'Choose another queue.';
+  document.body.classList.toggle('matching-mode',S.mode==='matching');
+  $('task-heading').textContent=S.mode==='matching'?'Verify historical photos':'Review properties';
+  $('queue-filter').disabled=S.mode==='matching';
+  $('review-nav').setAttribute('aria-current',S.mode==='review'?'page':'false');$('match-nav').setAttribute('aria-current',S.mode==='matching'?'page':'false');
+  $('agree').textContent=S.mode==='matching'?'Right photos & next':'Agree & next';
+  $('correct').textContent=S.mode==='matching'?'Wrong photos':'Correct answer';
+  $('decision-title').textContent=d?.historical_source?.blocked?'Wrong / uncertain era':job?.status==='completed'?label(job.review_target):job?.status==='running'?'Scoring…':job?.status==='failed'?'Scoring failed':'Not scored yet';
+  $('model-reason').textContent=job?.prediction?.target_reason||'First, generate an AI draft. Then confirm or correct whether this is the renovation project you want.';
+  $('condition').textContent=job?.prediction?'Condition: '+label(condition(job)):'';
+  $('model-version').textContent=job?.prediction?`${job.model} · ${job.image_count} selected photos · AI draft`:'AI requests require approval. No auto-training.';
+  $('score-button').textContent=job?.prediction?'Re-score property':job?.status==='running'?'Generating draft…':'Score this property';
+  const warnings=[...(job?.review_warnings||[]),...(job?.error?[job.error]:[])];
+  if(d?.historical_source?.blocked)warnings.push(d.historical_source.block_reason);
+  if(d?.historical_source&&!d.historical_source.timing_verified)warnings.push('Historical photo era not verified. Use Photo matching before training.');
+  $('assessment-warning').hidden=!warnings.length;$('assessment-warning').textContent=warnings.join('. ');
+  $('coverage').replaceChildren(...Object.entries(job?.prediction?.coverage||d?.coverage||{}).map(([room,value])=>el('span',label(room)+': '+(value===true?'seen':value===false?'not shown':value),'badge')));
+  const r=p?.review;$('saved-answer').hidden=r?.status!=='approved';$('saved-answer').textContent=r?.status==='approved'?'Your saved answer: '+label(r.target_fit):'';
+  $('next-instruction').textContent=S.mode==='matching'?'Are these the right acquisition-era photos?':job?.prediction?'Does the AI answer match your judgment?':'Start here: score this property.';
+  $('action-note').textContent=S.mode==='matching'?'Confirm the listing and dates, not just how the house looks.':'Property review only. Photo labels and deal economics stay separate.';
+  const h=d?.historical_source;
+  $('listing-evidence').textContent=h?`MLS ${m.ListingId||p.id} · closes ${String(m.CloseDate||'unknown').slice(0,10)} · prior acquisition ${String(h.source['Prior Sale Date']||'unknown').slice(0,10)}. ${h.blocked?'Quarantined: not valid acquisition evidence.':h.timing_verified?'Photo era confirmed.':'Prior transaction candidate; photo timing still unverified.'}`:'Reference property — not from your acquisition list.';
+  if(h?.blocked)$('next-instruction').textContent='Wrong/ambiguous era: do not train on this set.';
+  $('sale-context').replaceChildren();
+  if(h){for(const prefix of ['Prior','Last'])$('sale-context').append(el('p',`${prefix} sale: ${String(h.source[prefix+' Sale Date']||'Unknown').slice(0,10)} · ${h.source[prefix+' Sale Amount']==null?'Unknown price':'$'+Number(h.source[prefix+' Sale Amount']).toLocaleString()}`,'small'));
+   $('era-state').textContent=h.blocked?h.block_reason:h.timing_verified?'Photo era confirmed by reviewer. Training checks still separate.':'Candidate listing match—not verified photo timing.';}
+  else $('era-state').textContent='No spreadsheet acquisition match is attached to this property.';
+  drawPhotos();controls();
+ }
+ function photoList(){return(S.detail?.images||[]).filter(i=>S.room==='all'||roomOf(i)===S.room);}
+ function drawPhotos(){
+  const images=S.detail?.images||[],rooms=[...new Set(images.map(roomOf))];
+  rooms.sort((a,b)=>ROOMS.indexOf(a)-ROOMS.indexOf(b));
+  $('rooms').replaceChildren(...['all',...rooms].map(room=>{const b=btn((room==='all'?'All photos':label(room))+' '+(room==='all'?images.length:images.filter(i=>roomOf(i)===room).length),()=>{S.room=room;S.photo=photoList()[0]?.id;drawPhotos();});b.setAttribute('aria-pressed',String(room===S.room));return b;}));
+  const photos=photoList();
+  $('filmstrip').replaceChildren(...photos.map((i,index)=>{const b=btn('',()=>{S.photo=i.id;drawHero();});b.dataset.imageId=i.id;
+   const image=el('img');image.src=thumbURL(i.id);image.alt=label(roomOf(i))+' photo '+(i.sequence??index+1);image.loading='lazy';b.append(image,el('span',label(roomOf(i))));return b;}));
+  drawHero();
+ }
+ function drawHero(){
+  const i=current(),photos=photoList(),index=photos.findIndex(p=>p.id===S.photo);
+  $('photo-position').textContent=i?`${index+1} / ${photos.length}`:'0 / 0';$('photo-prev').disabled=index<=0;$('photo-next').disabled=index<0||index>=photos.length-1;
+  for(const b of $('filmstrip').children)b.setAttribute('aria-current',String(b.dataset.imageId===S.photo));
+  $('hero').hidden=!i;$('original-link').hidden=!i;S.imageLoaded=false;
+  $('image-state').hidden=false;$('image-state').textContent=i?'Loading original photo…':'No photos in this selection.';
+  if(i){
+   const id=i.id;$('hero').onload=()=>{if(S.photo!==id)return;S.imageLoaded=true;$('image-state').hidden=true;controls();};
+   $('hero').onerror=()=>{if(S.photo!==id)return;$('image-state').textContent='Original unavailable. Do not approve this photo without seeing it.';controls();};
+   $('hero').src=imageURL(id);$('hero').alt=label(roomOf(i))+' at '+S.detail.property.address;$('original-link').href=imageURL(id);
+  }else $('hero').removeAttribute('src');
+  $('photo-caption').textContent=i?label(roomOf(i))+' · Photo '+(i.sequence??index+1):'Property photos';
+  const ai=i?aiPhoto(i.id):null,room=i?roomOf(i):'unknown',local=i?.local_model?.preferences?.[room];
+  $('photo-room').textContent=label(room);$('photo-context').textContent=label(i?.effective?.context||ai?.context||'unknown');
+  $('local-score').textContent=score(i?.effective?i.effective.local_score:typeof local==='number'?local:local?.score);$('gpt-score').textContent=score(i?.effective?i.effective.gpt_scope_score:ai?.renovation_scope_score);
+  const features=i?.effective?.features||(i?{...(ai?.features||i.features||{}),...(i.review?.features||{})}:{});
+  $('feature-tags').replaceChildren(...Object.entries(features).filter(([,v])=>v===true).map(([k])=>el('span',label(k),'badge')));
+  $('photo-notes').textContent=[i?.effective?`Room: ${i.effective.room_source}. Context: ${i.effective.context_source}.`:null,i?.provider_description,ai?.observations?.join(' ')].filter(Boolean).join(' ')||'Tags are suggestions until reviewed.';
+  controls();
+ }
+ async function nextAfterSave(id){
+  const index=S.items.findIndex(i=>i.id===id);const next=S.items[index+1]?.id;
+  if(!next&&S.offset+20<S.total)S.offset+=20;
+  await loadQueue(next||null);
+  if(!next&&S.detail?.property.id===id)note('End of this queue page. Choose another queue to continue.');
+ }
+ async function saveAnswer(fit,reason,kind){
+  await action(async()=>{
+   const d=S.detail,id=d.property.id;
+   await api('review',{kind:'property',id,expected_revision:d.property.review?.revision||0,reviewer:S.name,status:'approved',target_fit:fit,condition_label:kind,reason,
+    notes:JSON.stringify({assessment_id:d.assessment?.id||null,prediction_visible:!!d.assessment?.prediction,scope:'visual_property_fit'})});
+   $('answer-dialog').close();note('Property answer saved. Photo labels unchanged.');
+   await nextAfterSave(id);
+  });
+ }
+ function openAnswer(fit){
+  const d=S.detail;if(!d)return;$('answer-fit').value=fit||d.property.review?.target_fit||d.assessment?.review_target||'unsure';
+  $('answer-condition').value=d.property.review?.condition_label||condition(d.assessment);
+  $('answer-reason').value=fit==='unsure'?'Not enough evidence to judge this property.':d.property.review?.reason||d.assessment?.prediction?.target_reason||'';
+  $('answer-dialog').showModal();
+ }
+ function openEra(decision){if(!S.detail?.historical_source){note('No historical acquisition match is attached to this property.',true);return;}$('era-decision').value=decision;$('era-reason').value=S.detail.historical_source.review?.reason||'';$('era-dialog').showModal();}
+ async function previewScore(){
+  await action(async()=>{S.preview=await api('assessment/preview',{property_id:S.detail.property.id});S.detail.assessment=S.preview;
+   $('score-summary').textContent=S.detail.property.address+' · '+S.preview.image_count+' photos · no labels will be approved automatically.';
+   $('paid-check').checked=false;$('run-score').disabled=true;
+   const ids=S.preview.selected_images.flatMap(g=>g.image_ids||[]);$('score-thumbnails').replaceChildren(...ids.map(id=>{const im=el('img');im.src=thumbURL(id);im.alt='Selected photo';return im;}));$('score-dialog').showModal();});
+ }
+ function openPhoto(){
+  const i=current();if(!i||!S.imageLoaded)return;
+  $('photo-dialog-image').src=imageURL(i.id);const room=roomOf(i);
+  $('photo-edit-room').replaceChildren(...ROOMS.map(v=>{const o=el('option',label(v));o.value=v;return o;}));$('photo-edit-room').value=ROOMS.includes(room)?room:'other';
+  $('photo-preference').value=i.effective?.preference||'';
+  $('photo-edit-notes').value=i.review?.notes||'';
+  const ai=aiPhoto(i.id),features=i.effective?.features||{...(ai?.features||i.features||{}),...(i.review?.features||{})};
+  $('photo-edit-context').value=i.effective?.context||'unknown';
+  $('photo-features').replaceChildren(...FEATURES.map(feature=>{const l=el('label',label(feature));const s=el('select');s.dataset.feature=feature;
+   for(const [v,t]of[['','Unknown / not visible'],['true','Present'],['false','Absent']]){const o=el('option',t);o.value=v;s.append(o);}s.value=features[feature]===true?'true':features[feature]===false?'false':'';l.append(s);return l;}));
+  contextControls();$('photo-dialog').showModal();
+ }
+ const contextLabel=el('label','What does this photo show?'),contextSelect=el('select');contextSelect.id='photo-edit-context';
+ for(const [value,text]of[['unknown','Unknown / needs review'],['subject','The subject property'],['shared_amenity','Shared amenity / HOA'],['floor_plan','Floor plan'],['unrelated','Unrelated image']]){const option=el('option',text);option.value=value;contextSelect.append(option);}
+ contextLabel.append(contextSelect);$('photo-edit-room').parentElement.after(contextLabel);
+ function contextControls(){const excluded=['shared_amenity','floor_plan','unrelated'].includes(contextSelect.value);$('photo-preference').disabled=excluded;if(excluded)$('photo-preference').value='';for(const s of $('photo-features').querySelectorAll('select')){s.disabled=excluded;if(excluded)s.value='';}}
+ contextSelect.onchange=contextControls;
+ $('photo-edit-room').onchange=()=>{$('photo-preference').value='';for(const s of $('photo-features').querySelectorAll('select'))if(SCOPES[s.dataset.feature]&&!SCOPES[s.dataset.feature].includes($('photo-edit-room').value))s.value='';};
+ $('photo-form').onsubmit=e=>{e.preventDefault();withName(()=>action(async()=>{
+  const i=current(),features={};for(const s of $('photo-features').querySelectorAll('select'))features[s.dataset.feature]=s.value===''?null:s.value==='true';
+  await api('review',{kind:'image',id:i.id,expected_revision:i.review?.revision||0,reviewer:S.name,status:'approved',room:$('photo-edit-room').value,context:$('photo-edit-context').value,preference:$('photo-preference').value||null,features,notes:$('photo-edit-notes').value});
+  $('photo-dialog').close();await openProperty(S.detail.property.id);note('Photo labels saved. Property judgment unchanged.');
+ }));};
+ $('answer-form').onsubmit=e=>{e.preventDefault();withName(()=>saveAnswer($('answer-fit').value,$('answer-reason').value,$('answer-condition').value));};
+ $('era-form').onsubmit=e=>{e.preventDefault();withName(()=>action(async()=>{
+  const d=S.detail,h=d.historical_source,id=d.property.id;
+  await api('era-review',{property_id:id,decision:$('era-decision').value,reason:$('era-reason').value,reviewer:S.name,evidence_hash:h.evidence_hash,expected_revision:h.review?.revision||0});
+  $('era-dialog').close();note('Photo-era judgment saved. Target labels and training eligibility unchanged.');await nextAfterSave(id);
+ }));};
+ $('score-form').onsubmit=e=>{e.preventDefault();if(!$('paid-check').checked||!S.preview)return;const id=S.preview.id;$('paid-check').checked=false;$('run-score').disabled=true;
+  action(async()=>{try{S.detail.assessment=await api('assessment/run',{id,approved:true});$('score-dialog').close();draw();note('AI scoring started. Results will appear here automatically.');}
+   catch(error){$('score-dialog').close();try{S.detail.assessment=await api('assessment?'+new URLSearchParams({id}));draw();}catch{}throw error;}
+  });
+ };
+ $('paid-check').onchange=()=>$('run-score').disabled=!$('paid-check').checked;
+ $('name-form').onsubmit=e=>{e.preventDefault();S.name=$('name-input').value.trim();if(!S.name)return;remember();$('name-dialog').close();const fn=S.pending;S.pending=null;if(fn)fn();};
+ $('reviewer-button').onclick=()=>{S.pending=null;$('name-input').value=S.name;$('name-dialog').showModal();};
+ $('agree').onclick=()=>{if(S.mode==='matching')return withName(()=>openEra('correct_era'));const job=S.detail?.assessment;
+  if(job?.status!=='completed'||!job.prediction)return;
+  withName(()=>saveAnswer(job.review_target,job.prediction.target_reason,condition(job)));
+ };
+ $('correct').onclick=()=>withName(()=>S.mode==='matching'?openEra('wrong_era'):openAnswer());
+ $('unsure').onclick=()=>withName(()=>S.mode==='matching'?openEra('unsure'):openAnswer('unsure'));
+ $('skip').onclick=()=>action(()=>nextAfterSave(S.detail.property.id));
+ $('edit-photo').onclick=()=>withName(openPhoto);$('score-button').onclick=previewScore;
+ $('flag-era').onclick=()=>withName(()=>openEra('wrong_era'));
+ $('dataset-scope').onchange=()=>action(async()=>{S.scope=$('dataset-scope').value;S.offset=0;S.detail=null;await loadQueue();});
+ $('photo-prev').onclick=()=>{const a=photoList(),i=a.findIndex(v=>v.id===S.photo);if(i>0){S.photo=a[i-1].id;drawHero();}};
+ $('photo-next').onclick=()=>{const a=photoList(),i=a.findIndex(v=>v.id===S.photo);if(i<a.length-1){S.photo=a[i+1].id;drawHero();}};
+ $('queue-prev').onclick=()=>action(async()=>{S.offset=Math.max(0,S.offset-20);S.detail=null;await loadQueue();});
+ $('queue-next').onclick=()=>action(async()=>{S.offset+=20;S.detail=null;await loadQueue();});
+ $('queue-filter').onchange=()=>action(async()=>{S.filter=$('queue-filter').value;S.offset=0;S.detail=null;await loadQueue();});
+ $('search-form').onsubmit=e=>{e.preventDefault();action(async()=>{S.offset=0;S.detail=null;await loadQueue();});};
+ async function mode(value){if(S.busy||editing())return;S.mode=value;S.offset=0;S.detail=null;await action(loadQueue);}
+ $('review-nav').onclick=()=>mode('review');$('match-nav').onclick=()=>mode('matching');
+ $('ready-button').onclick=()=>{S.mode='review';S.filter='ready';$('queue-filter').value='ready';S.offset=0;S.detail=null;action(loadQueue);};
+ $('refresh').onclick=()=>{if(editing()){note('Finish or cancel your unsaved edits before reloading.');return;}action(loadQueue);};
+ $('queue-toggle').onclick=()=>document.querySelector('.queue').classList.toggle('expanded');
+ $('dismiss').onclick=()=>$('message').hidden=true;$('retry').onclick=()=>{if(S.retry)S.retry();};
+ for(const b of document.querySelectorAll('[data-close]'))b.onclick=()=>$(b.dataset.close).close();
+ window.addEventListener('beforeunload',e=>{if(editing()&&$('score-dialog').open===false){e.preventDefault();e.returnValue='';}});
+ document.addEventListener('keydown',e=>{if(editing()||S.busy||['INPUT','TEXTAREA','SELECT','BUTTON','A'].includes(e.target.tagName))return;
+  if(e.key==='ArrowLeft')$('photo-prev').click();if(e.key==='ArrowRight')$('photo-next').click();
+ });
+ async function poll(){
+  if(S.busy||S.poll||editing()||document.hidden||S.detail?.assessment?.status!=='running')return;
+  S.poll=true;const id=S.detail.property.id,job=S.detail.assessment.id;
+  try{const result=await api('assessment?'+new URLSearchParams({id:job}));if(S.detail?.property.id===id){S.detail.assessment=result;draw();if(result.status==='completed'){await action(()=>loadQueue(id));note('AI draft ready. Review the photos, then Agree, Correct, or Can’t tell.');}}}
+  catch(e){note('Could not refresh scoring status. '+e.message,true,()=>action(loadQueue));}finally{S.poll=false;}
+ }
+ try{S.name=localStorage.getItem('acq-studio-reviewer')||'';}catch{}remember();
+ action(loadQueue);window.setInterval(poll,4000);
+})();
+</script>
+</body>
+</html>
