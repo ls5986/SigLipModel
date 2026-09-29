@@ -49,6 +49,7 @@ class Exchange:
         self.folder.mkdir(parents=True, exist_ok=True)
         self.lock = jobs.lock
         self.active = None
+        self.processes = {}
         for path in self.folder.glob("*/status.json"):
             state = read_json(path)
             if state["status"] == "running":
@@ -103,10 +104,22 @@ class Exchange:
     def _run(self, folder):
         try:
             with (folder / "log.txt").open("w", encoding="utf-8") as log:
-                result = subprocess.run([sys.executable, "-B", str(CODE_ROOT / "comparison_worker.py"), "--job", str(folder)],
-                                        stdout=log, stderr=subprocess.STDOUT, timeout=600, check=False,
+                with self.lock:
+                    if (folder / "cancelled").exists():
+                        return
+                    process = subprocess.Popen([sys.executable, "-B", str(CODE_ROOT / "comparison_worker.py"), "--job", str(folder)],
+                                        stdout=log, stderr=subprocess.STDOUT,
                                         env={**os.environ, "ACQ_DATA_ROOT": str(self.jobs.root), "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"})
-            if result.returncode:
+                    self.processes[folder.name] = process
+                try:
+                    returncode = process.wait(timeout=600)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+                    raise
+            if (folder / "cancelled").exists():
+                return
+            if returncode:
                 raise ValueError("Local comparison failed. See this comparison's log.txt; no result was imported into ACQ BOT.")
             report = read_json(folder / "result.json")
             current = status(self.jobs)
@@ -117,6 +130,22 @@ class Exchange:
         except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
             state = read_json(folder / "status.json")
             write_json(folder / "status.json", {**state, "status": "failed", "error": str(exc)})
+
+        finally:
+            with self.lock:
+                self.processes.pop(folder.name, None)
+            for image in folder.glob("*.image"):
+                image.unlink(missing_ok=True)
+
+    def cancel(self, identifier):
+        folder = self._folder(identifier)
+        with self.lock:
+            (folder / "cancelled").touch()
+            process = self.processes.get(identifier)
+            if process and process.poll() is None:
+                process.terminate()
+            state = read_json(folder / "status.json")
+            write_json(folder / "status.json", {**state, "status": "cancelled"})
 
     def result(self, identifier):
         folder = self._folder(identifier)

@@ -29,6 +29,8 @@ class Studio:
         self.assessments = Assessments(self)
         from guarded_jobs import GuardedJobs
         self.jobs = GuardedJobs(self.store, self.assessments)
+        from connected_worker import ConnectedWorker
+        self.connection = ConnectedWorker(self.exchange())
 
     def exchange(self):
         if not hasattr(self, "_exchange"):
@@ -74,6 +76,8 @@ class Studio:
         parsed = urlparse(raw_path)
         args = {key: values[0] for key, values in parse_qs(parsed.query).items()}
         path = parsed.path
+        if path == "/api/studio/connection":
+            return self.connection.public_status()
         if path == "/api/studio/model-loop":
             from model_loop import status
             return status(self.jobs)
@@ -153,6 +157,10 @@ class Studio:
         }
 
     def post(self, path, payload):
+        if path == "/api/studio/connection":
+            return self.connection.connect(payload)
+        if path == "/api/studio/connection/disconnect":
+            return self.connection.disconnect()
         if path == "/api/studio/acq-comparison/preview":
             return self.exchange().preview(payload)
         if path == "/api/studio/acq-comparison/run":

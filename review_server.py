@@ -336,6 +336,8 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
             if path == "/":
                 self.send(200, (CODE_ROOT / "review_ui.html").read_bytes(),
                           "text/html; charset=utf-8")
+            elif path == "/connect":
+                self.send(200, (CODE_ROOT / "connect_ui.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/legacy":
                 self.send(200, (CODE_ROOT / "legacy_ui.html").read_bytes(), "text/html; charset=utf-8")
             elif path.startswith("/api/studio/"):
@@ -481,3 +483,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

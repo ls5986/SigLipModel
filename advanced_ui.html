@@ -340,13 +340,19 @@ dialog::backdrop { background: var(--cp-overlay); }
         <button id="model-loop-check">Check whether my reviews are trained</button>
         <p id="model-loop-status" role="status"></p>
         <section aria-label="ACQ BOT comparison" class="stack-tight">
+          <h3>Connected ACQ BOT worker</h3>
+          <p>Connect once from ACQ BOT dev on this computer. Then Run my SigLIP model sends tests here and returns results automatically, including tests started from your phone. Keep this Studio server running.</p>
+          <button id="connection-refresh">Check connection</button>
+          <button id="connection-disconnect">Disconnect this computer</button>
+          <p id="connection-status-detail" role="status"></p>
+          <details><summary>Manual file exchange (fallback)</summary>
           <h3>ACQ BOT comparison</h3>
           <p>Download a test request from ACQ BOT’s property Evidence tab, then select it here. This computer downloads up to 12 photos and runs the selected local candidate. It makes no paid AI calls and never updates the property automatically.</p>
           <input id="acq-request-file" type="file" accept=".json,application/json" aria-label="ACQ BOT test request">
           <button id="acq-preview">Preview comparison</button>
           <p id="acq-status" role="status"></p>
           <button id="acq-run" hidden>Download photos and run this candidate</button>
-          <button id="acq-result" hidden>Download result for ACQ BOT</button>
+          <button id="acq-result" hidden>Download result for ACQ BOT</button></details>
         </section>
         <div id="train-preview" hidden class="stack-tight"></div>
         <button id="train-confirm" hidden disabled class="primary">Train local candidate</button>
@@ -1510,6 +1516,14 @@ dialog::backdrop { background: var(--cp-overlay); }
     } catch (error) { $('acq-status').textContent = error.message + ' Reloading this page does not restart the job.'; $('acq-preview').disabled = false; }
   }
   function attachAcqEvents() {
+    $('connection-refresh').onclick = () => action(async () => {
+      const result = await api('/api/studio/connection');
+      $('connection-status-detail').textContent = result.message;
+    });
+    $('connection-disconnect').onclick = () => action(async () => {
+      const result = await api('/api/studio/connection/disconnect', {});
+      $('connection-status-detail').textContent = result.message;
+    });
     $('model-loop-check').onclick = () => action(checkModelLoop);
     $('acq-request-file').onchange = () => { acqPreview = null; $('acq-run').hidden = true; };
     $('acq-preview').onclick = () => action(async () => {

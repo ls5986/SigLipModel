@@ -158,3 +158,38 @@ performance benchmarking and any production promotion remain separate gates.
 Update this code checkout and restart `launch.py` while keeping `ACQ_DATA_ROOT` and
 `ACQ_EVIDENCE_ROOT` pointed at existing private folders. Updating GitHub does not
 update a running Windows process. Supabase backup data is not a live Studio connection.
+
+## Automatic dev connection (recommended)
+
+After updating and restarting Studio, open **ACQ BOT dev on the same computer**.
+On a property's Evidence tab, choose **Connect Vision Studio**. Approve the local
+connection page once. If Studio uses a non-default port, enter it in Connection
+settings first. The one-time code expires after 10 minutes and is removed from
+the local browser address bar. No Supabase keys or ACQ BOT account tokens are copied.
+
+Then **Run my SigLIP model** in ACQ BOT queues that property, runs it locally and
+returns the versioned comparison automatically. File download/upload is only a
+fallback. You can initiate tests from your phone after connecting the computer,
+but the computer and Studio server must remain running. This is outbound HTTPS;
+no tunnel, public local server or hosted model service is required.
+
+Studio checks for work every 30 seconds when idle (10 seconds during a test).
+Model review status is cached for at most 60 seconds, then checked again before
+inference. One test runs at a time; ACQ BOT permits five queued/running tests per
+workspace. The model identity is pinned when queued, so a changed candidate causes
+an explicit failure instead of silently using different weights. Training and
+live property updates are never automatic. A stopped/restarted worker reports
+interrupted work rather than silently repeating inference. A failed result upload
+retains the completed local result and retries delivery idempotently.
+
+Cancel a test in ACQ BOT; cancellation reaches Studio at the next heartbeat and
+terminates its comparison subprocess. Revoke the connection in ACQ BOT or use
+**Disconnect this computer** in Studio. The scoped comparison credential expires
+in 30 days; ACQ BOT stores only its hash. Studio keeps the credential in the private
+data root (`data/acq_connection.json`), never in Git or the browser. Do not share
+that file. If a local disconnect cannot reach the server, revoke it in ACQ BOT too.
+
+The connected worker is restricted to the ACQ BOT dev origin. ACQ BOT rejects
+these endpoints outside staging. Supabase remains storage; local Studio still
+uses the configured local runtime folders. Real-model/Windows acceptance and any
+production promotion remain separate steps.
