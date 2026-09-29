@@ -32,9 +32,8 @@ class GuardedJobs(StudioJobs):
                 raise ValueError("Unknown job preview")
             snapshot = read_json(self.folder / identifier / "snapshot.json")
             current, _ = self._snapshot()
-            by_id = {row["id"]: row for row in current}
-            fields = ("room", "features", "preference", "photo_context", "human_review_revision")
-            if any(row["id"] not in by_id or any(row.get(f) != by_id[row["id"]].get(f) for f in fields)
-                   for row in snapshot["examples"]):
+            from model_loop import fingerprint
+            if fingerprint(snapshot["examples"]) != fingerprint(current):
                 raise ValueError("Reviews or eligibility changed. Create a new training preview.")
         return super().start(payload, kind)
+

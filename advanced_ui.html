@@ -336,6 +336,18 @@ dialog::backdrop { background: var(--cp-overlay); }
         <div class="row"><button id="prelabel-preview-button">Pre-tag locally</button><button id="train-preview-button">Preview local training</button></div>
         <div id="prelabel-preview" hidden class="stack-tight"></div>
         <button id="prelabel-confirm" hidden disabled class="primary">Confirm local pre-tagging</button>
+        <p class="notice">Review saves teaching labels. Train builds a new candidate. Testing in ACQ BOT is a separate step. A good acquisition with renovated resale photos needs a photo-era correction before it can teach acquisition condition.</p>
+        <button id="model-loop-check">Check whether my reviews are trained</button>
+        <p id="model-loop-status" role="status"></p>
+        <section aria-label="ACQ BOT comparison" class="stack-tight">
+          <h3>ACQ BOT comparison</h3>
+          <p>Download a test request from ACQ BOT’s property Evidence tab, then select it here. This computer downloads up to 12 photos and runs the selected local candidate. It makes no paid AI calls and never updates the property automatically.</p>
+          <input id="acq-request-file" type="file" accept=".json,application/json" aria-label="ACQ BOT test request">
+          <button id="acq-preview">Preview comparison</button>
+          <p id="acq-status" role="status"></p>
+          <button id="acq-run" hidden>Download photos and run this candidate</button>
+          <button id="acq-result" hidden>Download result for ACQ BOT</button>
+        </section>
         <div id="train-preview" hidden class="stack-tight"></div>
         <button id="train-confirm" hidden disabled class="primary">Train local candidate</button>
         <p class="small muted">Local pre-tagging uses cached SigLIP, not cloud calls. Training includes eligible imported images and approved labels, and saves a studio-job candidate only—not a production deployment. No automatic retraining. Previous metrics do not evaluate a newly trained candidate. Raw preference scores are not probabilities.</p>
@@ -1482,13 +1494,55 @@ dialog::backdrop { background: var(--cp-overlay); }
       if (next) { event.preventDefault(); openProperty(next.id); }
     });
   }
+  let acqPreview = null, acqResult = null, acqTimer = null;
+  async function checkModelLoop() {
+    const result = await api('/api/studio/model-loop');
+    $('model-loop-status').textContent = result.reason + (result.version ? ' Model: ' + result.version : '');
+    return result;
+  }
+  async function pollAcq() {
+    try {
+      const result = await api('/api/studio/acq-comparison?id=' + encodeURIComponent(acqPreview.id));
+      $('acq-status').textContent = result.error || (result.status === 'completed' ? 'Complete. Download the result, then upload it on the same ACQ BOT property.' : 'Local comparison: ' + result.status);
+      if (result.status === 'completed') { acqResult = result.result; $('acq-result').hidden = false; }
+      if (result.status === 'running') acqTimer = setTimeout(pollAcq, 2500);
+      else { $('acq-preview').disabled = false; $('acq-request-file').disabled = false; }
+    } catch (error) { $('acq-status').textContent = error.message + ' Reloading this page does not restart the job.'; $('acq-preview').disabled = false; }
+  }
+  function attachAcqEvents() {
+    $('model-loop-check').onclick = () => action(checkModelLoop);
+    $('acq-request-file').onchange = () => { acqPreview = null; $('acq-run').hidden = true; };
+    $('acq-preview').onclick = () => action(async () => {
+      const file = $('acq-request-file').files[0];
+      if (!file || file.size > 100000) throw Error('Choose a test request JSON file smaller than 100 KB.');
+      acqPreview = null; acqResult = null; $('acq-run').hidden = true; $('acq-result').hidden = true;
+      const result = await api('/api/studio/acq-comparison/preview', JSON.parse(await file.text()));
+      acqPreview = result; localStorage.setItem('acq-comparison-id', result.id);
+      $('acq-status').textContent = 'Ready: ' + result.photos + ' photos from ' + result.hosts.join(', ') + '. Model ' + result.model_version + '. Confirm to download and process locally.';
+      $('acq-run').hidden = false;
+    });
+    $('acq-run').onclick = () => action(async () => {
+      if (!acqPreview) throw Error('Preview a request first.');
+      await api('/api/studio/acq-comparison/run', {id: acqPreview.id, confirmed: true});
+      $('acq-run').hidden = true; $('acq-preview').disabled = true; $('acq-request-file').disabled = true;
+      clearTimeout(acqTimer); await pollAcq();
+    });
+    $('acq-result').onclick = () => {
+      if (!acqResult) return;
+      const url = URL.createObjectURL(new Blob([JSON.stringify(acqResult, null, 2)], {type: 'application/json'}));
+      const link = document.createElement('a'); link.href = url; link.download = 'siglip-result-' + acqResult.comparison_id + '.json'; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+  }
   async function initialize() {
-    attachEvents(); drawSelection();
+    attachEvents(); attachAcqEvents(); drawSelection();
     await action(async () => {
       await refreshSummary(); await loadProperties({offset: 0, choose: true, prefer: stored('acq-studio-resume')});
     });
     const tab = new URLSearchParams(location.search).get('tab');
     if (['dataset','experiments'].includes(tab)) await navigate(tab);
+    const lastComparison = stored('acq-comparison-id');
+    if (/^[a-f0-9]{32}$/.test(lastComparison || '')) { acqPreview = {id: lastComparison}; await pollAcq(); }
     window.setInterval(poll, 5000);
   }
   // Pure helpers are exposed for the offline synthetic regression suite.
@@ -1498,3 +1552,4 @@ dialog::backdrop { background: var(--cp-overlay); }
 </script>
 </body>
 </html>
+

@@ -607,7 +607,8 @@ def predict(image_path: Path, output: Path | None) -> None:
     from transformers import AutoImageProcessor, SiglipVisionModel
 
     torch = torch_setup()
-    bundle = joblib.load(ARTIFACTS / "silver_heads.joblib")
+    from studio_worker import load_starting_bundle
+    bundle, model_version = load_starting_bundle()
     backbone = read_json(ARTIFACTS / "backbone.json")
     if backbone["revision"] != bundle["backbone_revision"]:
         raise ValueError("Prediction backbone and heads are incompatible")
@@ -635,6 +636,7 @@ def predict(image_path: Path, output: Path | None) -> None:
     ]
     scores.sort(key=lambda value: value[0], reverse=True)
     result = {
+        "model_version": model_version,
         "image_path": str(image_path.resolve()), "image_sha256": sha(image_path),
         "room": predicted_room, "room_scores_uncalibrated": dict(zip(
             room.classes_.tolist(), [float(value) for value in probabilities],
@@ -700,3 +702,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

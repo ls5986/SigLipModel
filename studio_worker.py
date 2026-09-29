@@ -42,24 +42,19 @@ def supervised_indices(examples, values, groups, protected):
 
 
 def load_starting_bundle():
-    latest = pilot.ARTIFACTS / "studio_candidate_latest.json"
-    if latest.exists():
-        pointer = pilot.read_json(latest)
-        folder = Path(pointer["folder"]).resolve()
-        if not folder.is_relative_to((pilot.ARTIFACTS / "studio_jobs").resolve()):
-            raise ValueError("Unexpected Studio model path")
-        file = folder / "studio_heads.joblib"
-        if pilot.sha(file) != pointer["heads_sha256"]:
-            raise ValueError("Saved Studio model hash changed")
+    from model_loop import candidate
+    if (pilot.ARTIFACTS / "studio_candidate_latest.json").exists() or (pilot.ARTIFACTS / "candidate_latest.json").exists():
+        pointer, file = candidate(pilot.ARTIFACTS.parent)
         return joblib.load(file), pointer["version"]
-    latest = pilot.ARTIFACTS / "candidate_latest.json"
-    if latest.exists():
-        pointer = pilot.read_json(latest)
-        folder = Path(pointer["folder"]).resolve()
-        if not folder.is_relative_to((pilot.ARTIFACTS / "candidates").resolve()):
-            raise ValueError("Unexpected candidate model path")
-        return joblib.load(folder / "heads.joblib"), pointer["version"]
     return joblib.load(pilot.ARTIFACTS / "silver_heads.joblib"), "silver"
+
+
+def training_bundle():
+    # Rebuild reviewed heads from current eligible labels. Never retain an old
+    # preference head after its labels have been withdrawn or quarantined.
+    bundle = joblib.load(pilot.ARTIFACTS / "silver_heads.joblib")
+    bundle["preference_models"] = {}
+    return bundle, "silver"
 
 
 def verify_image_snapshot(examples):
@@ -140,7 +135,7 @@ def main():
                 temporary.replace(vector_path)
         del encoder
     x = np.stack([vectors[row["sha256"]] for row in examples])
-    bundle, parent_version = load_starting_bundle()
+    bundle, parent_version = training_bundle() if snapshot["kind"] == "train" else load_starting_bundle()
     if bundle["backbone_revision"] != backbone["revision"]:
         raise ValueError("Saved head and embedding backbone revisions differ")
     groups, protected = group_data(examples)
@@ -254,3 +249,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
