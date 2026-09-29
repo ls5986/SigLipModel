@@ -45,7 +45,7 @@ class StudioJobs:
                 row = rows[item["id"]]
                 review = item["review"]
                 room_approved = review.get("status") == "approved" or review.get("room_confirmed")
-                preference = review.get("preference")
+                preference = review.get("preference") if review.get("status") == "approved" else None
                 # Legacy room preferences were reviewed independently of room/feature labels.
                 if not preference and review.get("legacy"):
                     choices = [legacy.get(field, {}).get(item["id"]) for field in
@@ -105,7 +105,8 @@ class StudioJobs:
                 "New image embedding on CPU may take time. Progress and errors will be shown.",
             ],
         }
-        snapshot = {"kind": kind, "examples": examples, "legacy_review_revision": revision,
+        from model_loop import fingerprint
+        snapshot = {"review_fingerprint": fingerprint(examples), "kind": kind, "examples": examples, "legacy_review_revision": revision,
                     "preview": preview, "created_at": now()}
         write_json(folder / "snapshot.json", snapshot)
         write_json(folder / "status.json", {"id": token, "kind": kind, "status": "preview",
@@ -160,6 +161,7 @@ class StudioJobs:
                     "heads_sha256": sha(folder / "studio_heads.joblib"),
                     "snapshot_sha256": sha(folder / "snapshot.json"),
                     "metrics": metrics, "created_at": now(),
+                    "review_fingerprint": read_json(folder / "snapshot.json").get("review_fingerprint"),
                 })
             with self.lock:
                 status = read_json(folder / "status.json")
@@ -172,3 +174,4 @@ class StudioJobs:
                 status.update(status="failed", finished_at=now(), error=str(exc),
                               detail="Prior models and human reviews preserved; no success claimed.")
                 write_json(folder / "status.json", status)
+

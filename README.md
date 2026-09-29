@@ -120,3 +120,41 @@ is the supported installation entry point. Browser dependencies have their own
 - Follow source-image licensing, retention, and training rights.
 - Migration is administrative and explicit. Database rows and storage objects must
   be verified independently. No script here authorizes deletion after upload alone.
+
+
+## Connect the review → training → ACQ BOT comparison loop
+
+1. In **Photo matching**, verify acquisition-stage evidence. Quarantine renovated
+   resale, wrong-listing and uncertain-era photos. A successful investment is not
+   an approved label for every photograph.
+2. In **Review**, approve/correct individual rooms, visible features and target
+   photo preferences. Drafts and whole-property judgments do not supervise photo
+   preference classifiers.
+3. Open **Models & results → Check whether my reviews are trained**. Review saves
+   labels, not weights. Use **Preview local training → Train local candidate**.
+   Older candidates require one new training run to establish the review fingerprint.
+   Training rebuilds reviewed heads from the baseline plus currently eligible labels;
+   an obsolete reviewed preference head is never inherited when its labels disappear.
+   Features not refitted remain draft baseline features, not newly human-trained facts.
+4. In ACQ BOT dev, open a property → **Evidence → Compare your SigLIP model** and
+   download its test request. Administrator access and a saved photo assessment are required.
+5. Select that JSON in Studio's **ACQ BOT comparison** section. Preview the exact
+   candidate and image hosts; confirm the download and local run. Up to 12 public
+   HTTPS photos, 4 MB each, are processed one at a time in a separate subprocess.
+   No OpenAI calls, production writes or new hosted service. Temporary photos are
+   removed on success/failure. A timed-out worker may leave bounded temporary files
+   in that comparison folder; these are not training data.
+6. Download the result and upload it to the same ACQ BOT property. The app records
+   the weights checksum, backbone revision, review fingerprint and photo byte hashes.
+   The live condition, comps, valuation and memberships do not change.
+
+Comparisons are manually imported local experiments, not signed attestations. They
+show uncalibrated **photo preference**, not whole-property renovation severity.
+Saved baseline URLs can change contents; byte equality to the historical assessment
+is not proven. Duplicate-image detection is partial, and unseen hashes do not prove
+unseen physical properties. Independent validation, property-level aggregation,
+performance benchmarking and any production promotion remain separate gates.
+
+Update this code checkout and restart `launch.py` while keeping `ACQ_DATA_ROOT` and
+`ACQ_EVIDENCE_ROOT` pointed at existing private folders. Updating GitHub does not
+update a running Windows process. Supabase backup data is not a live Studio connection.

@@ -30,6 +30,12 @@ class Studio:
         from guarded_jobs import GuardedJobs
         self.jobs = GuardedJobs(self.store, self.assessments)
 
+    def exchange(self):
+        if not hasattr(self, "_exchange"):
+            from acq_exchange import Exchange
+            self._exchange = Exchange(self.jobs)
+        return self._exchange
+
     def assessment_property(self, identifier):
         history = self.assessments.history(identifier)
         if history and history.get("blocked"):
@@ -68,6 +74,11 @@ class Studio:
         parsed = urlparse(raw_path)
         args = {key: values[0] for key, values in parse_qs(parsed.query).items()}
         path = parsed.path
+        if path == "/api/studio/model-loop":
+            from model_loop import status
+            return status(self.jobs)
+        if path == "/api/studio/acq-comparison":
+            return self.exchange().result(args.get("id"))
         if path == "/api/studio/review-queue":
             from review_queue import review_queue
             return review_queue(self, args)
@@ -142,6 +153,12 @@ class Studio:
         }
 
     def post(self, path, payload):
+        if path == "/api/studio/acq-comparison/preview":
+            return self.exchange().preview(payload)
+        if path == "/api/studio/acq-comparison/run":
+            return self.exchange().start(payload)
+        if path in {"/api/studio/train", "/api/studio/prelabel"} and hasattr(self, "_exchange") and self._exchange.active and self._exchange.active.is_alive():
+            raise ValueError("Wait for the local ACQ BOT comparison to finish first")
         if path == "/api/studio/assessment/preview":
             return self.assessments.preview(payload)
         if path == "/api/studio/assessment/run":
@@ -163,3 +180,4 @@ class Studio:
         if path not in actions:
             raise ValueError("Unknown studio action")
         return actions[path](payload)
+
