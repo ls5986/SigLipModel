@@ -23,7 +23,7 @@ LOGIN = b'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta nam
 
 class HostedAuth:
     def __init__(self):
-        self.origin = os.environ.get("STUDIO_PUBLIC_ORIGIN", "").rstrip("/")
+        self.origin = os.environ.get("STUDIO_PUBLIC_ORIGIN", "").strip().rstrip("/")
         parsed = urlparse(self.origin)
         if parsed.scheme != "https" or not parsed.netloc or parsed.path:
             raise ValueError("STUDIO_PUBLIC_ORIGIN must be an HTTPS origin without a path")
@@ -81,6 +81,26 @@ def create_server(port, app, auth):
         def trusted_host(self):
             return self.headers.get("Host", "").casefold() == auth.host.casefold()
 
+        def trusted_origin(self):
+            supplied=self.headers.get("Origin", "")
+            if supplied and supplied!="null":
+                return supplied.strip().rstrip("/").casefold()==auth.origin.casefold()
+            referer=self.headers.get("Referer", "")
+            if referer:
+                parsed=urlparse(referer)
+                return f"{parsed.scheme}://{parsed.netloc}".casefold()==auth.origin.casefold()
+            return self.headers.get("Sec-Fetch-Site", "").casefold()=="same-origin"
+
+        def log_rejected_request(self,event):
+            print(json.dumps({
+                "event":event,
+                "path":urlparse(self.path).path,
+                "trusted_host":self.trusted_host(),
+                "origin_present":bool(self.headers.get("Origin")),
+                "trusted_origin":self.trusted_origin(),
+                "same_origin_fetch":self.headers.get("Sec-Fetch-Site", "").casefold()=="same-origin",
+            }),flush=True)
+
         def authenticated(self):
             return self.trusted_host() and auth.valid(self.headers.get("Cookie"))
 
@@ -115,7 +135,8 @@ def create_server(port, app, auth):
         def do_POST(self):
             path=urlparse(self.path).path
             if path=="/login":
-                if not self.trusted_host() or self.headers.get("Origin")!=auth.origin:
+                if not self.trusted_host() or not self.trusted_origin():
+                    self.log_rejected_request("login_origin_rejected")
                     return self.data(403,{"error":"Unrecognized sign-in request"})
                 try:
                     fields={k:v[0] for k,v in parse_qs(self.body(8192).decode()).items()}
@@ -128,9 +149,10 @@ def create_server(port, app, auth):
                     return self.reply(401,LOGIN.replace(b"__ERROR__",b'<p class="error">Email or password is incorrect</p>'),"text/html; charset=utf-8")
                 header=f"{COOKIE}={auth.issue()}; Path=/; Max-Age=43200; Secure; HttpOnly; SameSite=Strict"
                 return self.reply(303,b"",headers=[("Set-Cookie",header),("Location","/")])
-            if not self.authenticated() or self.headers.get("Origin")!=auth.origin or not secrets.compare_digest(
+            if not self.authenticated() or not self.trusted_origin() or not secrets.compare_digest(
                 self.headers.get("X-Review-Token",""),app.token
             ):
+                self.log_rejected_request("review_request_rejected")
                 return self.data(403,{"error":"Sign in again before saving"})
             if not path.startswith("/api/studio/"):
                 return self.data(404,{"error":"Not found"})
