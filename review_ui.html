@@ -80,7 +80,7 @@ nav{display:flex;gap:8px;align-items:center}nav button{border:0;background:var(-
 .viewer{padding:18px;display:flex;flex-direction:column;min-width:0;min-height:0;gap:12px}.property-heading{min-height:48px}.photo-stage{position:relative;flex:1;min-height:180px;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:12px;overflow:hidden;display:grid;place-items:center}.photo-stage img{width:100%;height:100%;object-fit:contain;position:absolute}.photo-stage .image-state{z-index:1;background:var(--cp-panel-strong);padding:16px;border-radius:10px;max-width:90%;text-align:center}.photo-stage .image-state[hidden]{display:none}.photo-step{position:absolute;bottom:12px;right:12px;z-index:2;background:var(--cp-panel-strong);padding:5px;border-radius:10px}.photo-step button{padding:5px 12px}
 .room-tabs{display:flex;gap:6px;overflow:auto;flex-shrink:0}.room-tabs button{font-size:12px;padding:6px 10px}.room-tabs button[aria-pressed="true"]{color:var(--cp-accent);background:var(--cp-accent-soft);border-color:var(--cp-accent)}
 .filmstrip{display:flex;gap:8px;overflow:auto;min-height:82px;padding:2px}.filmstrip button{padding:2px;flex:0 0 90px;border-radius:7px;font-size:10px;background:var(--cp-surface);white-space:normal}.filmstrip img{display:block;width:84px;height:53px;object-fit:cover;border-radius:4px}.filmstrip button[aria-current="true"]{border:2px solid var(--cp-accent);padding:1px}
-.inspector{background:var(--cp-surface);border-left:1px solid var(--cp-border);padding:20px;overflow:auto;display:flex;flex-direction:column;gap:18px}.decision-title{font-size:27px;font-weight:700;line-height:1.2;letter-spacing:-.02em}.section{border-top:1px solid var(--cp-border);padding-top:16px}.kv{display:grid;grid-template-columns:1fr auto;gap:8px;font-size:12px}.context-tags{display:flex;flex-wrap:wrap;gap:6px}.score{font-size:22px;font-variant-numeric:tabular-nums}#model-reason{font-size:13px}#score-button{width:100%}#photo-notes{font-size:12px}#matching{display:none}.matching-mode #matching{display:grid}.matching-mode #assessment{display:none}.matching-mode #economics{display:none}
+.inspector{background:var(--cp-surface);border-left:1px solid var(--cp-border);padding:20px;overflow:auto;display:flex;flex-direction:column;gap:18px}.decision-title{font-size:27px;font-weight:700;line-height:1.2;letter-spacing:-.02em}.section{border-top:1px solid var(--cp-border);padding-top:16px}.kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:12px}.kv strong{text-align:right}.context-tags{display:flex;flex-wrap:wrap;gap:6px}.score{font-size:22px;font-variant-numeric:tabular-nums}#model-reason{font-size:13px}#score-button{width:100%}#photo-notes{font-size:12px}#matching{display:none}.matching-mode #matching{display:grid}.matching-mode #assessment{display:none}.listing-remarks{white-space:pre-wrap;max-height:180px;overflow:auto;line-height:1.45}.outcome{border-left:3px solid var(--cp-accent)}.outcome strong{font-size:18px}.field-note{line-height:1.45}
 footer{min-height:80px;background:var(--cp-surface);border-top:1px solid var(--cp-border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}.footer-copy{max-width:420px}.footer-copy small{display:block}.actions{display:flex;gap:8px}.actions button{padding:11px 18px}label{display:grid;gap:6px}input,select,textarea{padding:10px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface);min-width:0}textarea{resize:vertical;width:100%;min-height:75px}
 dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:24px;max-width:560px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}dialog::backdrop{background:var(--cp-overlay)}dialog form{display:grid;gap:16px}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}.features{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px}dialog img{max-height:170px;max-width:100%;object-fit:contain}ul{padding-left:19px;margin:5px 0}#queue-toggle{display:none}
 @media(min-width:1600px){.workspace{grid-template-columns:260px minmax(320px,1fr) 350px}.viewer{padding:24px}}
@@ -136,13 +136,21 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    <p class="small muted">Match the property and acquisition era. This does not approve its investment potential.</p>
    <div id="sale-context" class="stack"></div><p id="era-state" class="notice warning"></p>
   </section>
+  <section id="listing-context" class="section stack">
+   <div><span class="eyebrow">Listing &amp; acquisition context</span><h3>Why this property is in the set</h3></div>
+   <div id="listing-facts" class="kv"></div>
+   <div id="resale-outcome" class="notice outcome" hidden></div>
+   <div id="dataset-tags" class="context-tags"></div>
+   <div id="remarks-block" class="stack" hidden><strong class="small">MLS remarks</strong><p id="listing-remarks" class="muted small listing-remarks"></p></div>
+   <p class="muted small field-note">Listing facts stay structured. SigLIP learns from the photos; ACQ BOT can combine its visual output with these fields later.</p>
+  </section>
   <section class="section stack">
    <div class="row spread"><h3>This photo</h3><span id="photo-context" class="badge">Unknown</span></div>
    <div class="kv"><span>Room</span><strong id="photo-room">—</strong><span>Local preference score</span><strong id="local-score">Not scored</strong><span>GPT scope score</span><strong id="gpt-score">Not scored</strong></div>
    <small>Different raw scores—not accuracy or profit probabilities.</small>
    <div id="feature-tags" class="context-tags"></div><p id="photo-notes" class="muted"></p>
   </section>
-  <section id="economics" class="section stack"><span class="eyebrow">Deal economics</span><strong>Not connected yet</strong><p class="muted small">Comps and costs are not wired into this reviewer. A visual Yes is not a buy recommendation.</p></section>
+  <section id="economics" class="section stack"><span class="eyebrow">Deal economics</span><strong>Not available in this training source</strong><p class="muted small">A sale-to-sale change is not profit. Rehab, financing, carrying and transaction costs are not included, and a visual Yes is not a buy recommendation.</p></section>
   <p id="saved-answer" class="notice" hidden></p>
  </aside>
 </main>
@@ -169,6 +177,11 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;};
  const btn=(text,fn,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=fn;return b;};
  const score=v=>typeof v==='number'&&Number.isFinite(v)?v.toFixed(2):'Not scored';
+ const numberValue=v=>{const raw=String(v??'').trim();if(!raw)return null;const n=Number(raw.replace(/[$,]/g,''));return Number.isFinite(n)?n:null;};
+ const money=v=>{const n=numberValue(v);return n==null?'—':'$'+Math.round(n).toLocaleString();};
+ const whole=v=>{const n=numberValue(v);return n==null?'—':Math.round(n).toLocaleString();};
+ const dateOnly=v=>v?String(v).slice(0,10):'—';
+ const present=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
  const current=()=>S.detail?.images.find(i=>i.id===S.photo);
  const aiPhoto=id=>S.detail?.assessment?.prediction?.images?.find(i=>i.image_id===id);
  const roomOf=i=>i.effective?.room || i.review?.room || aiPhoto(i.id)?.room || i.room || 'other';
@@ -264,7 +277,47 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   if(h){for(const prefix of ['Prior','Last'])$('sale-context').append(el('p',`${prefix} sale: ${String(h.source[prefix+' Sale Date']||'Unknown').slice(0,10)} · ${h.source[prefix+' Sale Amount']==null?'Unknown price':'$'+Number(h.source[prefix+' Sale Amount']).toLocaleString()}`,'small'));
    $('era-state').textContent=h.blocked?h.block_reason:h.timing_verified?'Photo era confirmed by reviewer. Training checks still separate.':'Candidate listing match—not verified photo timing.';}
   else $('era-state').textContent='No spreadsheet acquisition match is attached to this property.';
+  drawListingContext(d,m,h);
   drawPhotos();controls();
+ }
+ function drawListingContext(d,m,h){
+  const s=h?.source||{},facts=[];
+  const add=(name,value)=>{if(present(value))facts.push([name,String(value)]);};
+  const propertyType=m.PropertySubType||m.PropertyType||s['Property Type'];
+  const beds=m.BedroomsTotal??s.Bedrooms,baths=m.BathroomsTotalInteger??s['Total Bathrooms'];
+  const area=m.LivingArea??s['Building Sqft'],year=m.YearBuilt??s['Effective Year Built']??d?.property?.year_built;
+  const acquisitionPrice=m.ClosePrice??s['Prior Sale Amount'],acquisitionDate=m.CloseDate??s['Prior Sale Date'];
+  const laterPrice=s['Last Sale Amount'],laterDate=s['Last Sale Date'];
+  add('Property type',propertyType);add('Beds / baths',[present(beds)?beds:'—',present(baths)?baths:'—'].join(' / '));
+  if(present(area))add('Living area',whole(area)+' '+(m.LivingAreaUnits||'sq ft'));
+  if(present(year))add('Year built',whole(year));
+  if(present(m.OriginalListPrice))add('Original list price',money(m.OriginalListPrice));
+  if(present(m.ListPrice))add('Final list price',money(m.ListPrice));
+  if(present(acquisitionPrice))add('Acquisition close',money(acquisitionPrice));
+  if(present(m.DaysOnMarket))add('Days on market',whole(m.DaysOnMarket));
+  if(present(acquisitionDate))add('Acquisition date',dateOnly(acquisitionDate));
+  if(present(laterPrice))add('Later recorded sale',money(laterPrice));
+  if(present(laterDate))add('Later sale date',dateOnly(laterDate));
+  $('listing-facts').replaceChildren(...facts.flatMap(([name,value])=>[el('span',name),el('strong',value)]));
+
+  const buy=numberValue(acquisitionPrice),sell=numberValue(laterPrice),buyDate=Date.parse(acquisitionDate||''),sellDate=Date.parse(laterDate||'');
+  const validOutcome=buy!=null&&buy>0&&sell!=null&&Number.isFinite(buyDate)&&Number.isFinite(sellDate)&&sellDate>buyDate;
+  $('resale-outcome').hidden=!validOutcome;
+  if(validOutcome){const delta=sell-buy,pct=delta/buy*100,sign=delta>=0?'+':'−';$('resale-outcome').replaceChildren(el('strong',`${sign}${money(Math.abs(delta))} (${sign}${Math.abs(pct).toFixed(1)}%) observed resale change`),el('p','Raw sale-to-sale change, not profit. Rehab, financing, carrying and transaction costs are not included.','muted small'));}
+
+  const tags=[];
+  const tag=(value,accent=false)=>{if(present(value))tags.push(el('span',String(value),accent?'badge accent':'badge'));};
+  if(h?.acquisition_status==='prior_acquisition_candidate')tag('Selected by APN, address, price and date checks',true);
+  else if(present(h?.acquisition_status))tag(`Acquisition status: ${label(h.acquisition_status)}`);
+  tag(s.reference_label?`Reference: ${s.reference_label}`:null,true);tag(s.label_scope?`Scope: ${s.label_scope}`:null);
+  if(s.training_eligible!==undefined&&s.training_eligible!==null){const eligible=s.training_eligible===true||s.training_eligible===1||String(s.training_eligible).toLowerCase()==='true';tag(eligible?'Training eligible':'Not training eligible',eligible);}
+  if(present(s.source_sheet))tag(`Sheet: ${s.source_sheet}`);
+  const rows=h?.source_rows?.length?h.source_rows:s.source_row?[s.source_row]:[];if(rows.length)tag(`Source rows: ${rows.slice(0,6).join(', ')}`);
+  let flags=s.input_flags;if(typeof flags==='string')flags=flags.split(/[,;|]/).map(x=>x.trim()).filter(Boolean);else if(flags&&typeof flags==='object'&&!Array.isArray(flags))flags=Object.entries(flags).filter(([,v])=>v!==false&&v!=null).map(([k,v])=>v===true?k:`${k}: ${v}`);
+  if(Array.isArray(flags))for(const flag of flags.slice(0,8))tag(`Flag: ${String(flag).slice(0,80)}`);
+  $('dataset-tags').replaceChildren(...tags);
+  const remarks=m.PublicRemarks;$('remarks-block').hidden=!present(remarks);$('listing-remarks').textContent=present(remarks)?String(remarks):'';
+  $('listing-context').hidden=!facts.length&&!tags.length&&!present(remarks);
  }
  function photoList(){return(S.detail?.images||[]).filter(i=>S.room==='all'||roomOf(i)===S.room);}
  function drawPhotos(){
