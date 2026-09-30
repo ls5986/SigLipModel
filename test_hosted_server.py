@@ -73,6 +73,27 @@ def test_host_and_origin_are_pinned(monkeypatch):
         server.shutdown();server.server_close();thread.join()
 
 
+def test_same_origin_browser_fallback_when_origin_is_omitted(monkeypatch):
+    app=App();server=create_server(0,app,auth(monkeypatch));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();port=server.server_address[1]
+    try:
+        form=urlencode({'username':'owner@example.test','password':'correct horse battery'})
+        status,_,_=request(port,'POST','/login',form,{'Sec-Fetch-Site':'same-origin','Content-Type':'application/x-www-form-urlencoded'})
+        assert status==303
+        assert request(port,'POST','/login',form,{'Sec-Fetch-Site':'cross-site','Content-Type':'application/x-www-form-urlencoded'})[0]==403
+    finally:
+        server.shutdown();server.server_close();thread.join()
+
+
+def test_hosted_origin_configuration_ignores_surrounding_whitespace(monkeypatch):
+    monkeypatch.setenv('STUDIO_PUBLIC_ORIGIN','  https://studio.example.test/  ')
+    monkeypatch.setenv('STUDIO_LOGIN_USERNAME','owner@example.test')
+    monkeypatch.setenv('STUDIO_LOGIN_PASSWORD','correct horse battery')
+    monkeypatch.setenv('STUDIO_SESSION_SECRET','s'*32)
+    configured=HostedAuth()
+    assert configured.origin=='https://studio.example.test'
+    assert configured.host=='studio.example.test'
+
+
 def test_hosted_auth_rejects_weak_or_non_https_configuration(monkeypatch):
     monkeypatch.setenv('STUDIO_PUBLIC_ORIGIN','http://studio.example.test')
     monkeypatch.setenv('STUDIO_LOGIN_USERNAME','owner@example.test')
