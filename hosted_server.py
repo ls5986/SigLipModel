@@ -1,0 +1,158 @@
+"""Authenticated hosted review server for the Supabase Studio backend."""
+from __future__ import annotations
+
+import base64
+import hashlib
+import hmac
+import json
+import mimetypes
+import os
+import secrets
+import time
+from http import cookies
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+from cloud_runtime import from_env
+from config import CODE_ROOT
+
+COOKIE = "acq_studio_session"
+LOGIN = b'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ACQ Vision sign in</title><style>body{margin:0;background:#071521;color:#eaf4ff;font:16px/1.5 Segoe UI,sans-serif;min-height:100vh;display:grid;place-items:center}.card{width:min(380px,calc(100% - 40px));background:#10283a;border:1px solid #31506a;border-radius:18px;padding:28px;box-shadow:0 24px 70px #0008}h1{margin:0 0 8px}p{color:#9fb4c7;margin:0 0 22px}label{display:grid;gap:6px;margin:14px 0}input,button{font:inherit;padding:12px;border-radius:9px;border:1px solid #49667d}input{background:#071521;color:#fff}button{width:100%;margin-top:12px;background:#4c80ff;color:#fff;font-weight:700}.error{color:#ff9c9c}</style></head><body><form class="card" method="post" action="/login"><h1>ACQ Vision Studio</h1><p>Private development workspace</p>__ERROR__<label>Email<input name="username" type="email" autocomplete="username" required autofocus></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button>Sign in</button></form></body></html>'''
+
+
+class HostedAuth:
+    def __init__(self):
+        self.origin = os.environ.get("STUDIO_PUBLIC_ORIGIN", "").rstrip("/")
+        parsed = urlparse(self.origin)
+        if parsed.scheme != "https" or not parsed.netloc or parsed.path:
+            raise ValueError("STUDIO_PUBLIC_ORIGIN must be an HTTPS origin without a path")
+        self.host = parsed.netloc
+        self.username = os.environ.get("STUDIO_LOGIN_USERNAME", "").strip().casefold()
+        self.password = os.environ.get("STUDIO_LOGIN_PASSWORD", "")
+        self.secret = os.environ.get("STUDIO_SESSION_SECRET", "").encode()
+        if not self.username or len(self.password) < 14 or len(self.secret) < 32:
+            raise ValueError("Hosted login needs an email, a 14+ character password and a 32+ character session secret")
+
+    def issue(self):
+        expires = str(int(time.time()) + 12 * 3600)
+        signature = hmac.new(self.secret, (self.username+":"+expires).encode(), hashlib.sha256).digest()
+        return expires+"."+base64.urlsafe_b64encode(signature).decode().rstrip("=")
+
+    def valid(self, header):
+        try:
+            jar = cookies.SimpleCookie();jar.load(header or "")
+            value = jar[COOKIE].value
+            expires, supplied = value.split(".", 1)
+            expected = base64.urlsafe_b64encode(hmac.new(
+                self.secret, (self.username+":"+expires).encode(), hashlib.sha256
+            ).digest()).decode().rstrip("=")
+            return int(expires) > time.time() and hmac.compare_digest(supplied, expected)
+        except (KeyError, ValueError, TypeError):
+            return False
+
+
+def create_server(port, app, auth):
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass
+
+        def body(self, maximum):
+            try: length = int(self.headers.get("Content-Length", "0"))
+            except ValueError: raise ValueError("Invalid request size") from None
+            if not 0 < length <= maximum: raise ValueError("Invalid request size")
+            return self.rfile.read(length)
+
+        def reply(self, status, body, mime="text/plain; charset=utf-8", headers=None):
+            self.send_response(status)
+            self.send_header("Content-Type", mime)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+            for key,value in headers or []: self.send_header(key,value)
+            self.end_headers();self.wfile.write(body)
+
+        def data(self, status, payload):
+            self.reply(status,json.dumps(payload).encode(),"application/json; charset=utf-8")
+
+        def trusted_host(self):
+            return self.headers.get("Host", "").casefold() == auth.host.casefold()
+
+        def authenticated(self):
+            return self.trusted_host() and auth.valid(self.headers.get("Cookie"))
+
+        def do_GET(self):
+            path=urlparse(self.path).path
+            if path=="/health":
+                return self.data(200,{"status":"ready","storage":"supabase"})
+            if not self.trusted_host():
+                return self.data(403,{"error":"Unrecognized host"})
+            if path=="/login":
+                if self.authenticated():
+                    return self.reply(303,b"",headers=[("Location","/")])
+                return self.reply(200,LOGIN.replace(b"__ERROR__",b""),"text/html; charset=utf-8")
+            if not self.authenticated():
+                return self.reply(303,b"",headers=[("Location","/login")])
+            if path=="/":
+                page=(CODE_ROOT/"review_ui.html").read_bytes().replace(b"Local preview",b"Cloud development")
+                return self.reply(200,page,"text/html; charset=utf-8")
+            if path.startswith("/api/studio/"):
+                try:
+                    if path=="/api/studio/image":
+                        identifier=parse_qs(urlparse(self.path).query).get("id",[""])[0]
+                        file=app.get_studio().store.image_path(identifier)
+                        return self.reply(200,file.read_bytes(),mimetypes.guess_type(file.name)[0] or "image/jpeg")
+                    return self.data(200,app.get_studio().get(self.path))
+                except (ValueError,TypeError) as exc:
+                    return self.data(400,{"error":str(exc)})
+                except OSError:
+                    return self.data(503,{"error":"Studio data is temporarily unavailable"})
+            return self.data(404,{"error":"Not found"})
+
+        def do_POST(self):
+            path=urlparse(self.path).path
+            if path=="/login":
+                if not self.trusted_host() or self.headers.get("Origin")!=auth.origin:
+                    return self.data(403,{"error":"Unrecognized sign-in request"})
+                try:
+                    fields={k:v[0] for k,v in parse_qs(self.body(8192).decode()).items()}
+                except (ValueError,UnicodeDecodeError):
+                    return self.data(400,{"error":"Invalid sign-in request"})
+                valid_user=hmac.compare_digest(fields.get("username","").strip().casefold(),auth.username)
+                valid_password=hmac.compare_digest(fields.get("password",""),auth.password)
+                if not valid_user or not valid_password:
+                    time.sleep(.25)
+                    return self.reply(401,LOGIN.replace(b"__ERROR__",b'<p class="error">Email or password is incorrect</p>'),"text/html; charset=utf-8")
+                header=f"{COOKIE}={auth.issue()}; Path=/; Max-Age=43200; Secure; HttpOnly; SameSite=Strict"
+                return self.reply(303,b"",headers=[("Set-Cookie",header),("Location","/")])
+            if not self.authenticated() or self.headers.get("Origin")!=auth.origin or not secrets.compare_digest(
+                self.headers.get("X-Review-Token",""),app.token
+            ):
+                return self.data(403,{"error":"Sign in again before saving"})
+            if not path.startswith("/api/studio/"):
+                return self.data(404,{"error":"Not found"})
+            try:
+                payload=json.loads(self.body(2_000_000))
+                if not isinstance(payload,dict): raise ValueError("Expected a JSON object")
+                return self.data(200,app.get_studio().post(path,payload))
+            except RuntimeError as exc:
+                return self.data(409,{"error":str(exc)})
+            except (ValueError,TypeError,KeyError) as exc:
+                return self.data(400,{"error":str(exc)})
+            except OSError:
+                return self.data(503,{"error":"Save could not be completed; retry after the database recovers"})
+
+    return ThreadingHTTPServer(("0.0.0.0",port),Handler)
+
+
+def main():
+    app=from_env();auth=HostedAuth();port=int(os.environ.get("PORT","10000"))
+    server=create_server(port,app,auth)
+    print(json.dumps({"status":"ready","port":port,"storage":"supabase"}),flush=True)
+    try: server.serve_forever()
+    finally: server.server_close()
+
+if __name__=="__main__": main()
