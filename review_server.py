@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import mimetypes
+import os
 import secrets
 import sqlite3
 import tempfile
@@ -356,7 +357,9 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                     self.json(400, {"error": str(exc)})
                 except (OSError, sqlite3.Error):
                     logging.exception("Studio read failed")
-                    self.json(500, {"error": "Local Studio data unavailable. Check the server log."})
+                    self.json(500, {"error": "Studio data unavailable. No local fallback was used."})
+            elif os.environ.get("STUDIO_DATA_BACKEND") == "supabase" and path != "/api/health":
+                self.json(400, {"error": "Legacy local tools are unavailable in cloud review mode"})
             elif path == "/api/bootstrap":
                 self.json(200, app.bootstrap())
             elif path in {"/api/reviews", "/api/export"}:
@@ -401,6 +404,8 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                 try:
                     length = int(self.headers.get("Content-Length", "0"))
                     studio = app.get_studio()
+                    if self.path.startswith("/api/studio/import/") and os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
+                        raise ValueError("Cloud imports require the separate verified import workflow")
                     if self.path == "/api/studio/import/preview":
                         if not 0 < length <= 1_000_000_000:
                             raise ValueError("ZIP must be between 1 byte and 1 GB")
@@ -435,6 +440,9 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                     if file and file.exists():
                         file.unlink()
                 return
+            if os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
+                self.json(400, {"error": "Legacy local writes are unavailable in cloud review mode"})
+                return
             if self.path not in {"/api/reviews", "/api/train"}:
                 self.json(404, {"error": "Not found"})
                 return
@@ -465,8 +473,15 @@ def main() -> None:
     parser.add_argument("--open", action="store_true")
     args = parser.parse_args()
     try:
-        app = AppData()
-    except ValueError as error:
+        backend = os.environ.get("STUDIO_DATA_BACKEND", "local")
+        if backend == "supabase":
+            from cloud_runtime import from_env
+            app = from_env()
+        elif backend == "local":
+            app = AppData()
+        else:
+            raise ValueError("STUDIO_DATA_BACKEND must be local or supabase")
+    except (ValueError, OSError) as error:
         parser.exit(2, f"Cannot start Studio: {error}\n")
     server = create_server(args.port, app)
     url = f"http://127.0.0.1:{server.server_address[1]}"

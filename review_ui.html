@@ -191,7 +191,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const has=!!S.detail,job=S.detail?.assessment,blocked=!!S.detail?.historical_source?.blocked,ready=job?.status==='completed'&&!!job.prediction;
   $('agree').disabled=S.busy||!has||blocked||(S.mode==='review'&&!ready);
   $('correct').disabled=S.busy||!has||(S.mode==='review'&&blocked);$('unsure').disabled=S.busy||!has||(S.mode==='review'&&blocked);$('skip').disabled=S.busy||!has;
-  $('score-button').disabled=S.busy||!has||blocked||!S.detail?.images?.length||job?.status==='running';
+  $('score-button').disabled=S.detail?.capabilities?.assessment===false||S.busy||!has||blocked||!S.detail?.images?.length||job?.status==='running';
   $('flag-era').disabled=S.busy||!S.detail?.historical_source;
   $('edit-photo').disabled=S.busy||blocked||!current()||!S.imageLoaded;
   $('refresh').disabled=S.busy;$('queue-prev').disabled=S.busy||S.offset===0;$('queue-next').disabled=S.busy||S.offset+20>=S.total;
@@ -245,7 +245,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('agree').textContent=S.mode==='matching'?'Right photos & next':'Agree & next';
   $('correct').textContent=S.mode==='matching'?'Wrong photos':'Correct answer';
   $('decision-title').textContent=d?.historical_source?.blocked?'Wrong / uncertain era':job?.status==='completed'?label(job.review_target):job?.status==='running'?'Scoring…':job?.status==='failed'?'Scoring failed':'Not scored yet';
-  $('model-reason').textContent=job?.prediction?.target_reason||'First, generate an AI draft. Then confirm or correct whether this is the renovation project you want.';
+  $('model-reason').textContent=S.detail?.capabilities?.assessment===false?'Photos and reviews are saved in Supabase. Review these photos directly; cloud model processing is the next setup step.':job?.prediction?.target_reason||'First, generate an AI draft. Then confirm or correct whether this is the renovation project you want.';
   $('condition').textContent=job?.prediction?'Condition: '+label(condition(job)):'';
   $('model-version').textContent=job?.prediction?`${job.model} · ${job.image_count} selected photos · AI draft`:'AI requests require approval. No auto-training.';
   $('score-button').textContent=job?.prediction?'Re-score property':job?.status==='running'?'Generating draft…':'Score this property';
@@ -255,7 +255,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('assessment-warning').hidden=!warnings.length;$('assessment-warning').textContent=warnings.join('. ');
   $('coverage').replaceChildren(...Object.entries(job?.prediction?.coverage||d?.coverage||{}).map(([room,value])=>el('span',label(room)+': '+(value===true?'seen':value===false?'not shown':value),'badge')));
   const r=p?.review;$('saved-answer').hidden=r?.status!=='approved';$('saved-answer').textContent=r?.status==='approved'?'Your saved answer: '+label(r.target_fit):'';
-  $('next-instruction').textContent=S.mode==='matching'?'Are these the right acquisition-era photos?':job?.prediction?'Does the AI answer match your judgment?':'Start here: score this property.';
+  $('next-instruction').textContent=S.detail?.capabilities?.assessment===false&&S.mode!=='matching'?'Use Correct to record your judgment, or edit individual photo labels.':S.mode==='matching'?'Are these the right acquisition-era photos?':job?.prediction?'Does the AI answer match your judgment?':'Start here: score this property.';
   $('action-note').textContent=S.mode==='matching'?'Confirm the listing and dates, not just how the house looks.':'Property review only. Photo labels and deal economics stay separate.';
   const h=d?.historical_source;
   $('listing-evidence').textContent=h?`MLS ${m.ListingId||p.id} · closes ${String(m.CloseDate||'unknown').slice(0,10)} · prior acquisition ${String(h.source['Prior Sale Date']||'unknown').slice(0,10)}. ${h.blocked?'Quarantined: not valid acquisition evidence.':h.timing_verified?'Photo era confirmed.':'Prior transaction candidate; photo timing still unverified.'}`:'Reference property — not from your acquisition list.';
@@ -400,3 +400,4 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 </script>
 </body>
 </html>
+
