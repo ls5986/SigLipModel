@@ -153,7 +153,6 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 <dialog id="answer-dialog"><form id="answer-form"><h2 id="answer-heading">Correct the property answer</h2><p class="muted small">Visual renovation fit only. Photo labels and economics are unchanged.</p><label>Your answer<select id="answer-fit"><option value="target">Yes — target project</option><option value="not_target">No — not my target</option><option value="unsure">Can’t tell</option></select></label><label>Condition<select id="answer-condition"><option value="unknown">Unknown</option><option value="mixed">Mixed updates</option><option value="dated">Dated / cosmetic work</option><option value="updated">Updated</option><option value="rough">Rough / substantial work</option><option value="major">Major rehab</option></select></label><label>What should the model learn?<textarea id="answer-reason" required maxlength="2000" placeholder="e.g. Kitchen updated, but two dated bathrooms still make this a target."></textarea></label><div class="dialog-actions"><button type="button" data-close="answer-dialog">Cancel</button><button class="primary">Save &amp; next</button></div></form></dialog>
 <dialog id="score-dialog"><form id="score-form"><h2>Generate an AI draft</h2><p id="score-summary"></p><p class="notice warning">One paid GPT-4.1 mini call. Up to 8 selected photos—not the full photo set. Cost estimate unavailable. Nothing runs until you authorize it.</p><div id="score-thumbnails" class="filmstrip"></div><label class="row"><input type="checkbox" id="paid-check"> I authorize this one paid request.</label><p class="small muted">Results are drafts. Missing or uncertain evidence can produce “Can’t tell.”</p><div class="dialog-actions"><button type="button" data-close="score-dialog">Cancel</button><button id="run-score" class="primary" disabled>Generate draft</button></div></form></dialog>
 <dialog id="photo-dialog"><form id="photo-form"><h2>Correct this photo</h2><img id="photo-dialog-image" alt="Photo being reviewed"><label>Actual room<select id="photo-edit-room"></select></label><label>Is this the room work you want?<select id="photo-preference"><option value="">Not judged</option><option value="target">Yes</option><option value="not_target">No</option><option value="unsure">Can’t tell</option></select></label><p class="small muted">Review the proposed tags below. Unknown means not established, not absent.</p><div id="photo-features" class="features"></div><label>Notes<textarea id="photo-edit-notes" maxlength="4000"></textarea></label><p class="notice small">Saves this photo’s room, tags and preference only. It does not approve the property or verify photo dates.</p><div class="dialog-actions"><button type="button" data-close="photo-dialog">Cancel</button><button class="primary">Save photo labels</button></div></form></dialog>
-<dialog id="era-dialog"><form id="era-form"><h2>Verify the historical photo set</h2><label>Photo-era judgment<select id="era-decision"><option value="correct_era">Right property and acquisition era</option><option value="wrong_era">Wrong property or era</option><option value="unsure">Cannot verify</option></select></label><label>What supports your answer?<textarea id="era-reason" required maxlength="2000" placeholder="Compare the original listing and sale dates—not just the current address."></textarea></label><p class="notice small">This records your photo-era judgment. Duplicate, amenity and train/test checks remain separate.</p><div class="dialog-actions"><button type="button" data-close="era-dialog">Cancel</button><button class="primary">Save &amp; next</button></div></form></dialog>
 <script>
 (() => {
  'use strict';
@@ -243,7 +242,8 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('queue-filter').disabled=S.mode==='matching';
   $('review-nav').setAttribute('aria-current',S.mode==='review'?'page':'false');$('match-nav').setAttribute('aria-current',S.mode==='matching'?'page':'false');
   $('agree').textContent=S.mode==='matching'?'Right photos & next':'Agree & next';
-  $('correct').textContent=S.mode==='matching'?'Wrong photos':'Correct answer';
+  $('correct').textContent=S.mode==='matching'?'Wrong photos & next':'Correct answer';
+  $('unsure').textContent=S.mode==='matching'?"Can’t tell & next":"Can’t tell";
   $('decision-title').textContent=d?.historical_source?.blocked?'Wrong / uncertain era':job?.status==='completed'?label(job.review_target):job?.status==='running'?'Scoring…':job?.status==='failed'?'Scoring failed':'Not scored yet';
   $('model-reason').textContent=S.detail?.capabilities?.assessment===false?'Photos and reviews are saved in Supabase. Review these photos directly; cloud model processing is the next setup step.':job?.prediction?.target_reason||'First, generate an AI draft. Then confirm or correct whether this is the renovation project you want.';
   $('condition').textContent=job?.prediction?'Condition: '+label(condition(job)):'';
@@ -317,7 +317,19 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('answer-reason').value=fit==='unsure'?'Not enough evidence to judge this property.':d.property.review?.reason||d.assessment?.prediction?.target_reason||'';
   $('answer-dialog').showModal();
  }
- function openEra(decision){if(!S.detail?.historical_source){note('No historical acquisition match is attached to this property.',true);return;}$('era-decision').value=decision;$('era-reason').value=S.detail.historical_source.review?.reason||'';$('era-dialog').showModal();}
+ const ERA_REASONS={
+  correct_era:'One-click review: correct property and acquisition-era photos.',
+  wrong_era:'One-click review: wrong property or later-era photos.',
+  unsure:'One-click review: photo era could not be verified.'
+ };
+ function saveEra(decision){
+  const d=S.detail,h=d?.historical_source;if(!h){note('No historical acquisition match is attached to this property.',true);return;}
+  action(async()=>{
+   const id=d.property.id;
+   await api('era-review',{property_id:id,decision,reason:ERA_REASONS[decision],reviewer:S.name,evidence_hash:h.evidence_hash,expected_revision:h.review?.revision||0});
+   note('Photo-era judgment saved. Moving to the next property.');await nextAfterSave(id);
+  });
+ }
  async function previewScore(){
   await action(async()=>{S.preview=await api('assessment/preview',{property_id:S.detail.property.id});S.detail.assessment=S.preview;
    $('score-summary').textContent=S.detail.property.address+' · '+S.preview.image_count+' photos · no labels will be approved automatically.';
@@ -348,11 +360,6 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('photo-dialog').close();await openProperty(S.detail.property.id);note('Photo labels saved. Property judgment unchanged.');
  }));};
  $('answer-form').onsubmit=e=>{e.preventDefault();withName(()=>saveAnswer($('answer-fit').value,$('answer-reason').value,$('answer-condition').value));};
- $('era-form').onsubmit=e=>{e.preventDefault();withName(()=>action(async()=>{
-  const d=S.detail,h=d.historical_source,id=d.property.id;
-  await api('era-review',{property_id:id,decision:$('era-decision').value,reason:$('era-reason').value,reviewer:S.name,evidence_hash:h.evidence_hash,expected_revision:h.review?.revision||0});
-  $('era-dialog').close();note('Photo-era judgment saved. Target labels and training eligibility unchanged.');await nextAfterSave(id);
- }));};
  $('score-form').onsubmit=e=>{e.preventDefault();if(!$('paid-check').checked||!S.preview)return;const id=S.preview.id;$('paid-check').checked=false;$('run-score').disabled=true;
   action(async()=>{try{S.detail.assessment=await api('assessment/run',{id,approved:true});$('score-dialog').close();draw();note('AI scoring started. Results will appear here automatically.');}
    catch(error){$('score-dialog').close();try{S.detail.assessment=await api('assessment?'+new URLSearchParams({id}));draw();}catch{}throw error;}
@@ -361,15 +368,15 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  $('paid-check').onchange=()=>$('run-score').disabled=!$('paid-check').checked;
  $('name-form').onsubmit=e=>{e.preventDefault();S.name=$('name-input').value.trim();if(!S.name)return;remember();$('name-dialog').close();const fn=S.pending;S.pending=null;if(fn)fn();};
  $('reviewer-button').onclick=()=>{S.pending=null;$('name-input').value=S.name;$('name-dialog').showModal();};
- $('agree').onclick=()=>{if(S.mode==='matching')return withName(()=>openEra('correct_era'));const job=S.detail?.assessment;
+ $('agree').onclick=()=>{if(S.mode==='matching')return withName(()=>saveEra('correct_era'));const job=S.detail?.assessment;
   if(job?.status!=='completed'||!job.prediction)return;
   withName(()=>saveAnswer(job.review_target,job.prediction.target_reason,condition(job)));
  };
- $('correct').onclick=()=>withName(()=>S.mode==='matching'?openEra('wrong_era'):openAnswer());
- $('unsure').onclick=()=>withName(()=>S.mode==='matching'?openEra('unsure'):openAnswer('unsure'));
+ $('correct').onclick=()=>withName(()=>S.mode==='matching'?saveEra('wrong_era'):openAnswer());
+ $('unsure').onclick=()=>withName(()=>S.mode==='matching'?saveEra('unsure'):openAnswer('unsure'));
  $('skip').onclick=()=>action(()=>nextAfterSave(S.detail.property.id));
  $('edit-photo').onclick=()=>withName(openPhoto);$('score-button').onclick=previewScore;
- $('flag-era').onclick=()=>withName(()=>openEra('wrong_era'));
+ $('flag-era').onclick=()=>withName(()=>saveEra('wrong_era'));
  $('dataset-scope').onchange=()=>action(async()=>{S.scope=$('dataset-scope').value;S.offset=0;S.detail=null;await loadQueue();});
  $('photo-prev').onclick=()=>{const a=photoList(),i=a.findIndex(v=>v.id===S.photo);if(i>0){S.photo=a[i-1].id;drawHero();}};
  $('photo-next').onclick=()=>{const a=photoList(),i=a.findIndex(v=>v.id===S.photo);if(i<a.length-1){S.photo=a[i+1].id;drawHero();}};
@@ -400,4 +407,3 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 </script>
 </body>
 </html>
-
