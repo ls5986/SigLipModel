@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: acq-vision-studio-dev
+    runtime: python
+    region: ohio
+    plan: 0.5c-512mb
+    branch: develop
+    autoDeployTrigger: commit
+    buildCommand: pip install -r requirements-hosted.txt
+    startCommand: python -B hosted_server.py
+    healthCheckPath: /health
+    envVars:
+      - key: STUDIO_DATA_BACKEND
+        value: supabase
+      - key: SUPABASE_PROJECT_REF
+        sync: false
+      - key: STUDIO_DATABASE_URL
+        sync: false
+      - key: STUDIO_WORKSPACE_ID
+        sync: false
+      - key: STUDIO_STORAGE_SECRET
+        sync: false
+      - key: STUDIO_PUBLIC_ORIGIN
+        sync: false
+      - key: STUDIO_LOGIN_USERNAME
+        sync: false
+      - key: STUDIO_LOGIN_PASSWORD
+        sync: false
+      - key: STUDIO_SESSION_SECRET
+        generateValue: true
+      - key: STUDIO_CACHE_DIR
+        value: /tmp/acq-vision-cache
