@@ -18,8 +18,7 @@ def create_server(port, app):
     parent = server.RequestHandlerClass
 
     @lru_cache(maxsize=64)
-    def thumbnail(identifier):
-        path = app.get_studio().store.image_path(identifier)
+    def thumbnail(path, modified, size):
         with Image.open(path) as original:
             if original.width * original.height > 40_000_000:
                 raise ValueError("Image dimensions exceed thumbnail limit")
@@ -42,7 +41,9 @@ def create_server(port, app):
                 return
             try:
                 identifier = parse_qs(urlparse(self.path).query).get("id", [""])[0]
-                self.send(200, thumbnail(identifier), "image/jpeg")
+                file = app.get_studio().store.image_path(identifier)
+                info = file.stat()
+                self.send(200, thumbnail(file, info.st_mtime_ns, info.st_size), "image/jpeg")
             except (ValueError, OSError):
                 self.json(404, {"error": "Photo preview unavailable"})
     server.RequestHandlerClass = Handler
@@ -53,3 +54,4 @@ review_server.create_server = create_server
 
 if __name__ == "__main__":
     review_server.main()
+

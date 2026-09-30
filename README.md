@@ -193,3 +193,65 @@ The connected worker is restricted to the ACQ BOT dev origin. ACQ BOT rejects
 these endpoints outside staging. Supabase remains storage; local Studio still
 uses the configured local runtime folders. Real-model/Windows acceptance and any
 production promotion remain separate steps.
+
+## Supabase-backed review data (development)
+
+`STUDIO_DATA_BACKEND=supabase` runs the image review UI against the private
+`acq_training` schema. It does **not** require the original Windows dataset,
+`studio.sqlite3`, local review JSON, embeddings, or model weights to review photos.
+The local backend remains the default. Switching modes is explicit; cloud failures
+never fall back to an older local copy.
+
+Install the normal runtime dependencies plus `requirements-cloud.txt`. Apply the
+versioned Studio state migration to the **training project only**. It expects the
+existing migrated `acq_training` schema and roles. This is not an ACQ BOT production
+migration or an empty-project bootstrap.
+
+Set server-side environment variables (never commit credentials):
+
+```dotenv
+STUDIO_DATA_BACKEND=supabase
+SUPABASE_PROJECT_REF=<training-project-reference>
+STUDIO_DATABASE_URL=<TLS-Postgres-connection-for-a-restricted-training-login>
+STUDIO_WORKSPACE_ID=<existing-training-workspace-uuid>
+STUDIO_STORAGE_SECRET=<training-project-server-storage-credential>
+STUDIO_CACHE_DIR=<absolute-path-to-disposable-photo-cache>
+```
+
+The database login must inherit `acq_training_reviewer`, have a matching row in
+`acq_training.principals`, and have neither superuser nor BYPASSRLS privileges.
+Use the training project's own connection information; never reuse the acquisition
+production database credentials. Startup validates workspace access and schema.
+A database administrator provisions this login and supplies its password through
+server environment configuration. The Storage credential stays server-side.
+
+Start `launch.py` normally. The server **still binds only to loopback**. This change
+is the data adapter, not public hosting or authentication. Do not expose this
+server publicly. Hosted login and background model workers are separate work.
+
+Supported now:
+
+- Deduplicated acquisition review queue and listing/photo detail from Supabase.
+- Private photos fetched on demand, SHA-256 verified before display, with a bounded
+  256 MiB disposable cache. Revocation/retention is checked before serving even
+  cached thumbnails. Missing/corrupt photos fail explicitly.
+- Original backed-up human labels remain available as the baseline. New image,
+  property, and photo-era reviews are committed to `studio_state` and append-only
+  revision history. SQL compare-and-swap rejects stale saves across processes.
+- Existing prior-acquisition matching and wrong-era quarantine rules remain in force.
+  Cohort membership does not approve photo labels. Protected test photos stay marked.
+- A versioned document API is available to the future remote job runner; model jobs
+  are not automatically started by reviewing or saving a label.
+
+Cloud review mode currently disables model training, GPT scoring, local pairing,
+legacy tools and imports. Those still work in the original local mode. This avoids
+mixing cloud corrections with stale local training snapshots. Cloud worker/artifact
+integration is the next cutover, followed by hosted authentication and Render setup.
+Existing local files are preserved; do not delete them until model artifact recovery
+and the complete hosted workflow have been accepted.
+
+Validation: run `pytest -q`. Live verification should commit one synthetic document,
+read it using a fresh connection, reject an outdated revision, and reject a different
+workspace under the restricted role. No real label needs to be changed for this test.
+A fresh cache should recover a known private photo with the saved hash; that final
+Storage credential check must run in the configured deployment environment.
