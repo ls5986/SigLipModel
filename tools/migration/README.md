@@ -14,8 +14,10 @@ Set explicit environment configuration before running:
 - `SUPABASE_MIGRATION_STORAGE_KEY`: destination secret key, never a publishable key.
 
 The Storage key can alternatively be in the private data directory's
-`.env.migration`. That file is explicitly excluded from backup preparation.
-Install this directory's `requirements.txt` if using these tools.
+`.env.migration`. Database connection settings and `PGPASSWORD` can also be placed
+there so secrets never need to appear in command history or chat. That file is
+explicitly excluded from backup preparation. Install this directory's
+`requirements.txt` if using these tools.
 
 `migrate_database.py validate` uses rollback validation; `migrate` creates private
 training tables and imports the finished historical cohort. The initial importer
