@@ -106,7 +106,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   <form class="queue-tools" id="search-form">
    <div class="row spread"><strong id="queue-title">Properties</strong><small id="queue-count"></small></div>
    <input id="search" type="search" placeholder="Search address or MLS ID" aria-label="Search properties">
-   <select id="dataset-scope" aria-label="Dataset"><option value="training">250-property training batch</option><option value="acquisitions">Your acquisition candidates</option><option value="quarantine">Wrong era / needs earlier listing</option><option value="reference">Other reference properties</option></select>
+   <select id="dataset-scope" aria-label="Dataset"><option id="training-scope" hidden disabled value="training">250-property training batch</option><option value="acquisitions">Your acquisition candidates</option><option value="quarantine">Wrong era / needs earlier listing</option><option value="reference">Other reference properties</option></select>
    <select id="queue-filter" aria-label="Review queue"><option value="all">All properties</option><option value="ready">AI draft available</option><option value="unscored">Not reviewed yet</option><option value="reviewed">Reviewed</option></select>
   </form>
   <div id="queue-list"><p class="muted" style="padding:12px">Loading your properties…</p></div>
@@ -169,7 +169,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);
- const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:new URLSearchParams(location.search).get('cohort')==='training'?'training':'acquisitions',mode:'review',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set()};
+ const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'acquisitions',cohortLinkChecked:false,mode:'review',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set()};
  const ROOMS=['kitchen','bathroom','living','bedroom','exterior','outdoor','other'];
  const FEATURES=['dated_kitchen','dated_bathroom','old_flooring','old_cabinetry','dated_appliances','dated_lighting','dated_fixtures','damaged_surfaces','popcorn_ceiling','wood_paneling','clutter_obscures_condition','empty_presentation','visible_deferred_maintenance'];
  const INTERIOR=['kitchen','bathroom','living','bedroom','other'];
@@ -240,6 +240,8 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  async function loadQueue(prefer=null){
   $('dataset-scope').value=S.scope;
   const data=await api('review-queue?'+new URLSearchParams({queue:S.mode==='matching'?'photo_match':S.filter,scope:S.scope,search:$('search').value.trim(),offset:S.offset,limit:20}));
+  const cloud=data.capabilities?.storage==='supabase';$('training-scope').hidden=!cloud;$('training-scope').disabled=!cloud;
+  if(!S.cohortLinkChecked){S.cohortLinkChecked=true;if(cloud&&new URLSearchParams(location.search).get('cohort')==='training'){S.scope='training';S.offset=0;return loadQueue();}}
   S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
   if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
   $('progress').textContent=`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;

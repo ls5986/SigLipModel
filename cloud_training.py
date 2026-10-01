@@ -18,7 +18,9 @@ def readiness(properties):
     era = [r['id'] for r in properties if not r['timing_verified']]
     eligible = [r for r in properties if r['training_allowed'] and target_class(r['review']) is not None]
     group_labels = {}
-    for row in eligible: group_labels.setdefault(row['group_id'], set()).add(target_class(row['review']))
+    for row in properties:
+        if target_class(row['review']) is None: continue
+        group_labels.setdefault(row['group_id'], set()).add(target_class(row['review']))
     conflicts = {group for group, values in group_labels.items() if len(values)>1}
     counts = Counter(target_class(r['review']) for r in eligible)
     groups = {label: len({r['group_id'] for r in eligible if target_class(r['review']) == label})
@@ -185,7 +187,9 @@ class SupabaseJobs(StudioJobs):
         identifier = payload.get('id','')
         if len(identifier) != 32 or any(c not in '0123456789abcdef' for c in identifier):
             raise ValueError('Unknown job preview')
-        frozen = read_json(self.folder/identifier/'snapshot.json')
+        file = self.folder/identifier/'snapshot.json'
+        if not file.is_file(): raise ValueError('Create a training preview before starting')
+        frozen = read_json(file)
         rows, properties = snapshot(self.store)
         if not readiness(properties)['ready'] or fingerprint(rows,properties) != frozen['review_fingerprint']:
             raise ValueError('Reviews or eligibility changed; create a new preview')
