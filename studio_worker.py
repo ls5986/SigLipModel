@@ -388,6 +388,9 @@ def main():
                 if prop["id"] not in vision_features and prop["id"] in metadata_rows
             ],
         }
+        from property_models import evaluation_slices
+        slices.update(evaluation_slices(properties))
+        report["protected_slice_counts"] = {name: len(rows) for name, rows in slices.items()}
         for slice_name, rows in slices.items():
             records = []
             for prop in rows:
@@ -431,7 +434,11 @@ def main():
                 component_metrics[component] = (
                     binary_metrics(y, scores) if len(set(y.tolist())) == 2
                     else {"n": len(y), "class_counts": dict(Counter(y.tolist())),
-                          "reason": "Both classes are required for protected metrics"}
+                          "threshold": .5,
+                          "correct_at_threshold": int(((scores >= .5) == y).sum()),
+                          "missed_targets": int(((y == 1) & (scores < .5)).sum()),
+                          "false_targets": int(((y == 0) & (scores >= .5)).sum()),
+                          "reason": "Single-class slice; ranking and balanced metrics unavailable"}
                 )
             protected_evaluation[slice_name] = component_metrics
         report["protected_evaluation"] = protected_evaluation

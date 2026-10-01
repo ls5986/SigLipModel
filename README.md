@@ -355,3 +355,26 @@ allowlisted pre-decision fields and returns separate image, metadata, and fusion
 scores. Select best available evidence, images only, listing fields only, or
 both. An unavailable component reports insufficient evidence. No paid AI call,
 automatic retraining, or live MLS assessment update occurs.
+
+
+### Acquisition fit is independent of condition
+
+Rate overall shortlist fit from acquisition-time evidence, then record visible
+condition and the basis (renovation, pricing, layout/location, mixed or unknown)
+separately. A maintained original home can be a positive example; a rough home
+can be a negative example. Historical acquisition/resale membership is provenance,
+not automatic approval or verified profitability. Pricing judgments still need
+comp, repair-cost and transaction-cost validation outside this model.
+
+Property answers supervise property fit heads; they never label every photo as
+rough or desirable. Photo rooms, features and preferences require their own
+reviews. Review forms start unanswered and do not prefill AI condition labels.
+
+Protected evaluation reports maintained targets, rough targets, rough passes,
+maintained passes and pricing/characteristic-led examples separately for vision,
+metadata and fusion. Each slice reports coverage; a single-class slice reports
+missed targets/false targets at the experimental 0.5 threshold, without claiming
+AUC or balanced accuracy. Empty slices are evidence gaps, not passed tests.
+Add reviewed non-targets if this historical cohort yields too few; never convert
+uncertain answers or known acquisitions into artificial negatives. Compare on
+newer MLS dev properties after training with the existing connected worker.

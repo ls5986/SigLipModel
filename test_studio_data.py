@@ -212,3 +212,17 @@ def test_strict_room_score_filter_precedes_pagination_and_excludes_unknown(tmp_p
     assert page["items"][0]["id"] == "p1:m3"
     with pytest.raises(ValueError):
         store.image_list(score_above="nan")
+
+
+@pytest.mark.parametrize("condition", ["slightly_dated", "maintained_original", "updated"])
+def test_maintained_property_can_be_positive_without_approving_photos(tmp_path, condition):
+    store = imported_store(tmp_path)
+    store.save_review({"kind": "property", "id": "p1", "expected_revision": 0,
+        "reviewer": "Reviewer", "status": "approved", "target_score": 4, "target_fit": "target",
+        "condition_label": condition, "fit_basis": "pricing", "evidence_source": "both",
+        "reason": "Well maintained; asking price makes it worth investigating."})
+    prop = store.property("p1")
+    assert prop["property"]["review"]["target_fit"] == "target"
+    assert prop["property"]["review"]["fit_basis"] == "pricing"
+    assert prop["property"]["review"]["condition_label"] == condition
+    assert prop["images"][0]["review"]["status"] == "unreviewed"

@@ -21,7 +21,7 @@ from PIL import Image
 from pilot import FEATURE_ROOMS, FEATURES, ROOT, SOURCE, UnionFind, read_json
 
 ROOMS = ["kitchen", "bathroom", "living", "bedroom", "exterior", "outdoor", "other"]
-CONDITIONS = ["updated", "mixed", "dated", "rough", "major", "unknown"]
+CONDITIONS = ["updated", "mixed", "dated", "slightly_dated", "maintained_original", "rough", "major", "unknown"]
 CONFIDENCE_LEVELS = {"low", "medium", "high"}
 EVIDENCE_SOURCES = {"images", "metadata", "both", "insufficient"}
 PHOTO_CONTEXTS = {
@@ -138,6 +138,9 @@ def validate_review(payload, source):
             raise ValueError("Invalid property review confidence")
         if evidence_source is not None and evidence_source not in EVIDENCE_SOURCES:
             raise ValueError("Invalid property evidence source")
+        fit_basis = payload.get("fit_basis", "unknown")
+        if fit_basis not in {"unknown", "renovation", "pricing", "layout_location", "mixed"}:
+            raise ValueError("Invalid acquisition fit basis")
         reason_tags = payload.get("reason_tags", [])
         if not isinstance(reason_tags, list) or len(reason_tags) > 12 or any(
             not isinstance(value, str) or not value.strip() or len(value) > 80
@@ -154,7 +157,7 @@ def validate_review(payload, source):
         if status == "approved" and (derived_target is None or not reason.strip()):
             raise ValueError("Choose a property rating or Not enough information and give a short reason")
         record.update(target_fit=derived_target, target_score=target_score,
-                      condition_label=condition, confidence=confidence,
+                      condition_label=condition, fit_basis=fit_basis, confidence=confidence,
                       evidence_source=evidence_source,
                       reason_tags=list(dict.fromkeys(value.strip() for value in reason_tags)),
                       standout_image_ids=list(dict.fromkeys(standout)),

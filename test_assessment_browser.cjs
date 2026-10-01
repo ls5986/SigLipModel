@@ -18,6 +18,20 @@ const assert=require('node:assert/strict');
   await page.locator('#name-input').fill('Isolated reviewer');
   await page.locator('#name-form button.primary').click();
   await page.locator('#answer-dialog').waitFor({state:'visible'});
+  assert.equal(await page.locator('#property-score').inputValue(),'');
+  assert.equal(await page.locator('#answer-condition').inputValue(),'unknown');
+  await page.locator('#property-score').selectOption('4');
+  await page.locator('#answer-condition').selectOption('maintained_original');
+  await page.locator('#answer-basis').selectOption('pricing');
+  for (const viewport of [{width:1440,height:1000},{width:390,height:844}]) {
+    await page.setViewportSize(viewport);
+    assert.equal(await page.locator('#answer-dialog').evaluate(d=>d.scrollWidth>d.clientWidth+1),false);
+    const field=await page.locator('#answer-evidence').boundingBox();
+    const confidence=await page.locator('#answer-confidence').boundingBox();
+    assert.ok(field.x+field.width<=confidence.x+1 || field.y+field.height<=confidence.y+1);
+    await page.screenshot({path:`${process.env.TEST_SCREENSHOT_DIR || "/tmp"}/siglip-review-popup-${viewport.width}.png`});
+  }
+  await page.setViewportSize({width:1440,height:1000});
   await page.locator('#property-score').selectOption('insufficient');
   await page.locator('#answer-evidence').selectOption('insufficient');
   await page.locator('#answer-confidence').selectOption('low');

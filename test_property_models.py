@@ -72,3 +72,23 @@ def test_invalid_numeric_metadata_stays_explicitly_missing():
     features = metadata_features({"YearBuilt": "not-a-year"})
     assert "year_built" not in features
     assert features["year_built_missing"] == 1.0
+
+
+def test_condition_does_not_define_target_and_challenge_slices_protect_holdout():
+    from property_models import evaluation_slices
+    properties = [
+        {"id": "maintained-good", "split": "test", "review": {
+            "status": "approved", "target_fit": "target", "condition_label": "maintained_original", "fit_basis": "pricing"}},
+        {"id": "rough-pass", "split": "test", "review": {
+            "status": "approved", "target_fit": "not_target", "condition_label": "rough"}},
+        {"id": "train", "split": "train", "review": {
+            "status": "approved", "target_fit": "target", "condition_label": "updated"}},
+        {"id": "unknown", "split": "test", "review": {
+            "status": "approved", "target_fit": "unsure", "condition_label": "rough"}},
+    ]
+    slices = evaluation_slices(properties)
+    assert [p["id"] for p in slices["maintained_targets"]] == ["maintained-good"]
+    assert [p["id"] for p in slices["rough_non_targets"]] == ["rough-pass"]
+    assert [p["id"] for p in slices["pricing_or_characteristics"]] == ["maintained-good"]
+    assert target_class(properties[0]["review"]) == 1
+    assert target_class(properties[1]["review"]) == 0

@@ -189,3 +189,23 @@ def predict_property(bundle: dict, vectors: list[np.ndarray], metadata: dict | N
         "warnings": list(dict.fromkeys(warnings)),
         "decision": "NEEDS_REVIEW",
     }
+
+
+def evaluation_slices(properties: list[dict]) -> dict[str, list[dict]]:
+    """Human condition and fit are separate evaluation axes, never input features."""
+    decisive = [p for p in properties if p.get("split") == "test"
+                and target_class(p.get("review")) is not None]
+    maintained = {"updated", "slightly_dated", "maintained_original"}
+    rehab = {"rough", "major"}
+    return {
+        "maintained_targets": [p for p in decisive if target_class(p["review"]) == 1
+                               and p["review"].get("condition_label") in maintained],
+        "rough_targets": [p for p in decisive if target_class(p["review"]) == 1
+                          and p["review"].get("condition_label") in rehab],
+        "rough_non_targets": [p for p in decisive if target_class(p["review"]) == 0
+                              and p["review"].get("condition_label") in rehab],
+        "maintained_non_targets": [p for p in decisive if target_class(p["review"]) == 0
+                                   and p["review"].get("condition_label") in maintained],
+        "pricing_or_characteristics": [p for p in decisive
+                                       if p["review"].get("fit_basis") in {"pricing", "layout_location"}],
+    }
