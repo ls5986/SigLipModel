@@ -5,6 +5,7 @@ import threading
 from urllib.parse import urlencode
 
 import pytest
+from PIL import Image
 
 from hosted_server import HostedAuth, create_server
 
@@ -59,6 +60,26 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         assert request(port,'POST','/api/studio/review',payload,{'Cookie':cookie,'Origin':'https://studio.example.test','Content-Type':'application/json'})[0]==403
         status,_,body=request(port,'POST','/api/studio/review',payload,{'Cookie':cookie,'Origin':'https://studio.example.test','X-Review-Token':'csrf','Content-Type':'application/json'})
         assert status==200 and json.loads(body)['revision']==1
+    finally:
+        server.shutdown();server.server_close();thread.join()
+
+
+def test_authenticated_thumbnail_is_generated_without_studio_api_dispatch(monkeypatch,tmp_path):
+    photo=tmp_path/'original.png'
+    Image.new('RGB',(800,600),'navy').save(photo)
+    app=App()
+    app.studio.store=type('Store',(),{'image_path':lambda self,identifier:photo})()
+    server=create_server(0,app,auth(monkeypatch));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();port=server.server_address[1]
+    try:
+        form=urlencode({'username':'owner@example.test','password':'correct horse battery'})
+        status,headers,_=request(port,'POST','/login',form,{'Origin':'https://studio.example.test','Content-Type':'application/x-www-form-urlencoded'})
+        assert status==303
+        cookie=headers['Set-Cookie'].split(';',1)[0]
+        status,headers,body=request(port,'GET','/api/studio/thumbnail?id=house%3Aphoto',headers={'Cookie':cookie})
+        assert status==200 and headers['Content-Type']=='image/jpeg'
+        output=tmp_path/'thumb.jpg';output.write_bytes(body)
+        with Image.open(output) as image:
+            assert image.width<=320 and image.height<=220
     finally:
         server.shutdown();server.server_close();thread.join()
 

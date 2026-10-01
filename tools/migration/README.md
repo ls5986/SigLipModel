@@ -32,10 +32,11 @@ migration, validate it in a staging branch, and keep release promotion restricte
 to an administrative role. The training worker intentionally cannot approve model
 releases.
 
-`supabase_multimodal_delta.sql` is a reviewable forward-only delta for a deployment
-that already has the original `acq_training` schema. Validate it in a staging branch
-and compare every constraint/policy name to the live project before applying it.
-It adds no worker permission to approve releases or edit evaluation slices.
+`../../supabase/migrations/20261001151500_multimodal_training.sql` is the reviewable
+forward-only delta for a deployment that already has the original `acq_training`
+schema. Validate it in a staging branch and compare every constraint/policy name to
+the live project before applying it. It adds no worker permission to approve
+releases or edit evaluation slices.
 
 `migrate_storage.py prepare` inventories files; `transfer` uploads and downloads
 objects again to verify hashes. It rejects a changed manifest when resuming.

@@ -1,4 +1,4 @@
--- REVIEW BEFORE APPLYING: forward-only delta for an existing acq_training schema.
+-- REVIEW BEFORE APPLYING: forward-only multimodal delta for the existing acq_training schema.
 -- Run first in a Supabase staging branch using an administrator connection.
 begin;
 
@@ -16,6 +16,11 @@ alter table acq_training.examples
 alter table acq_training.examples
     add constraint examples_available_modalities_check
     check (available_modalities <@ array['images','metadata']::text[]);
+update acq_training.examples e
+set available_modalities = array['metadata']::text[] || case when exists (
+    select 1 from acq_training.photos p
+    where p.workspace_id=e.workspace_id and p.example_id=e.id and p.revoked_at is null
+) then array['images']::text[] else array[]::text[] end;
 
 alter table acq_training.review_events
     drop constraint if exists review_events_task_check;

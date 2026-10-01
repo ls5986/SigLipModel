@@ -4,11 +4,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import io
 import json
 import mimetypes
 import os
 import secrets
 import time
+from functools import lru_cache
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -16,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 
 from cloud_runtime import from_env
 from config import CODE_ROOT
+from PIL import Image, ImageOps
 
 COOKIE = "acq_studio_session"
 LOGIN = b'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ACQ Vision sign in</title><style>body{margin:0;background:#071521;color:#eaf4ff;font:16px/1.5 Segoe UI,sans-serif;min-height:100vh;display:grid;place-items:center}.card{width:min(380px,calc(100% - 40px));background:#10283a;border:1px solid #31506a;border-radius:18px;padding:28px;box-shadow:0 24px 70px #0008}h1{margin:0 0 8px}p{color:#9fb4c7;margin:0 0 22px}label{display:grid;gap:6px;margin:14px 0}input,button{font:inherit;padding:12px;border-radius:9px;border:1px solid #49667d}input{background:#071521;color:#fff}button{width:100%;margin-top:12px;background:#4c80ff;color:#fff;font-weight:700}.error{color:#ff9c9c}</style></head><body><form class="card" method="post" action="/login"><h1>ACQ Vision Studio</h1><p>Private development workspace</p>__ERROR__<label>Email<input name="username" type="email" autocomplete="username" required autofocus></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button>Sign in</button></form></body></html>'''
@@ -53,6 +56,17 @@ class HostedAuth:
 
 
 def create_server(port, app, auth):
+    @lru_cache(maxsize=256)
+    def thumbnail(path, modified, size):
+        with Image.open(path) as original:
+            if original.width * original.height > 40_000_000:
+                raise ValueError("Image dimensions exceed thumbnail limit")
+            image = ImageOps.exif_transpose(original)
+            image.thumbnail((320, 220))
+            output = io.BytesIO()
+            image.convert("RGB").save(output, "JPEG", quality=76, optimize=True)
+            return output.getvalue()
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format, *args):
             pass
@@ -121,9 +135,14 @@ def create_server(port, app, auth):
                 return self.reply(200,page,"text/html; charset=utf-8")
             if path.startswith("/api/studio/"):
                 try:
-                    if path=="/api/studio/image":
+                    if path in {"/api/studio/image","/api/studio/thumbnail"}:
                         identifier=parse_qs(urlparse(self.path).query).get("id",[""])[0]
                         file=app.get_studio().store.image_path(identifier)
+                        if path=="/api/studio/thumbnail":
+                            info=file.stat()
+                            return self.reply(
+                                200,thumbnail(file,info.st_mtime_ns,info.st_size),"image/jpeg"
+                            )
                         return self.reply(200,file.read_bytes(),mimetypes.guess_type(file.name)[0] or "image/jpeg")
                     return self.data(200,app.get_studio().get(self.path))
                 except (ValueError,TypeError) as exc:
