@@ -23,13 +23,13 @@
   </section>
   <section class="card" id="models">
    <h2>Model status</h2>
-   <span class="status" id="training-state">Checking…</span>
+   <span class="status" id="training-state">Checking…</span><p><button id="train" hidden disabled>Train reviewed candidate</button></p><p id="job-state"></p>
    <p><strong>Saving a review does not immediately retrain the model.</strong></p>
    <p id="training-copy">The hosted review app is checking whether a training worker and promoted candidate are connected.</p>
    <div class="callout"><strong>Current safe behavior</strong><br>Reviews are durable feedback. New weights require a frozen dataset, a versioned training run, protected evaluation, and explicit promotion.</div>
   </section>
   <section class="card" id="data">
-   <h2>Review data</h2>
+   <h2>Review data</h2><p><a href="/?cohort=training">Review the frozen 250-property training batch</a></p><p id="cohort-status">Checking property ratings and photo matches…</p>
    <div class="metrics"><div class="metric"><strong id="properties">—</strong><span>properties</span></div><div class="metric"><strong id="reviewed">—</strong><span>rated</span></div><div class="metric"><strong id="photo-match">—</strong><span>photo sets to verify</span></div><div class="metric"><strong id="photos">—</strong><span>photos</span></div></div>
    <h3>MLS metadata</h3>
    <p>The full sanitized listing snapshot is retained with the confirmed listing. The current metadata candidate uses <strong>12 pre-decision feature groups</strong>, not every field indiscriminately.</p>
@@ -52,8 +52,19 @@
   document.getElementById('reviewed').textContent=counts.reviewed??0;
   document.getElementById('photo-match').textContent=counts.photo_match??0;
   document.getElementById('photos').textContent=data.photo_count??0;
+  const gateResponse=await fetch('/api/studio/training-readiness',{cache:'no-store',credentials:'same-origin'});
+  const gate=await gateResponse.json();
+  document.getElementById('cohort-status').textContent=gateResponse.ok?`${gate.reviewed}/${gate.properties} rated · ${gate.pending_photo_matches} photo sets to verify · ${gate.eligible_targets} eligible targets · ${gate.eligible_not_targets} eligible non-targets · ${gate.protected_properties} held out. ${gate.reasons.join('. ')}`:(gate.error||'Training batch status unavailable');
   const enabled=data.capabilities?.training===true;
   document.getElementById('training-state').textContent=enabled?'Training connected':'Reviews saved · training not connected';
+  const button=document.getElementById('train');button.hidden=!enabled;button.disabled=!gate.ready;
+  button.onclick=async()=>{
+    button.disabled=true;
+    const post=async(path,body)=>{const r=await fetch('/api/studio/'+path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Review-Token':data.token},body:JSON.stringify(body)});const value=await r.json();if(!r.ok)throw Error(value.error||'Training failed');return value;};
+    try{const preview=await post('train/preview',{});const job=await post('train',{id:preview.id});document.getElementById('job-state').textContent=`Job ${job.id}: ${job.status}. Keep the local worker running; reload to check progress.`;}
+    catch(error){document.getElementById('job-state').textContent=error.message;button.disabled=!gate.ready;}
+  };
+  if(data.jobs?.length)document.getElementById('job-state').textContent=`Latest job: ${data.jobs[0].status} · ${data.jobs[0].error||JSON.stringify(data.jobs[0].detail)}`;
   document.getElementById('training-copy').textContent=enabled?'A versioned training worker is available. Check the active candidate and evaluation before promotion.':'The hosted app currently records reviews in Supabase, but it does not fit or promote model weights yet.';
  }catch(error){const node=document.getElementById('error');node.hidden=false;node.textContent=error.message;}
 })();

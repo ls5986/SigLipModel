@@ -316,3 +316,42 @@ read it using a fresh connection, reject an outdated revision, and reject a diff
 workspace under the restricted role. No real label needs to be changed for this test.
 A fresh cache should recover a known private photo with the saved hash; that final
 Storage credential check must run in the configured deployment environment.
+
+## Supabase cohort training and MLS dev comparison
+
+The `acquisition-250-v1` cohort is frozen in
+`acq_training.studio_state` under document key
+`training-cohort-acquisition-250-v1`. This is a review batch, not 250 positive
+labels. Review it at `/?cohort=training`; `/status` reports remaining property
+ratings and photo-era checks. Approved uncertain ratings remain unknown.
+
+The hosted Render review app stays lightweight and never starts a model worker.
+To train from **current Supabase reviews** on the computer with the restored
+backbone, cached embeddings and baseline heads, use the existing server-only
+training configuration (`SUPABASE_PROJECT_REF`, `STUDIO_DATABASE_URL`,
+`STUDIO_WORKSPACE_ID`, `STUDIO_STORAGE_SECRET`) plus:
+
+```powershell
+$env:STUDIO_DATA_BACKEND = "supabase"
+$env:STUDIO_MODEL_WORKER = "1"
+# ACQ_DATA_ROOT must point to your existing restored model/data folder.
+python review_server.py --open
+```
+
+On that local Studio's `/status`, Train becomes available only after every
+cohort property has an approved overall answer and verified acquisition-era
+photos, with enough independent target and non-target groups. Only approved
+photo labels supervise room/feature/preference heads; property answers supervise
+property vision and metadata heads. Whole linked groups, exact-image aliases,
+original test identities, and a deterministic 20% cohort holdout stay outside
+training. Training uses a frozen snapshot and refuses a changed review preview.
+Candidate weights remain on the trusted local worker; editable proposals and
+completion metadata are saved to Supabase. This is not a hosted artifact release
+or automatic production promotion.
+
+Connect this worker from MLS dev using **Connect Vision Studio**. The worker
+advertises `acq-property-request-v2`; MLS dev then sends saved photos plus
+allowlisted pre-decision fields and returns separate image, metadata, and fusion
+scores. Select best available evidence, images only, listing fields only, or
+both. An unavailable component reports insufficient evidence. No paid AI call,
+automatic retraining, or live MLS assessment update occurs.
