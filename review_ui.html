@@ -119,7 +119,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    <div id="image-state" class="image-state">Loading the review queue…</div>
    <div class="photo-step row"><button id="photo-prev" aria-label="Previous photo">←</button><small id="photo-position">0 / 0</small><button id="photo-next" aria-label="Next photo">→</button></div>
   </div>
-  <div class="row spread"><strong id="photo-caption">Property photos</strong><button id="edit-photo" class="small" disabled>Correct this photo</button></div>
+  <p id="autolabel-status" class="small muted" hidden></p><button id="retry-autolabel" class="small" hidden>Retry room suggestions</button><div class="row spread"><strong id="photo-caption">Property photos</strong><button id="edit-photo" class="small" disabled>Correct this photo</button></div>
   <div id="rooms" class="room-tabs" aria-label="Filter photos by room"></div>
   <div id="filmstrip" class="filmstrip" aria-label="Photo thumbnails"></div>
  </section>
@@ -258,7 +258,36 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const same=S.detail?.property.id===id,oldPhoto=S.photo;S.detail=detail;S.room='all';
   S.photo=same&&detail.images.some(i=>i.id===oldPhoto)?oldPhoto:(detail.images.find(i=>roomOf(i)==='kitchen')||detail.images[0])?.id;
   document.querySelector('.queue').classList.remove('expanded');drawQueue();draw();
+  $('autolabel-status').hidden=!detail.capabilities?.autolabel;$('retry-autolabel').hidden=true;
+  if(detail.capabilities?.autolabel&&detail.images.length)startAutolabel(id,ticket);
+  else{S.labelTask=null;$('autolabel-status').textContent='No retained photos to classify.';}
  }
+ function labelStatus(data){
+  $('autolabel-status').textContent=data.status==='completed'?'Room suggestions ready. Correct only if needed.':data.status==='failed'?'Room suggestions failed. You can continue verifying properties.':data.worker_online?'SigLIP is suggesting rooms and photo types. You can keep reviewing.':'Room suggestions queued. Waiting for the local SigLIP worker.';
+  $('retry-autolabel').hidden=data.status!=='failed';
+ }
+ async function startAutolabel(id,ticket){
+  S.labelTask={id,ticket,status:'queued',checked:0};
+  try{const request=await api('autolabel',{property_id:id});if(ticket!==S.request)return;
+   const data=request.status==='completed'?request:await api('autolabel?'+new URLSearchParams({id}));
+   if(ticket!==S.request)return;Object.assign(S.labelTask,data);labelStatus(data);
+  }catch(error){if(ticket===S.request){S.labelTask.status='failed';labelStatus({status:'failed'});}}
+ }
+ async function pollLabels(){
+  const task=S.labelTask;if(!task||task.ticket!==S.request||['completed','failed'].includes(task.status)||Date.now()-task.checked<15000)return;
+  task.checked=Date.now();
+  const data=await api('autolabel?'+new URLSearchParams({id:task.id}));if(task.ticket!==S.request)return;
+  Object.assign(task,data);labelStatus(data);
+  if(data.status==='completed'){
+   const fresh=await api('property?'+new URLSearchParams({id:task.id}));
+   if(task.ticket!==S.request)return;
+   if(editing()||S.busy){task.status='queued';return;}
+   if(fresh.historical_source?.evidence_hash!==S.detail.historical_source?.evidence_hash){note('Photo evidence changed. Reload before verifying.',true);return;}
+   // Refresh suggestions only, preserving unsaved sale/photo coverage selections.
+   S.detail.images=fresh.images;drawPhotos();
+  }
+ }
+ $('retry-autolabel').onclick=()=>{if(S.detail)startAutolabel(S.detail.property.id,S.request);};
  function draw(){
   const d=S.detail,p=d?.property,job=d?.assessment;
   $('address').textContent=p?.address||'No property selected';
@@ -488,7 +517,9 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   if(e.key==='ArrowLeft')$('photo-prev').click();if(e.key==='ArrowRight')$('photo-next').click();
  });
  async function poll(){
-  if(S.busy||S.poll||editing()||document.hidden||S.detail?.assessment?.status!=='running')return;
+  if(S.busy||S.poll||editing()||document.hidden)return;
+  if(S.detail?.capabilities?.autolabel){S.poll=true;try{await pollLabels();}catch{}finally{S.poll=false;}}
+  if(S.detail?.assessment?.status!=='running')return;
   S.poll=true;const id=S.detail.property.id,job=S.detail.assessment.id;
   try{const result=await api('assessment?'+new URLSearchParams({id:job}));if(S.detail?.property.id===id){S.detail.assessment=result;draw();if(result.status==='completed'){await action(()=>loadQueue(id));note('AI draft ready. Review the photos, then Agree, Correct, or Can’t tell.');}}}
   catch(e){note('Could not refresh scoring status. '+e.message,true,()=>action(loadQueue));}finally{S.poll=false;}

@@ -32,5 +32,5 @@ def effective_photo(image, ai=None):
     return {"room": room, "context": context, "features": features,
             "preference": pref, "local_score": score, "gpt_scope_score": gpt_score,
             "room_source": "Your review" if has_human_room else "GPT draft" if ai.get("room") else image.get("room_source", "Unknown"),
-            "context_source": "Your review" if review.get("context") else "GPT draft" if ai.get("context") else "MLS description" if image.get("provider_context") else "Unknown",
+            "context_source": "Your review" if review.get("context") else "GPT draft" if ai.get("context") else image.get("provider_context_source", "MLS description") if image.get("provider_context") else "Unknown",
             "label_status": review.get("status", "unreviewed")}

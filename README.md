@@ -392,3 +392,40 @@ existing property request protocol returns separate image/metadata/combined
 similarity and nearest source examples. Unavailable explicit modes report
 insufficient evidence. The experiment never overwrites the live MLS assessment,
 automatically retrains or promotes a production model.
+
+### Automatic room and photo-type suggestions
+
+The cloud reviewer queues an automatic labeling request when you open a photo
+set. This runs separately from training and sale verification: no overall ratings,
+room labels, silver heads or embedding manifest are needed to start. No OpenAI
+key, paid API call or image upload to Hugging Face is used. The frozen public
+SigLIP image/text model runs on your computer; the first run downloads its model
+and tokenizer if they are not already cached. Give this worker enough memory for
+the full image/text checkpoint; the lightweight hosted reviewer does not load it.
+
+With the existing restricted worker Supabase/storage configuration and Python
+environment, run one worker per workspace:
+
+```powershell
+python -m pip install -r requirements.txt -r requirements-hosted.txt
+python cloud_autolabel.py
+```
+
+Leave it running while reviewing in the hosted app. It reads queued properties,
+classifies retained photos in batches of four, and saves editable suggestions in
+Supabase. `--once` processes the queued requests and exits. The UI reports queued,
+running, failed or completed work and whether the worker is connected. It refreshes
+room suggestions without resetting an unsaved interior-coverage selection.
+
+Room and photo-type prompts are versioned as `siglip-room-context-v1`. Suggestions
+are bound to the exact photo hashes, checkpoint revision and prompt hash. The
+heuristic score/margin gate abstains on ambiguous images; these scores are not
+calibrated confidence. Pools and recreation areas do not establish private versus
+HOA ownership. Context and room suggestions never verify the sale, approve a
+property, write reviewed labels, fit weights or promote a candidate. Human
+corrections take priority. Condition/features remain unknown unless reviewed.
+
+Worker requests/results use the existing workspace-restricted, revisioned
+`acq_training.studio_state` JSONB records and history. No new public table or
+permissions are needed. Changed/expired photo evidence is checked again before
+results are published. Failed requests can be retried from the review page.

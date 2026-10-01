@@ -156,7 +156,10 @@ class SupabaseStore:
             ids = [identifier, *[p['image_id'] for p in photos]]
             legacy, live = self._legacy(db,ids), self._reviews(db,ids)
             proposal = self.database.state(db,'document','model-proposal:'+identifier) or {}
+            automatic = self.database.state(db,'document','autolabel-result:'+identifier) or {}
         proposed_images = {i['image_id']:i for i in proposal.get('images',[]) if i.get('image_id')}
+        from automatic_labels import POLICY
+        automatic_images = {i['image_id']:i for i in automatic.get('images',[]) if i.get('image_id')} if automatic.get('policy')==POLICY else {}
         metadata = trim_metadata(self._selected(examples[0]).get('listing', {}))
         metadata['source_role'] = 'historical candidate'
         images, coverage = [], {r:'unknown' for r in ('kitchen','bathroom','living')}
@@ -164,6 +167,9 @@ class SupabaseStore:
             review = self._review('image',p['image_id'],legacy,live)
             machine = proposed_images.get(p['image_id'],{})
             if machine.get('sha256') != p['image_sha256']: machine = {}
+            suggestion = automatic_images.get(p['image_id'],{})
+            if suggestion.get('sha256') != p['image_sha256']: suggestion = {}
+            if suggestion: machine = suggestion
             # Model suggestions remain suggestions; human corrections take priority.
             room = review.get('room') or machine.get('room') or 'other'
             if room in coverage:
@@ -175,10 +181,15 @@ class SupabaseStore:
                 text = description.casefold()
                 context = 'shared_amenity' if any(s in text for s in ('community pool','community room','community exercise','hoa','clubhouse')) else 'floor_plan' if 'floor plan' in text or 'floorplan' in text else 'unknown'
             context = 'subject' if context in {'subject_interior','subject_exterior'} else context
+            context_source = 'MLS description'
+            if context=='unknown' and suggestion:
+                context = suggestion.get('context','unknown')
+                context_source = 'SigLIP suggestion'
             image = {'id':p['image_id'],'property_id':identifier,'room':room,'review':review,
                      'features':{**{f:None for f in FEATURES},**review.get('features', {})},
-                     'room_source':'Human approved' if review.get('status')=='approved' else 'Local model suggestion' if machine.get('room') else 'Unknown',
+                     'room_source':'Human approved' if review.get('status')=='approved' else 'SigLIP suggestion (unsure)' if suggestion.get('uncertain') else 'SigLIP suggestion' if suggestion else 'Local model suggestion' if machine.get('room') else 'Unknown',
                      'suggestions':[machine] if machine else [],'local_model':None,'provider_context':context,'provider_description':description,
+                     'provider_context_source':context_source,
                      'sha256':p['image_sha256'],'sequence':provider.get('Order'),
                      'split':'test' if p['protected_test'] else 'learning','training_allowed':not p['protected_test'],
                      'warnings':['Protected test group: evaluation only'] if p['protected_test'] else []}
@@ -190,7 +201,7 @@ class SupabaseStore:
                  'review':self._review('property',identifier,legacy,live)},
                 'images':images,'coverage':coverage,'property_suggestions':[], 'assessment':None,
                 'historical_source':self._history(examples,photos,live.get(('era',identifier))),
-                'capabilities':{'review':True,'assessment':False,'training':False,'storage':'supabase'}}
+                'capabilities':{'review':True,'assessment':False,'training':False,'autolabel':True,'storage':'supabase'}}
 
     def save_review(self, payload):
         kind, identifier = payload.get('kind'), payload.get('id')
@@ -341,6 +352,45 @@ class SupabaseStore:
     def save_document(self, key, payload, expected_revision):
         with self.database.connect() as db:
             return self.database.save(db,'document',key,expected_revision,payload)
+
+    def autolabel_status(self, identifier):
+        from datetime import datetime, timezone
+        request = self.document('autolabel-request:'+identifier) or {}
+        worker = self.document('autolabel-worker') or {}
+        try:
+            online = (datetime.now(timezone.utc)-datetime.fromisoformat(worker['at'])).total_seconds()<90 and worker['status'] in {'ready','running','loading'}
+        except (KeyError, ValueError, TypeError): online = False
+        return {'status':request.get('status','not_requested'),'worker_online':online,
+                'worker_status':worker.get('status') if online else 'disconnected',
+                'error':request.get('error')}
+
+    def request_autolabel(self, payload):
+        from automatic_labels import POLICY
+        identifier = payload.get('property_id')
+        if not isinstance(identifier,str): raise ValueError('Property ID required')
+        with self.database.connect() as db:
+            self._lock_property(db,identifier)
+            sources, photos = self._examples(db,identifier), self._photos(db,identifier)
+            if not photos: raise ValueError('No retained photos to label')
+            digest = self._history(sources,photos,None)['evidence_hash']
+            result = self.database.state(db,'document','autolabel-result:'+identifier) or {}
+            key = 'autolabel-request:'+identifier
+            current = self.database.state(db,'document',key) or {}
+            if result.get('evidence_hash')==digest and result.get('policy')==POLICY:
+                return {'status':'completed'}
+            if current.get('evidence_hash')==digest and current.get('policy')==POLICY and current.get('status') in {'queued','running'}:
+                return {'status':current['status']}
+            self.database.save(db,'document',key,current.get('revision',0),{
+                'property_id':identifier,'evidence_hash':digest,'policy':POLICY,
+                'status':'queued','at':now()})
+        return {'status':'queued'}
+
+    def autolabel_pending(self):
+        with self.database.connect() as db:
+            rows = db.execute('''SELECT payload FROM acq_training.studio_state
+                WHERE workspace_id=%s AND kind='document' AND item_id LIKE 'autolabel-request:%%'
+                AND payload->>'status' IN ('queued','running') ORDER BY updated_at LIMIT 50''',(self.workspace,)).fetchall()
+        return [r['payload']['property_id'] for r in rows]
 
     def training_readiness(self):
         from cloud_training import readiness, snapshot

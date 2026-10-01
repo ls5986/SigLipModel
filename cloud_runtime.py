@@ -25,6 +25,7 @@ class CloudStudio:
         parsed = urlparse(path)
         args = {k:v[0] for k,v in parse_qs(parsed.query).items()}
         if parsed.path=='/api/studio/source-rows': return self.store.source_rows(args)
+        if parsed.path=='/api/studio/autolabel': return self.store.autolabel_status(args.get('id',''))
         if parsed.path=='/api/studio/training-readiness':
             return self.store.training_readiness()
         if self.jobs:
@@ -49,6 +50,7 @@ class CloudStudio:
         raise ValueError('This action is not available in cloud review mode yet')
 
     def post(self, path, payload):
+        if path=='/api/studio/autolabel': return self.store.request_autolabel(payload)
         if path=='/api/studio/source-row-note': return self.store.source_row_note(payload)
         if path=='/api/studio/review': return self.store.save_review(payload)
         if path=='/api/studio/era-review': return self.store.review_era(payload)

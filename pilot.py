@@ -357,7 +357,7 @@ def checkpoint_snapshot() -> tuple[Path, dict[str, Any]]:
     revision = metadata.sha
     path = Path(snapshot_download(
         CHECKPOINT, revision=revision, token=False, max_workers=2,
-        allow_patterns=["*.json", "*.safetensors", "README.md"],
+        allow_patterns=["*.json", "*.safetensors", "*.model", "README.md"],
         cache_dir=str(ROOT / ".cache" / "huggingface" / "hub"),
     ))
     info = {
@@ -702,4 +702,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
