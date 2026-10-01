@@ -97,6 +97,16 @@ def payload(**changes):
             'preference':'target','reviewer':'reviewer','status':'approved','expected_revision':0,**changes}
 
 
+def property_payload(**changes):
+    return {
+        'kind':'property','id':'house','reviewer':'reviewer','status':'approved',
+        'expected_revision':0,'target_fit':'target','target_score':5,
+        'condition_label':'dated','confidence':'high','evidence_source':'both',
+        'reason_tags':['Dated kitchen'],'standout_image_ids':['house:photo'],
+        'reason':'Strong visible opportunity',**changes,
+    }
+
+
 def test_reviews_persist_across_store_restart_and_reject_stale_save():
     db=MemoryDatabase()
     first=Store(db,None)
@@ -106,6 +116,17 @@ def test_reviews_persist_across_store_restart_and_reject_stale_save():
     assert db.state(db,'image','house:photo')==saved
     with pytest.raises(RuntimeError): second.save_review(payload())
     assert second.save_review(payload(expected_revision=1,preference='not_target'))['revision']==2
+
+
+def test_cloud_property_rating_preserves_evidence_and_rejects_foreign_photos():
+    store=Store(MemoryDatabase(),None)
+    saved=store.save_review(property_payload())
+    assert saved['target_score']==5
+    assert saved['standout_image_ids']==['house:photo']
+    with pytest.raises(ValueError,match='Standout'):
+        Store(MemoryDatabase(),None).save_review(
+            property_payload(standout_image_ids=['other:photo'])
+        )
 
 
 def test_era_quarantine_blocks_approvals_and_preserves_labels():

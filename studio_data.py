@@ -22,6 +22,13 @@ from pilot import FEATURE_ROOMS, FEATURES, ROOT, SOURCE, UnionFind, read_json
 
 ROOMS = ["kitchen", "bathroom", "living", "bedroom", "exterior", "outdoor", "other"]
 CONDITIONS = ["updated", "mixed", "dated", "rough", "major", "unknown"]
+CONFIDENCE_LEVELS = {"low", "medium", "high"}
+EVIDENCE_SOURCES = {"images", "metadata", "both", "insufficient"}
+PHOTO_CONTEXTS = {
+    "subject", "subject_interior", "subject_exterior", "shared_amenity",
+    "floor_plan", "unrelated", "unknown",
+}
+EXCLUDED_CONTEXTS = {"shared_amenity", "floor_plan", "unrelated"}
 
 
 def now():
@@ -98,9 +105,9 @@ def validate_review(payload, source):
         if preference not in {None, "target", "not_target", "unsure"}:
             raise ValueError("Invalid room preference")
         context = payload.get("context")
-        if context is not None and context not in {"subject", "shared_amenity", "floor_plan", "unrelated", "unknown"}:
+        if context is not None and context not in PHOTO_CONTEXTS:
             raise ValueError("Invalid photo context")
-        if context in {"shared_amenity", "floor_plan", "unrelated"} and (
+        if context in EXCLUDED_CONTEXTS and (
             preference is not None or any(value is not None for value in features.values())
         ):
             raise ValueError("Non-subject photos cannot approve subject condition or work preference labels")
@@ -111,17 +118,47 @@ def validate_review(payload, source):
             record["context"] = context
     else:
         target, condition = payload.get("target_fit"), payload.get("condition_label")
+        target_score = payload.get("target_score")
+        confidence = payload.get("confidence")
+        evidence_source = payload.get("evidence_source")
         reason = payload.get("reason", "")
         if target not in {None, "target", "not_target", "unsure"} or condition not in [
             None, *CONDITIONS,
         ]:
             raise ValueError("Invalid property decision or condition label")
+        if target_score is not None and (type(target_score) is not int or not 1 <= target_score <= 5):
+            raise ValueError("Property target score must be from one to five")
+        derived_target = "target" if target_score and target_score >= 4 else (
+            "not_target" if target_score and target_score <= 2 else
+            "unsure" if target_score == 3 else target
+        )
+        if target is not None and derived_target != target:
+            raise ValueError("Property rating and target decision disagree")
+        if confidence is not None and confidence not in CONFIDENCE_LEVELS:
+            raise ValueError("Invalid property review confidence")
+        if evidence_source is not None and evidence_source not in EVIDENCE_SOURCES:
+            raise ValueError("Invalid property evidence source")
+        reason_tags = payload.get("reason_tags", [])
+        if not isinstance(reason_tags, list) or len(reason_tags) > 12 or any(
+            not isinstance(value, str) or not value.strip() or len(value) > 80
+            for value in reason_tags
+        ):
+            raise ValueError("Invalid property reason tags")
+        standout = payload.get("standout_image_ids", [])
+        if not isinstance(standout, list) or len(standout) > 12 or any(
+            not isinstance(value, str) for value in standout
+        ):
+            raise ValueError("Invalid standout photo list")
         if not isinstance(reason, str) or len(reason) > 2000:
             raise ValueError("Invalid reason")
-        if status == "approved" and (target is None or not reason.strip()):
-            raise ValueError("Choose Target / Not target / Unsure and give a short reason")
-        record.update(target_fit=target, condition_label=condition, reason=reason,
-                      image_labels_approved=False)
+        if status == "approved" and (derived_target is None or not reason.strip()):
+            raise ValueError("Choose a property rating or Not enough information and give a short reason")
+        record.update(target_fit=derived_target, target_score=target_score,
+                      condition_label=condition, confidence=confidence,
+                      evidence_source=evidence_source,
+                      reason_tags=list(dict.fromkeys(value.strip() for value in reason_tags)),
+                      standout_image_ids=list(dict.fromkeys(standout)),
+                      reason=reason, image_labels_approved=False)
     return record
 
 
@@ -475,6 +512,14 @@ class StudioStore:
             table = "images" if kind == "image" else "properties"
             source = db.execute(f"SELECT * FROM {table} WHERE id=?", (identifier,)).fetchone()
             record = validate_review(payload, source)
+            if kind == "property" and record["standout_image_ids"]:
+                standout = record["standout_image_ids"]
+                found = db.execute(
+                    f"SELECT count(*) FROM images WHERE property_id=? AND id IN ({','.join('?' for _ in standout)})",
+                    (identifier, *standout),
+                ).fetchone()[0]
+                if found != len(set(standout)):
+                    raise ValueError("Standout photo belongs to another property")
             previous = db.execute("SELECT payload,revision FROM reviews WHERE kind=? AND id=?",
                                   (kind, identifier)).fetchone()
             revision = previous["revision"] if previous else 0
@@ -482,7 +527,7 @@ class StudioStore:
                 prior_context = json.loads(previous["payload"]).get("context")
                 if prior_context is not None:
                     record["context"] = prior_context
-            if kind == "image" and record.get("context") in {"shared_amenity", "floor_plan", "unrelated"} and (
+            if kind == "image" and record.get("context") in EXCLUDED_CONTEXTS and (
                 record["preference"] is not None or any(v is not None for v in record["features"].values())
             ):
                 raise ValueError("Non-subject photo context conflicts with subject condition labels")
@@ -771,4 +816,3 @@ class StudioStore:
             db.execute("UPDATE imports SET status='committed' WHERE id=?", (identifier,))
         return {"status": "committed", "id": identifier, "properties": len(manifest["properties"]),
                 "images": len(manifest["images"]), "human_approvals_created": 0}
-

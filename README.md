@@ -47,12 +47,16 @@ Absent environment settings, private runtime files default to `~/.siglipmodel`.
 ## Review workflow
 
 - **Review:** property queue, large original photo, room thumbnails, model evidence,
-  and Agree / Correct / Can't tell actions.
+  available-at-review metadata, and an anchored 1–5 target-fit rating. A separate
+  Not enough information path prevents missing interiors from becoming negative labels.
 - **Photo matching:** review listing/transaction identity separately from target fit.
   Prior-acquisition candidates, ambiguous later sales, and other references are separate.
 - **Models & results / Data:** advanced model, prompt-comparison, and import tools.
-- **Score this property:** previews one explicitly approved paid GPT request. It is
-  a bounded selected-photo draft, not a full photographic inspection.
+- **Teach the model about this photo:** approve or correct subject, shared-amenity,
+  floor-plan, unrelated and unknown context before optional room/features/preferences.
+- **Optional AI second opinion:** previews one explicitly approved paid GPT request.
+  Human review does not require it. It is a bounded selected-photo draft, not a
+  full photographic inspection.
 
 An approved property judgment does not approve every photo. Human corrections take
 precedence over model drafts. Shared amenities, floor plans, and unrelated images
@@ -62,21 +66,35 @@ resale is not an acquisition-positive label.
 ## Model and implementation status
 
 The image backbone is `google/siglip2-base-patch16-224`; it stays frozen while
-lightweight classifiers learn room, visible-feature and photo-preference labels.
+lightweight classifiers learn photo context, room, visible-feature and
+photo-preference labels. Reviewed property targets can additionally fit:
+
+- an image-only property head over pooled usable-photo embeddings;
+- a metadata-only head over an allowlisted pre-decision MLS feature schema; and
+- a fusion head over the two component scores and evidence coverage.
+
+Each component is optional. A candidate records which components were actually
+fit; unavailable requested modes return insufficient evidence instead of silently
+using another model.
 The exact downloaded revision and model hashes belong in private artifact metadata.
 Unknown labels are not negatives. Training uses grouped splits and preserves
 protected test groups; user-provided cohort labels are not independent gold labels.
 
 The Studio includes a GPT-generated **draft** whole-property assessment with context
-and coverage guards. It does **not** yet provide a proven whole-property investment
-classifier or an integrated comp/economics recommendation. Raw photo scores are not
-profit probabilities.
+and coverage guards. Property heads remain review-priority experiments, not proven
+investment or comp/economics recommendations. Raw photo and property scores are not
+profit probabilities, and every property result remains `NEEDS_REVIEW`.
 
 This is currently a **loopback-only local application**, not a hosted service.
 Supabase record/storage migration is separate from deployment. Uploading backups
 does not automatically switch the Studio to remote data. Hosted authentication,
 restricted runtime credentials, remote workers, and verified cutover remain work
 to complete before deleting local datasets.
+
+The draft training schema supports immutable review events, frozen datasets,
+protected evaluation slices, component model runs, explicit release records and
+prediction modes. Applying that schema still requires a reviewed delta migration;
+it does not update an already-deployed Supabase project by itself.
 
 ## Source layout
 
@@ -88,6 +106,7 @@ to complete before deleting local datasets.
 | `historical_store.py`, `acquisition_policy.py`, `photo_view.py` | Listing provenance and unified photo labels |
 | `studio_data.py` | Durable SQLite catalog and bounded import |
 | `pilot.py`, `studio_worker.py`, `train_reviewed.py` | Embeddings and trained heads |
+| `property_models.py` | Allowlisted metadata features, pooled vision features and modality routing |
 | `studio_jobs.py`, `guarded_jobs.py`, `training_jobs.py` | Versioned training previews, jobs and eligibility |
 | `tools/migration` | Administrative database/storage backup and restore tooling |
 
@@ -128,8 +147,9 @@ is the supported installation entry point. Browser dependencies have their own
    resale, wrong-listing and uncertain-era photos. A successful investment is not
    an approved label for every photograph.
 2. In **Review**, approve/correct individual rooms, visible features and target
-   photo preferences. Drafts and whole-property judgments do not supervise photo
-   preference classifiers.
+   photo preferences. Rate the property independently on the anchored 1–5 scale,
+   record evidence/confidence, and select only standout photos. Drafts and
+   whole-property judgments do not supervise photo preference classifiers.
 3. Open **Models & results → Check whether my reviews are trained**. Review saves
    labels, not weights. Use **Preview local training → Train local candidate**.
    Older candidates require one new training run to establish the review fingerprint.
@@ -154,6 +174,47 @@ Saved baseline URLs can change contents; byte equality to the historical assessm
 is not proven. Duplicate-image detection is partial, and unseen hashes do not prove
 unseen physical properties. Independent validation, property-level aggregation,
 performance benchmarking and any production promotion remain separate gates.
+
+## Property inference modes
+
+`acq-property-request-v2` accepts an allowlisted metadata snapshot, zero to twelve
+photos, and one requested mode:
+
+- `automatic`
+- `images_only`
+- `metadata_only`
+- `images_and_metadata`
+
+Automatic mode prefers fusion, then images, then metadata. Explicit modes never
+fall back silently. The result includes `mode_used`, all available component
+scores, evidence confidence, usable-photo count, metadata completeness, warnings,
+component versions and the immutable request/model identities. The original
+photo-only `acq-siglip-request-v1` remains accepted for compatibility.
+
+Only pre-decision metadata fields are accepted. Close price/date, later resale
+outcomes and arbitrary MLS fields are rejected from the v2 comparison request.
+
+## Evaluation and rollout
+
+Split and evaluate by physical property group, never by individual photo. Duplicate
+image hashes and linked listing identities remain in one group. Keep protected
+sets for:
+
+1. photo context, including hard floor-plan and shared-amenity negatives;
+2. properties with both images and metadata;
+3. metadata-only or missing-interior listings;
+4. image-dominant listings with sparse metadata; and
+5. a temporal shadow cohort newer than the training cutoff.
+
+Training reports grouped internal validation separately from protected slice
+metrics. Reviewers may inspect protected examples, but those labels do not train
+the current candidate. Create a new versioned dataset before deliberately promoting
+previous holdout feedback.
+
+Roll out a candidate in shadow mode first: score real incoming MLS snapshots, save
+the result and model identity, but do not change sourcing decisions. Promotion to
+an approved model release remains an explicit administrative action after slice
+metrics and failure cases are reviewed.
 
 Update this code checkout and restart `launch.py` while keeping `ACQ_DATA_ROOT` and
 `ACQ_EVIDENCE_ROOT` pointed at existing private folders. Updating GitHub does not

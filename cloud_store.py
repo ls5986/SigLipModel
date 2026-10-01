@@ -206,6 +206,10 @@ class SupabaseStore:
             if kind=='image' and 'context' not in effective and current and current.get('context'):
                 effective['context'] = current['context']
             record = validate_review(effective,source)
+            if kind=='property' and not set(record['standout_image_ids']) <= {
+                photo['image_id'] for photo in photos
+            }:
+                raise ValueError('Standout photo belongs to another property')
             result = self.database.save(db,kind,identifier,payload.get('expected_revision'),record)
         self._index = None
         return result

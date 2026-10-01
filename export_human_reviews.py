@@ -81,6 +81,11 @@ def build_snapshot(manifest: dict, reviews: dict, batch: list[dict]) -> dict:
         decisions.append({
             "listing_key": key, "address": properties[key],
             "target_fit": review["target_fit"], "reason": review["reason"],
+            "target_score": review.get("target_score"),
+            "confidence": review.get("confidence"),
+            "evidence_source": review.get("evidence_source"),
+            "reason_tags": review.get("reason_tags", []),
+            "standout_image_ids": review.get("standout_image_ids", []),
             "reviewer": review["reviewer"], "reviewed_at": review["updated_at"],
             "notes": review.get("notes", ""), "status": "approved",
             "image_labels_inferred_from_decision": False,

@@ -22,6 +22,15 @@ class GuardedJobs(StudioJobs):
                            label_exclusion="Historical era unverified or non-subject photo")
         return rows, revision
 
+    def _property_snapshot(self):
+        rows = super()._property_snapshot()
+        for row in rows:
+            history = self.assessments.history(row["id"])
+            if history and not history["timing_verified"]:
+                row["training_allowed"] = False
+                row["label_exclusion"] = "Historical photo era is not verified"
+        return rows
+
     def start(self, payload, kind="train"):
         if kind == "train":
             # Old previews may predate an era/context correction. Never start
@@ -32,8 +41,8 @@ class GuardedJobs(StudioJobs):
                 raise ValueError("Unknown job preview")
             snapshot = read_json(self.folder / identifier / "snapshot.json")
             current, _ = self._snapshot()
+            properties = self._property_snapshot()
             from model_loop import fingerprint
-            if fingerprint(snapshot["examples"]) != fingerprint(current):
+            if fingerprint(snapshot["examples"], snapshot.get("properties", [])) != fingerprint(current, properties):
                 raise ValueError("Reviews or eligibility changed. Create a new training preview.")
         return super().start(payload, kind)
-
