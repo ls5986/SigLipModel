@@ -15,7 +15,7 @@ An updated kitchen does not negate dated bathrooms or other meaningful remaining
 Do not infer subject condition from shared HOA amenities, floor plans or unrelated images.
 Use unsure for missing key-room evidence, uncertain subject/amenity context or unclear scope.
 Return target_fit (target/not_target/unsure) and target_reason.
-For every image return context (subject/shared_amenity/floor_plan/unknown) and
+For every image return context (subject/shared_amenity/floor_plan/unrelated/unknown) and
 renovation_scope_score (0..1, or null when not observable). These are uncalibrated
 GPT estimates of visible scope, not trained preference probabilities or profit.
 Do not use the acquisition cohort label as evidence. No hidden-condition claims."""
@@ -187,7 +187,7 @@ class Assessments:
                 raise ValueError("Invalid photo assessment")
             context = image.pop("context", None)
             score = image.pop("renovation_scope_score", "missing")
-            if context not in {"subject", "shared_amenity", "floor_plan", "unknown"}:
+            if context not in {"subject", "shared_amenity", "floor_plan", "unrelated", "unknown"}:
                 raise ValueError("Invalid image context")
             if score is not None and (type(score) not in {int, float} or not 0 <= score <= 1):
                 raise ValueError("Invalid image scope score")
@@ -224,7 +224,7 @@ class Assessments:
             schema["properties"]["target_reason"] = {"type": "string"}
             schema["required"] += ["target_fit", "target_reason"]
             image_schema = schema["properties"]["images"]["items"]
-            image_schema["properties"]["context"] = {"type": "string", "enum": ["subject", "shared_amenity", "floor_plan", "unknown"]}
+            image_schema["properties"]["context"] = {"type": "string", "enum": ["subject", "shared_amenity", "floor_plan", "unrelated", "unknown"]}
             image_schema["properties"]["renovation_scope_score"] = {"type": ["number", "null"]}
             image_schema["required"] += ["context", "renovation_scope_score"]
             job["request_schema_sha256"] = hashlib.sha256(json.dumps(schema, sort_keys=True).encode()).hexdigest()

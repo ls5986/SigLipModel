@@ -106,10 +106,32 @@ def test_review_is_explicit_conflict_checked_and_separate_from_property(tmp_path
         store.save_review(payload)
     store.save_review({"kind": "property", "id": "p1", "expected_revision": 0,
                        "reviewer": "Reviewer", "status": "approved", "target_fit": "not_target",
+                       "target_score": 2, "confidence": "high", "evidence_source": "both",
+                       "reason_tags": ["Too updated"], "standout_image_ids": ["p1:m1"],
                        "condition_label": "mixed", "reason": "Not enough scope"})
     restored = StudioStore(store.root, store.source)
     assert restored.property("p1")["images"][0]["review"]["room"] == "bathroom"
     assert restored.property("p1")["images"][0]["review"]["preference"] == "target"
+    property_review = restored.property("p1")["property"]["review"]
+    assert property_review["target_score"] == 2
+    assert property_review["standout_image_ids"] == ["p1:m1"]
+
+
+def test_property_rating_must_match_derived_target_and_own_its_evidence(tmp_path):
+    store = imported_store(tmp_path)
+    with pytest.raises(ValueError, match="disagree"):
+        store.save_review({
+            "kind": "property", "id": "p1", "expected_revision": 0,
+            "reviewer": "Reviewer", "status": "approved", "target_fit": "target",
+            "target_score": 1, "condition_label": "updated", "reason": "Mismatch",
+        })
+    with pytest.raises(ValueError, match="Standout"):
+        store.save_review({
+            "kind": "property", "id": "p1", "expected_revision": 0,
+            "reviewer": "Reviewer", "status": "approved", "target_fit": "target",
+            "target_score": 5, "condition_label": "dated", "reason": "Strong",
+            "standout_image_ids": ["another:image"],
+        })
 
 
 def test_llm_apply_creates_drafts_and_never_overwrites_human_labels(tmp_path):

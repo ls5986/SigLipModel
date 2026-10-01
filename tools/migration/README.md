@@ -23,6 +23,20 @@ expects the original cohort's frozen shape/counts. Review and adapt its assertio
 before using it for a different dataset. Do not use this against your production
 MLS project. Later review/provenance changes need a separate delta migration.
 
+`supabase_training_schema.sql` is the target design for new installations. It now
+includes photo-context/property-priority review events, dataset purposes, protected
+evaluation slices, component model releases, and image/metadata/fusion prediction
+modes. It is still a draft, not an idempotent delta for an existing deployment.
+For an existing Supabase project, compare the live schema, write a forward-only
+migration, validate it in a staging branch, and keep release promotion restricted
+to an administrative role. The training worker intentionally cannot approve model
+releases.
+
+`supabase_multimodal_delta.sql` is a reviewable forward-only delta for a deployment
+that already has the original `acq_training` schema. Validate it in a staging branch
+and compare every constraint/policy name to the live project before applying it.
+It adds no worker permission to approve releases or edit evaluation slices.
+
 `migrate_storage.py prepare` inventories files; `transfer` uploads and downloads
 objects again to verify hashes. It rejects a changed manifest when resuming.
 `verify_restore.py` restores sample artifacts to temporary files and checks hashes.

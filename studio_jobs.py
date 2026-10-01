@@ -4,10 +4,12 @@ import os
 import subprocess
 import sys
 import threading
+import json
 from uuid import uuid4
 
 from config import CODE_ROOT
 from pilot import ROOT, read_json, sha, write_json
+from property_models import metadata_features
 from studio_data import now
 
 
@@ -64,14 +66,61 @@ class StudioJobs:
                     "preference": preference,
                     "preference_room": review.get("preference_room") or item["room"],
                     "human_review_revision": review.get("revision", 0),
-                    "photo_context": review.get("context") or item.get("provider_context"),
+                    "photo_context": review.get("context") if review.get("status") == "approved" else None,
                 })
         return examples, legacy.get("revision", 0)
+
+    def _property_snapshot(self):
+        legacy = self.store.legacy()
+        with self.store.connect() as db:
+            properties = db.execute(
+                "SELECT id,physical_key,metadata FROM properties ORDER BY id"
+            ).fetchall()
+            image_rows = db.execute(
+                "SELECT property_id,split,group_id FROM images ORDER BY property_id,id"
+            ).fetchall()
+            saved_reviews = {
+                row["id"]: {**json.loads(row["payload"]), "revision": row["revision"]}
+                for row in db.execute(
+                    "SELECT id,payload,revision FROM reviews WHERE kind='property'"
+                )
+            }
+        images = {}
+        for row in image_rows:
+            images.setdefault(row["property_id"], []).append(dict(row))
+        result = []
+        for row in properties:
+            review = saved_reviews.get(row["id"])
+            if review is None:
+                review = dict(legacy.get("properties", {}).get(row["id"], {}))
+                review["revision"] = 0
+            approved = review.get("status") == "approved"
+            attached = images.get(row["id"], [])
+            protected = any(image["split"] == "test" for image in attached)
+            metadata = json.loads(row["metadata"])
+            result.append({
+                "id": row["id"], "physical_key": row["physical_key"],
+                "group_id": attached[0]["group_id"] if attached else row["physical_key"],
+                "split": "test" if protected else "train",
+                "metadata": metadata,
+                "model_metadata": metadata_features(metadata),
+                "review": {
+                    key: review.get(key) for key in (
+                        "status", "target_fit", "target_score", "condition_label",
+                        "confidence", "evidence_source", "reason_tags",
+                        "standout_image_ids", "reason", "reviewer", "updated_at",
+                    )
+                } if approved else {"status": review.get("status", "unreviewed")},
+                "human_review_revision": review.get("revision", 0),
+                "training_allowed": not protected,
+            })
+        return result
 
     def preview(self, kind="train"):
         if kind not in {"train", "prelabel"}:
             raise ValueError("Unsupported local job")
         examples, revision = self._snapshot()
+        properties = self._property_snapshot()
         if not examples:
             raise ValueError("Import photos before creating a local job")
         token = uuid4().hex
@@ -97,6 +146,12 @@ class StudioJobs:
             "protected_groups": len({row["group_id"] for row in examples if row["split"] == "test"}),
             "approved_features": sum(value is not None for row in visible
                                      for value in row["features"].values()),
+            "approved_contexts": sum(row["photo_context"] is not None for row in visible),
+            "approved_property_targets": sum(
+                row["review"].get("target_fit") in {"target", "not_target"}
+                or type(row["review"].get("target_score")) is int
+                for row in properties if row["training_allowed"]
+            ),
             "warnings": [
                 "Frozen SigLIP embeddings run locally; no image uploads or paid calls.",
                 "Only explicitly approved image labels and decisive photo preferences supervise new heads.",
@@ -106,7 +161,9 @@ class StudioJobs:
             ],
         }
         from model_loop import fingerprint
-        snapshot = {"review_fingerprint": fingerprint(examples), "kind": kind, "examples": examples, "legacy_review_revision": revision,
+        snapshot = {"review_fingerprint": fingerprint(examples, properties), "kind": kind,
+                    "examples": examples, "properties": properties,
+                    "legacy_review_revision": revision,
                     "preview": preview, "created_at": now()}
         write_json(folder / "snapshot.json", snapshot)
         write_json(folder / "status.json", {"id": token, "kind": kind, "status": "preview",
@@ -156,11 +213,17 @@ class StudioJobs:
             self.store.apply_proposals(output)
             if (folder / "studio_heads.joblib").exists():
                 metrics = read_json(folder / "metrics.json")
+                components = metrics.get("components", {})
+                component_versions = {
+                    name: folder.name for name, available in components.items() if available
+                }
                 write_json(self.root / "artifacts" / "studio_candidate_latest.json", {
                     "version": folder.name, "folder": str(folder),
                     "heads_sha256": sha(folder / "studio_heads.joblib"),
                     "snapshot_sha256": sha(folder / "snapshot.json"),
                     "metrics": metrics, "created_at": now(),
+                    "components": components,
+                    "component_versions": component_versions,
                     "review_fingerprint": read_json(folder / "snapshot.json").get("review_fingerprint"),
                 })
             with self.lock:
@@ -174,4 +237,3 @@ class StudioJobs:
                 status.update(status="failed", finished_at=now(), error=str(exc),
                               detail="Prior models and human reviews preserved; no success claimed.")
                 write_json(folder / "status.json", status)
-

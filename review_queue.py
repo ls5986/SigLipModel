@@ -58,6 +58,7 @@ def review_queue(studio, args):
             "source_role": metadata.get("source_role", "imported"),
             "target": job.get("review_target") if ready else None,
             "human_target": review.get("target_fit") if reviewed else None,
+            "human_score": review.get("target_score") if reviewed else None,
         })
     counts = {
         "all": len(items), "ready": sum(i["status"] == "ready" for i in items),

@@ -57,7 +57,9 @@ def schema(conn, validate_only):
             "select tablename from pg_tables where schemaname='acq_training'"
         ).fetchall()}
         required = {"principals", "property_groups", "examples", "photos", "review_events",
-                    "datasets", "dataset_groups", "dataset_items", "model_runs", "predictions"}
+                    "datasets", "dataset_groups", "dataset_items", "model_runs",
+                    "evaluation_slices", "evaluation_slice_groups", "model_releases",
+                    "predictions"}
         if not required <= tables:
             raise ValueError("Destination schema is incomplete; refusing implicit repair")
         for table in required - {"principals"}:

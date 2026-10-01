@@ -6,10 +6,23 @@ from pathlib import Path
 
 import joblib
 import numpy as np
+from sklearn.base import clone
+from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedGroupKFold
+from sklearn.pipeline import Pipeline
 
 import pilot
+from property_models import (
+    metadata_completeness,
+    metadata_features,
+    normalize_context,
+    positive_probability,
+    predict_property,
+    target_class,
+    usable_context,
+    vision_vector,
+)
 from train_reviewed import binary_metrics
 
 
@@ -54,6 +67,8 @@ def training_bundle():
     # preference head after its labels have been withdrawn or quarantined.
     bundle = joblib.load(pilot.ARTIFACTS / "silver_heads.joblib")
     bundle["preference_models"] = {}
+    bundle.pop("context_model", None)
+    bundle["property_models"] = {}
     return bundle, "silver"
 
 
@@ -77,6 +92,7 @@ def main():
         raise ValueError("Unexpected job folder")
     snapshot = pilot.read_json(folder / "snapshot.json")
     examples = snapshot["examples"]
+    properties = snapshot.get("properties", [])
     if not examples:
         raise ValueError("Import photos before running a local model job")
     verify_image_snapshot(examples)
@@ -145,6 +161,7 @@ def main():
               "parent_version": parent_version, "conflicting_duplicate_labels": {},
               "caution": "Local candidate, not automatically deployed. Fit uses approved labels only; "
               "prelabel proposals never become human truth. Preference is not investment success."}
+    property_oof = {}
 
     def fit_head(name, values, minimum=5):
         chosen, conflicts = supervised_indices(examples, values, groups, protected)
@@ -191,6 +208,69 @@ def main():
         fitted.append(name)
         return head
 
+    def fit_property_model(name, feature_rows, property_rows, model):
+        eligible = [
+            i for i, row in enumerate(property_rows)
+            if row.get("training_allowed") and not row.get("label_exclusion")
+            and target_class(row.get("review")) is not None and feature_rows.get(row["id"]) is not None
+        ]
+        labels = [target_class(property_rows[i]["review"]) for i in eligible]
+        counts = Counter(labels)
+        if len(counts) < 2 or min(counts.values()) < 5:
+            report["skipped"][name] = {
+                "reason": "Need at least five decisive property reviews in each class",
+                "counts": dict(counts),
+            }
+            return None
+        group_values = [property_rows[i]["group_id"] for i in eligible]
+        unique_groups = {
+            label: len({group for group, value in zip(group_values, labels) if value == label})
+            for label in counts
+        }
+        if min(unique_groups.values()) < 3:
+            report["skipped"][name] = {
+                "reason": "Need at least three independent property groups in each class",
+                "groups": unique_groups,
+            }
+            return None
+        values = [feature_rows[property_rows[i]["id"]] for i in eligible]
+        y = np.asarray(labels)
+        local_groups = np.asarray(group_values)
+        weights = pilot.group_weights([{"group_id": value} for value in group_values])
+
+        def subset(items, indices):
+            if isinstance(items, np.ndarray):
+                return items[indices]
+            return [items[i] for i in indices]
+
+        def fit(instance, items, labels_, weights_):
+            if isinstance(instance, Pipeline):
+                instance.fit(items, labels_, classifier__sample_weight=weights_)
+            else:
+                instance.fit(items, labels_, sample_weight=weights_)
+
+        model_values = np.stack(values) if isinstance(values[0], np.ndarray) else values
+        folds = min(5, min(unique_groups.values()))
+        cv = StratifiedGroupKFold(n_splits=folds, shuffle=True, random_state=pilot.SEED)
+        oof = np.full(len(values), np.nan)
+        for train, test in cv.split(np.zeros(len(values)), y, local_groups):
+            candidate = clone(model)
+            fit(candidate, subset(model_values, train), y[train], weights[train])
+            oof[test] = candidate.predict_proba(subset(model_values, test))[
+                :, list(candidate.classes_).index(1)
+            ]
+        fit(model, model_values, y, weights)
+        property_oof[name] = {
+            property_rows[eligible[i]]["id"]: float(oof[i]) for i in range(len(eligible))
+        }
+        report["human_fit"][name] = {
+            "labels": len(values), "classes": dict(counts),
+            "groups": len(set(group_values)),
+            "internal_grouped_validation": binary_metrics(y, oof),
+        }
+        fitted.append(name)
+        return model
+
     if snapshot["kind"] == "train":
         progress("Training lightweight heads from approved corrections; unknown entries are masked")
         head = fit_head("room", [row["room"] for row in examples])
@@ -210,14 +290,163 @@ def main():
             ])
             if model is not None:
                 bundle.setdefault("preference_models", {})[room] = model
-        if not fitted:
-            raise ValueError("Not enough reviewed examples to fit any head; prior model retained.")
-        joblib.dump(bundle, folder / "studio_heads.joblib")
+        context = fit_head("context", [
+            normalize_context(row["photo_context"]) if row.get("photo_context") else None
+            for row in examples
+        ], minimum=3)
+        if context is not None:
+            bundle["context_model"] = context
     predicted = bundle["room_model"].predict(x)
+    context_predicted = (
+        bundle["context_model"].predict(x)
+        if bundle.get("context_model") is not None else np.asarray(["unknown"] * len(examples))
+    )
+    effective_contexts = [
+        normalize_context(row.get("photo_context") or context_predicted[i])
+        for i, row in enumerate(examples)
+    ]
     feature_scores = {name: model.predict_proba(x)[:, list(model.classes_).index(1)]
                       for name, model in bundle["feature_models"].items()}
     preferences = {name: model.predict_proba(x)[:, list(model.classes_).index(1)]
                    for name, model in bundle.get("preference_models", {}).items()}
+    indices_by_property = {}
+    for index, row in enumerate(examples):
+        indices_by_property.setdefault(row["property_id"], []).append(index)
+    vision_features = {}
+    usable_counts = {}
+    for prop in properties:
+        indices = [
+            index for index in indices_by_property.get(prop["id"], [])
+            if not examples[index].get("label_exclusion") and usable_context(effective_contexts[index])
+        ]
+        pooled = vision_vector(x[indices]) if indices else None
+        usable_counts[prop["id"]] = len(indices)
+        if pooled is not None:
+            vision_features[prop["id"]] = pooled
+    metadata_rows = {
+        prop["id"]: metadata_features(prop.get("metadata"))
+        for prop in properties
+        if any(not key.endswith("_missing") for key in metadata_features(prop.get("metadata")))
+    }
+    if snapshot["kind"] == "train":
+        property_models = bundle.setdefault("property_models", {})
+        vision = fit_property_model(
+            "property:vision", vision_features, properties,
+            LogisticRegression(C=1, max_iter=1500, class_weight="balanced",
+                               random_state=pilot.SEED),
+        )
+        if vision is not None:
+            property_models["vision"] = vision
+        metadata = fit_property_model(
+            "property:metadata", metadata_rows, properties,
+            Pipeline([
+                ("vectorize", DictVectorizer(sparse=True)),
+                ("classifier", LogisticRegression(
+                    C=1, max_iter=1500, class_weight="balanced", random_state=pilot.SEED,
+                )),
+            ]),
+        )
+        if metadata is not None:
+            property_models["metadata"] = metadata
+        if property_models.get("vision") is not None and property_models.get("metadata") is not None:
+            fusion_rows = {}
+            for prop in properties:
+                identifier = prop["id"]
+                if (identifier not in property_oof.get("property:vision", {})
+                        or identifier not in property_oof.get("property:metadata", {})):
+                    continue
+                fusion_rows[identifier] = np.asarray([
+                    property_oof["property:vision"][identifier],
+                    property_oof["property:metadata"][identifier],
+                    np.log1p(usable_counts.get(identifier, 0)),
+                    metadata_completeness(prop.get("metadata")),
+                ])
+            fusion = fit_property_model(
+                "property:fusion", fusion_rows, properties,
+                LogisticRegression(C=1, max_iter=1500, class_weight="balanced",
+                                   random_state=pilot.SEED),
+            )
+            if fusion is not None:
+                property_models["fusion"] = fusion
+        protected_rows = [
+            prop for prop in properties
+            if prop.get("split") == "test" and target_class(prop.get("review")) is not None
+        ]
+        protected_evaluation = {}
+        slices = {
+            "all": protected_rows,
+            "images_and_metadata": [
+                prop for prop in protected_rows
+                if prop["id"] in vision_features and prop["id"] in metadata_rows
+            ],
+            "images_only": [
+                prop for prop in protected_rows
+                if prop["id"] in vision_features and prop["id"] not in metadata_rows
+            ],
+            "metadata_only": [
+                prop for prop in protected_rows
+                if prop["id"] not in vision_features and prop["id"] in metadata_rows
+            ],
+        }
+        for slice_name, rows in slices.items():
+            records = []
+            for prop in rows:
+                identifier = prop["id"]
+                if identifier in vision_features and property_models.get("vision") is not None:
+                    records.append((
+                        "vision", target_class(prop["review"]),
+                        positive_probability(
+                            property_models["vision"], vision_features[identifier].reshape(1, -1)
+                        ),
+                    ))
+                if identifier in metadata_rows and property_models.get("metadata") is not None:
+                    records.append((
+                        "metadata", target_class(prop["review"]),
+                        positive_probability(property_models["metadata"], [metadata_rows[identifier]]),
+                    ))
+                if (identifier in vision_features and identifier in metadata_rows
+                        and property_models.get("fusion") is not None):
+                    vision_score = positive_probability(
+                        property_models["vision"], vision_features[identifier].reshape(1, -1)
+                    )
+                    metadata_score = positive_probability(
+                        property_models["metadata"], [metadata_rows[identifier]]
+                    )
+                    fusion_row = np.asarray([[
+                        vision_score, metadata_score,
+                        np.log1p(usable_counts.get(identifier, 0)),
+                        metadata_completeness(prop.get("metadata")),
+                    ]])
+                    records.append((
+                        "fusion", target_class(prop["review"]),
+                        positive_probability(property_models["fusion"], fusion_row),
+                    ))
+            component_metrics = {}
+            for component in ("vision", "metadata", "fusion"):
+                values = [(label, score) for name, label, score in records if name == component]
+                if not values:
+                    continue
+                y = np.asarray([value[0] for value in values])
+                scores = np.asarray([value[1] for value in values])
+                component_metrics[component] = (
+                    binary_metrics(y, scores) if len(set(y.tolist())) == 2
+                    else {"n": len(y), "class_counts": dict(Counter(y.tolist())),
+                          "reason": "Both classes are required for protected metrics"}
+                )
+            protected_evaluation[slice_name] = component_metrics
+        report["protected_evaluation"] = protected_evaluation
+        report["components"] = {
+            "photo_context": "context_model" in bundle,
+            "room": "room_model" in bundle,
+            "photo_features": sorted(bundle.get("feature_models", {})),
+            "photo_preferences": sorted(bundle.get("preference_models", {})),
+            "property_vision": "vision" in property_models,
+            "property_metadata": "metadata" in property_models,
+            "property_fusion": "fusion" in property_models,
+        }
+        if not fitted:
+            raise ValueError("Not enough reviewed examples to fit any head; prior model retained.")
+        joblib.dump(bundle, folder / "studio_heads.joblib")
     grouped = {}
     for i, row in enumerate(examples):
         key = row["property_id"]
@@ -231,17 +460,46 @@ def main():
             },
         })
         room = str(predicted[i])
+        context = effective_contexts[i]
         scores = {name: float(values[i]) for name, values in feature_scores.items()
                   if name not in pilot.FEATURE_ROOMS or room in pilot.FEATURE_ROOMS[name]}
         # Conservative tri-state proposals, never treat uncertain middle as absent.
         feature_labels = {name: True if score >= .8 else False if score <= .2 else None
                           for name, score in scores.items()}
         grouped[key]["images"].append({
-            "image_id": row["id"], "room": room, "features": feature_labels,
+            "image_id": row["id"], "room": room, "context": context,
+            "usable_for_property": usable_context(context),
+            "features": feature_labels if usable_context(context) else {
+                name: None for name in feature_labels
+            },
             "scores_uncalibrated": scores,
-            "room_preference_score": float(preferences[room][i]) if room in preferences else None,
+            "room_preference_score": (
+                float(preferences[room][i])
+                if usable_context(context) and room in preferences else None
+            ),
             "provenance": "CLASSIFIED local model proposal; visibility not guaranteed",
         })
+    for prop in properties:
+        key = prop["id"]
+        group = grouped.setdefault(key, {
+            "property_id": key, "source": "local-siglip-draft", "model": "siglip2-local-heads",
+            "run_id": folder.name, "prompt_hash": "local-" + backbone["revision"],
+            "model_version": folder.name if snapshot["kind"] == "train" else parent_version,
+            "images": [], "property": {},
+        })
+        usable_indices = [
+            index for index in indices_by_property.get(key, [])
+            if usable_context(effective_contexts[index]) and not examples[index].get("label_exclusion")
+        ]
+        prediction = predict_property(
+            bundle, [x[index] for index in usable_indices], prop.get("metadata"), "automatic"
+        )
+        group["property"] = {
+            "summary": "Property ranking draft from available reviewed-model components.",
+            "condition_label": "UNKNOWN",
+            "target_prediction": prediction,
+            "limitations": prediction["warnings"] + ["Human review required"],
+        }
     pilot.write_json(folder / "metrics.json", report)
     pilot.write_json(folder / "proposals.json", list(grouped.values()))
     progress("Local predictions generated; waiting for studio to publish editable drafts")
@@ -249,4 +507,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
