@@ -45,7 +45,8 @@ def request(port,method,path,body=None,headers=None):
 def test_hosted_login_session_and_csrf(monkeypatch):
     app=App();server=create_server(0,app,auth(monkeypatch));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();port=server.server_address[1]
     try:
-        assert request(port,'GET','/health')[0]==200
+        status,_,body=request(port,'GET','/health')
+        assert status==200 and json.loads(body)['version']=='unknown'
         status,headers,_=request(port,'GET','/')
         assert status==303 and headers['Location']=='/login'
         form=urlencode({'username':'owner@example.test','password':'wrong'})

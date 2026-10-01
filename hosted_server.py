@@ -121,7 +121,10 @@ def create_server(port, app, auth):
         def do_GET(self):
             path=urlparse(self.path).path
             if path=="/health":
-                return self.data(200,{"status":"ready","storage":"supabase"})
+                return self.data(200,{
+                    "status":"ready","storage":"supabase",
+                    "version":os.environ.get("RENDER_GIT_COMMIT","unknown")[:12],
+                })
             if not self.trusted_host():
                 return self.data(403,{"error":"Unrecognized host"})
             if path=="/login":
