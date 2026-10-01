@@ -117,6 +117,7 @@ def snapshot(store):
             'metadata': {k:v for k,v in metadata.items() if k in ACCEPTED_METADATA_KEYS},
             'model_metadata':metadata_features(metadata), 'review':review,
             'human_review_revision':review.get('revision',0), 'timing_verified':verified,
+            'photo_coverage':history['photo_coverage'],
             'known_target':verified, 'target_origin':'user-confirmed-workbook-cohort',
             'source_rows':sorted({n for r in sources for n in r['source_rows']}),
             'training_allowed':verified and split != 'test',
@@ -130,7 +131,8 @@ def snapshot(store):
             if context in {None,'unknown'}:
                 if any(term in description for term in ('community pool','community room','community exercise','hoa','clubhouse')): context='shared_amenity'
                 elif 'floor plan' in description or 'floorplan' in description: context='floor_plan'
-            excluded = not verified or context in {'shared_amenity','floor_plan','unrelated'}
+            no_interior = history['photo_coverage']=='no_interior'
+            excluded = not verified or no_interior or context in {'shared_amenity','floor_plan','unrelated'}
             examples.append({'id':identifier, 'property_id':key, 'group_id':group, 'split':split,
                 'physical_key':group, 'sha256':p['image_sha256'],
                 'path':None,
@@ -141,7 +143,8 @@ def snapshot(store):
                 'preference':review.get('preference') if approved and not excluded else None,
                 'preference_room':review.get('preference_room') or review.get('room') or 'other',
                 'photo_context':context, 'human_review_revision':review.get('revision',0),
-                'label_exclusion':'Unverified era or non-subject photo' if excluded else None})
+                'label_exclusion':('No interior photos: metadata-only reference' if no_interior else
+                                   'Unverified era or non-subject photo') if excluded else None})
     return examples, properties
 
 

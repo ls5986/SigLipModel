@@ -356,6 +356,13 @@ area, lot size, property type, city, state and postal code. Missing data remains
 missing; metadata similarity requires at least three shared fields. Full listing
 remarks are retained but this initial model does not embed their text.
 
+Photo coverage is saved independently on the versioned Supabase era review as
+`unknown`, `interior_available`, or `no_interior`, and is bound to the photo hash.
+A verified target with no interior photos remains eligible for metadata learning;
+its photos are retained for review but excluded from this training candidate.
+Missing interiors never become a negative condition/target label. Older reviews
+remain coverage-unknown. Changing coverage invalidates the dataset fingerprint.
+
 Physical-property groups and exact image aliases cannot cross train/evaluation
 boundaries. Original protected test groups and the initial batch holdout are
 preserved. Stable hash membership protects additional groups as rows are recovered.

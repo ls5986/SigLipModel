@@ -142,6 +142,7 @@ class SupabaseStore:
                 'source':examples[0]['source_snapshot'].get('spreadsheet', {}),
                 'mls_listing':trim_metadata(self._selected(examples[0]).get('listing', {})),
                 'evidence_hash':digest, 'review':review, 'blocked':blocked,
+                'photo_coverage':review.get('photo_coverage','unknown') if review and review.get('evidence_hash')==digest else 'unknown',
                 'acquisition_status':'wrong_era' if wrong else 'prior_acquisition_candidate' if supported else 'needs_prior_listing',
                 'block_reason':'You flagged these photos as the wrong property or era.' if wrong else
                   'Earlier acquisition listing/photos need rematching.' if blocked else None,
@@ -154,12 +155,17 @@ class SupabaseStore:
             examples, photos = self._examples(db,identifier), self._photos(db,identifier)
             ids = [identifier, *[p['image_id'] for p in photos]]
             legacy, live = self._legacy(db,ids), self._reviews(db,ids)
+            proposal = self.database.state(db,'document','model-proposal:'+identifier) or {}
+        proposed_images = {i['image_id']:i for i in proposal.get('images',[]) if i.get('image_id')}
         metadata = trim_metadata(self._selected(examples[0]).get('listing', {}))
         metadata['source_role'] = 'historical candidate'
         images, coverage = [], {r:'unknown' for r in ('kitchen','bathroom','living')}
         for p in photos:
             review = self._review('image',p['image_id'],legacy,live)
-            room = review.get('room') or 'other'
+            machine = proposed_images.get(p['image_id'],{})
+            if machine.get('sha256') != p['image_sha256']: machine = {}
+            # Model suggestions remain suggestions; human corrections take priority.
+            room = review.get('room') or machine.get('room') or 'other'
             if room in coverage:
                 coverage[room] = 'confirmed' if review.get('status')=='approved' or review.get('room_confirmed') else 'suggested'
             context = p['context']
@@ -171,8 +177,8 @@ class SupabaseStore:
             context = 'subject' if context in {'subject_interior','subject_exterior'} else context
             image = {'id':p['image_id'],'property_id':identifier,'room':room,'review':review,
                      'features':{**{f:None for f in FEATURES},**review.get('features', {})},
-                     'room_source':'Human approved' if review.get('status')=='approved' else 'Unknown',
-                     'suggestions':[],'local_model':None,'provider_context':context,'provider_description':description,
+                     'room_source':'Human approved' if review.get('status')=='approved' else 'Local model suggestion' if machine.get('room') else 'Unknown',
+                     'suggestions':[machine] if machine else [],'local_model':None,'provider_context':context,'provider_description':description,
                      'sha256':p['image_sha256'],'sequence':provider.get('Order'),
                      'split':'test' if p['protected_test'] else 'learning','training_allowed':not p['protected_test'],
                      'warnings':['Protected test group: evaluation only'] if p['protected_test'] else []}
@@ -233,7 +239,11 @@ class SupabaseStore:
                 raise RuntimeError('Photo evidence changed; reload before saving')
             if payload['decision']=='correct_era' and not all(supports_prior(self._selected(e)) for e in self._examples(db,identifier)):
                 raise ValueError('Rematch the prior acquisition before approving its era')
+            coverage = payload.get('photo_coverage',history['photo_coverage'])
+            if coverage not in {'unknown','interior_available','no_interior'}:
+                raise ValueError('Invalid photo coverage')
             record = {k:payload[k].strip() for k in ('decision','reviewer','reason')}
+            record['photo_coverage'] = coverage
             record.update(property_id=identifier,evidence_hash=history['evidence_hash'],at=now())
             result = self.database.save(db,'era',identifier,payload.get('expected_revision'),record)
         self._index = None
@@ -384,6 +394,7 @@ class SupabaseStore:
                 items.append({'source_row':source_row,'listing_key':row['listing_key'],
                     'address':source.get('Address') or source.get('UnparsedAddress') or selected.get('listing',{}).get('UnparsedAddress') or 'Unresolved source row',
                     'source':source,'status':status,'photo_count':photo_count,
+                    'photo_coverage':era.get('photo_coverage','unknown') if status=='verified' else 'unknown',
                     'verification_note':note,
                     'candidates':[{'listing':trim_metadata(c.get('listing',{})),
                                    'match':c.get('match',{}),'prior_supported':supports_prior(c)}

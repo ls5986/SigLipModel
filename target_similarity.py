@@ -28,7 +28,7 @@ def fit_reference_index(properties, vectors_by_property):
         if not (prop.get("known_target") and prop.get("training_allowed")
                 and prop.get("split") != "test" and not prop.get("label_exclusion")):
             continue
-        signature = image_signature(vectors_by_property.get(prop["id"], []))
+        signature = None if prop.get("photo_coverage")=="no_interior" else image_signature(vectors_by_property.get(prop["id"], []))
         fields = metadata_features(prop.get("metadata"))
         if signature is None and not any(not k.endswith("_missing") for k in fields):
             continue
@@ -105,7 +105,7 @@ def evaluate_reference_index(index, properties, vectors_by_property):
     for prop in properties:
         if prop.get("split") != "test" or not prop.get("known_target") or prop.get("label_exclusion"):
             continue
-        result = predict_similarity(index, vectors_by_property.get(prop["id"], []),
+        result = predict_similarity(index, [] if prop.get("photo_coverage")=="no_interior" else vectors_by_property.get(prop["id"], []),
                                     prop.get("metadata"), exclude_group=prop["group_id"])
         rows.append({"property_id": prop["id"], "group_id": prop["group_id"],
                      "mode_used": result["mode_used"], "score": result["score"],

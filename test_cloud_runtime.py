@@ -219,3 +219,44 @@ def test_cloud_api_roundtrip_and_unavailable_database(tmp_path,monkeypatch):
         assert db.states['image','house:photo']['revision']==1
     finally:
         server.shutdown();server.server_close();thread.join()
+
+
+def test_photo_coverage_is_independent_versioned_validated_and_hash_bound():
+    db=MemoryDatabase();store=Store(db,None)
+    sources,photos=store._examples(db,'house'),store._photos(db,'house')
+    history=store._history(sources,photos,None)
+    payload={'property_id':'house','decision':'correct_era','reason':'Matched sale',
+             'reviewer':'reviewer','expected_revision':0,'evidence_hash':history['evidence_hash'],
+             'photo_coverage':'no_interior'}
+    saved=store.review_era(payload)
+    history=store._history(sources,photos,saved)
+    assert history['timing_verified'] and history['photo_coverage']=='no_interior'
+    with pytest.raises(ValueError,match='coverage'):
+        store.review_era({**payload,'expected_revision':1,'photo_coverage':'made_up'})
+    assert db.states['era','house']['revision']==1
+    # Older clients preserve existing coverage; explicit changes have a new revision.
+    saved=store.review_era({k:v for k,v in {**payload,'expected_revision':1}.items() if k!='photo_coverage'})
+    assert saved['photo_coverage']=='no_interior' and saved['revision']==2
+    saved=store.review_era({**payload,'expected_revision':2,'photo_coverage':'interior_available'})
+    assert saved['revision']==3
+    changed=[{**photos[0],'image_sha256':'b'*64}]
+    history=store._history(sources,changed,saved)
+    assert not history['timing_verified'] and history['photo_coverage']=='unknown'
+
+
+def test_cloud_room_suggestions_are_automatic_but_never_human_labels():
+    class Projection(Store):
+        def _photos(self,db,identifier):
+            return [{**super()._photos(db,identifier)[0], 'context':'subject_interior',
+                     'context_evidence':{'provider_metadata':{}}}]
+        def _legacy(self,db,ids): return {}
+        def _reviews(self,db,ids): return {}
+    db=MemoryDatabase();store=Projection(db,None)
+    db.states['document','model-proposal:house']={'images':[{'image_id':'house:photo',
+        'sha256':'a'*64,'room':'living','features':{'Dated kitchen':True}}]}
+    image=store.property('house')['images'][0]
+    assert image['effective']['room']=='living'
+    assert image['effective']['room_source']=='Local model suggestion'
+    assert image['review'].get('status')!='approved'
+    db.states['document','model-proposal:house']['images'][0]['sha256']='b'*64
+    assert store.property('house')['images'][0]['room_source']=='Unknown'

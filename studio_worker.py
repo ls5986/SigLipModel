@@ -85,6 +85,37 @@ def verify_image_snapshot(examples):
             raise ValueError("Original image bytes changed; the saved vectors/review snapshot cannot be reused")
 
 
+def metadata_only_candidate(folder, snapshot):
+    """Keep verified targets useful even when every photo set lacks interiors."""
+    from target_similarity import fit_reference_index, evaluate_reference_index
+    backbone = pilot.read_json(pilot.ARTIFACTS / "backbone.json")
+    bundle, parent_version = training_bundle()
+    if bundle["backbone_revision"] != backbone["revision"]:
+        raise ValueError("Saved head and embedding backbone revisions differ")
+    properties = snapshot.get("properties", [])
+    bundle["property_models"] = {}
+    bundle["target_similarity"] = fit_reference_index(properties, {})
+    joblib.dump(bundle, folder / "studio_heads.joblib")
+    pilot.write_json(folder / "metrics.json", {
+        "kind": "train", "objective": snapshot["objective"], "parent_version": parent_version,
+        "backbone_revision": backbone["revision"],
+        "reference_properties": len(bundle["target_similarity"]["references"]),
+        "protected_evaluation": evaluate_reference_index(bundle["target_similarity"], properties, {}),
+        "components": {"property_similarity": True},
+        "caution": "Metadata-only candidate: no eligible interior photo evidence.",
+    })
+    proposals = []
+    for prop in properties:
+        prediction = predict_property(bundle, [], prop.get("metadata"), "automatic")
+        proposals.append({"property_id": prop["id"], "source": "local-siglip-draft",
+            "model": "siglip2-local-heads", "run_id": folder.name,
+            "prompt_hash": "local-"+backbone["revision"], "model_version": folder.name,
+            "images": [], "property": {"summary": "Metadata-only similarity draft.",
+                "condition_label": "UNKNOWN", "target_prediction": prediction,
+                "limitations": prediction["warnings"]+["No eligible interior photo evidence"]}})
+    pilot.write_json(folder / "proposals.json", proposals)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--job", type=Path, required=True)
@@ -94,6 +125,9 @@ def main():
     snapshot = pilot.read_json(folder / "snapshot.json")
     examples = [r for r in snapshot["examples"] if not r.get("label_exclusion")] if snapshot.get("objective") == "known-target-similarity-v1" else snapshot["examples"]
     properties = snapshot.get("properties", [])
+    if not examples and snapshot.get("objective")=="known-target-similarity-v1" and snapshot["kind"]=="train":
+        metadata_only_candidate(folder, snapshot)
+        return
     if not examples:
         raise ValueError("Import photos before running a local model job")
     verify_image_snapshot(examples)
@@ -491,7 +525,7 @@ def main():
         feature_labels = {name: True if score >= .8 else False if score <= .2 else None
                           for name, score in scores.items()}
         grouped[key]["images"].append({
-            "image_id": row["id"], "room": room, "context": context,
+            "image_id": row["id"], "sha256": row["sha256"], "room": room, "context": context,
             "usable_for_property": usable_context(context),
             "features": feature_labels if usable_context(context) else {
                 name: None for name in feature_labels

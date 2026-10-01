@@ -64,7 +64,11 @@ def test_pending_verification_changes_candidate_fingerprint():
     assert fingerprint([],properties)!=before
 
 
-def test_real_training_worker_builds_and_saves_positive_only_candidate(tmp_path, monkeypatch):
+import pytest
+
+
+@pytest.mark.parametrize("metadata_only", [False, True])
+def test_real_training_worker_builds_and_saves_positive_only_candidate(tmp_path, monkeypatch, metadata_only):
     import sys
     import joblib
     import pilot
@@ -83,6 +87,11 @@ def test_real_training_worker_builds_and_saves_positive_only_candidate(tmp_path,
             'sha256':digest,'path':str(path),'room':None,'features':{},'preference':None,
             'preference_room':'other','photo_context':None,'label_exclusion':None})
         manifest.append({'image_id':prop['id']+':photo','sha256':digest})
+    if metadata_only:
+        for prop in properties: prop['photo_coverage']='no_interior'
+        for row in examples:
+            row['label_exclusion']='No interior photos'
+            row['path']=None
     # Unverified evidence is never opened or embedded, even if present in the frozen snapshot.
     examples.append({'id':'pending:photo','property_id':'pending','label_exclusion':'Unverified era','path':None})
     pilot.write_json(folder/'snapshot.json',{'kind':'train','objective':'known-target-similarity-v1',
@@ -106,3 +115,17 @@ def test_real_training_worker_builds_and_saves_positive_only_candidate(tmp_path,
     assert metrics['protected_evaluation']['heldout_groups']==3
     proposals=pilot.read_json(folder/'proposals.json')
     assert len(proposals)==8 and all(p['property']['target_prediction']['score_kind']=='known_target_similarity' for p in proposals)
+
+
+def test_no_interior_photos_cannot_teach_visual_similarity_even_with_cached_vectors():
+    properties,vectors=data()
+    for prop in properties: prop['photo_coverage']='no_interior'
+    index=fit_reference_index(properties,vectors)
+    assert all(ref['images'] is None for ref in index['references'])
+    report=evaluate_reference_index(index,properties,vectors)
+    assert report['components']['images']['n']==0 and report['components']['combined']['n']==0
+    assert report['components']['metadata']['n']==3
+    from model_loop import fingerprint
+    before=fingerprint([],properties)
+    properties[0]['photo_coverage']='interior_available'
+    assert before!=fingerprint([],properties)
