@@ -160,8 +160,13 @@ def test_legacy_drafts_do_not_become_training_approvals():
 
 
 def test_cloud_app_needs_no_original_local_artifacts_and_rejects_local_jobs():
-    app=CloudApp(Store(MemoryDatabase(),None))
-    assert app.get_studio().get('/api/studio/summary')['storage']=='supabase'
+    store=Store(MemoryDatabase(),None)
+    store.queue=lambda args:{'counts':{'all':1,'reviewed':0,'photo_match':1},'photo_count':1}
+    app=CloudApp(store)
+    summary=app.get_studio().get('/api/studio/summary')
+    assert summary['storage']=='supabase'
+    assert summary['counts']['all']==1 and summary['photo_count']==1
+    assert summary['metadata_policy']['model_feature_groups']==12
     with pytest.raises(ValueError,match='No local training'):
         app.get_studio().post('/api/studio/train',{'approved':True})
 

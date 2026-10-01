@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ACQ Vision · Training status</title>
+<style>
+:root{color-scheme:light;--bg:#f7f4ef;--surface:#fff;--soft:#f5f5f5;--border:#dedede;--text:#242424;--muted:#5c5c5c;--accent:#b11f4b;--success:#167a3f;--warning:#9a6700}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Segoe UI",Aptos,sans-serif}header{height:64px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:center;gap:10px}.logo{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:var(--accent);color:#fff;font-weight:800}a{color:var(--accent)}header a{text-decoration:none;font-weight:650}main{width:min(1080px,calc(100% - 32px));margin:30px auto 56px}.hero{display:grid;gap:8px;margin-bottom:24px}.hero h1{margin:0;font-size:30px}.hero p{margin:0;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;min-width:0}.card h2{font-size:18px;margin:0 0 12px}.card h3{font-size:14px;margin:18px 0 5px}.card p{margin:7px 0;color:var(--muted)}.wide{grid-column:1/-1}.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.step{background:var(--soft);border-radius:10px;padding:14px}.step strong,.metric strong{display:block}.number{color:var(--accent);font-weight:800;font-size:12px;text-transform:uppercase}.status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;background:#fff3cd;color:var(--warning)}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.metric{padding:12px;background:var(--soft);border-radius:9px}.metric strong{font-size:22px}.callout{border-left:4px solid var(--accent);padding:12px 14px;background:var(--soft);border-radius:8px}.good{color:var(--success);font-weight:700}.small{font-size:12px}.error{color:#a12622}ul{padding-left:20px;margin-bottom:0}@media(max-width:760px){header{padding:0 16px}.grid,.steps{grid-template-columns:1fr}.wide{grid-column:auto}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.hero h1{font-size:24px}}
+</style>
+</head>
+<body>
+<header><div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span>Cloud development</span></div><a href="/">← Back to review</a></header>
+<main>
+ <section class="hero"><h1>Training and data status</h1><p>What your reviews mean, what is saved, and what is actually trained.</p></section>
+ <div class="grid">
+  <section class="card wide">
+   <h2>The review workflow</h2>
+   <div class="steps">
+    <div class="step"><span class="number">Step 1</span><strong>Confirm the photos</strong><p>Verify these are the correct property and acquisition-era photos. Mark later renovations, floor plans, amenities, and unrelated images so they cannot teach condition.</p></div>
+    <div class="step"><span class="number">Step 2</span><strong>Rate the property</strong><p>Score whether the property is worth investigating. This is a property label; it does not automatically label every photo.</p></div>
+    <div class="step"><span class="number">Step 3</span><strong>Teach individual evidence</strong><p>Select standout photos and correct photo context, room, and opportunity when needed. Approved corrections become candidate training labels.</p></div>
+   </div>
+  </section>
+  <section class="card" id="models">
+   <h2>Model status</h2>
+   <span class="status" id="training-state">Checking…</span>
+   <p><strong>Saving a review does not immediately retrain the model.</strong></p>
+   <p id="training-copy">The hosted review app is checking whether a training worker and promoted candidate are connected.</p>
+   <div class="callout"><strong>Current safe behavior</strong><br>Reviews are durable feedback. New weights require a frozen dataset, a versioned training run, protected evaluation, and explicit promotion.</div>
+  </section>
+  <section class="card" id="data">
+   <h2>Review data</h2>
+   <div class="metrics"><div class="metric"><strong id="properties">—</strong><span>properties</span></div><div class="metric"><strong id="reviewed">—</strong><span>rated</span></div><div class="metric"><strong id="photo-match">—</strong><span>photo sets to verify</span></div><div class="metric"><strong id="photos">—</strong><span>photos</span></div></div>
+   <h3>MLS metadata</h3>
+   <p>The full sanitized listing snapshot is retained with the confirmed listing. The current metadata candidate uses <strong>12 pre-decision feature groups</strong>, not every field indiscriminately.</p>
+   <p class="small">Identifiers, private/contact fields, URLs, and later-sale outcome fields are excluded from model input. Additional safe MLS fields can be added under a versioned feature policy after leakage review.</p>
+  </section>
+  <section class="card wide">
+   <h2>When a property becomes trainable</h2>
+   <ul><li>The property/listing identity and acquisition era are confirmed.</li><li>The property has a decisive rating (1–2 or 4–5); “Maybe” and insufficient evidence stay unknown.</li><li>Wrong-era, amenity, floor-plan, and unrelated photos are excluded.</li><li>The approved property label is joined to its immutable pre-decision metadata snapshot.</li><li>A new candidate is trained and evaluated by physical-property group before promotion.</li></ul>
+  </section>
+ </div>
+ <p id="error" class="error" hidden></p>
+</main>
+<script>
+(async()=>{
+ try{
+  const response=await fetch('/api/studio/summary',{cache:'no-store',credentials:'same-origin'});
+  const data=await response.json();if(!response.ok)throw Error(data.error||'Status unavailable');
+  const counts=data.counts||{};
+  document.getElementById('properties').textContent=counts.all??0;
+  document.getElementById('reviewed').textContent=counts.reviewed??0;
+  document.getElementById('photo-match').textContent=counts.photo_match??0;
+  document.getElementById('photos').textContent=data.photo_count??0;
+  const enabled=data.capabilities?.training===true;
+  document.getElementById('training-state').textContent=enabled?'Training connected':'Reviews saved · training not connected';
+  document.getElementById('training-copy').textContent=enabled?'A versioned training worker is available. Check the active candidate and evaluation before promotion.':'The hosted app currently records reviews in Supabase, but it does not fit or promote model weights yet.';
+ }catch(error){const node=document.getElementById('error');node.hidden=false;node.textContent=error.message;}
+})();
+</script>
+</body>
+</html>

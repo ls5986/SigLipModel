@@ -21,7 +21,12 @@ class CloudStudio:
         if parsed.path=='/api/studio/property':
             return self.store.property(args.get('id'))
         if parsed.path=='/api/studio/summary':
-            return {'token':self.app.token,'storage':'supabase','capabilities':{'review':True,'training':False,'assessment':False},
+            queue=self.store.queue({'scope':'acquisitions','queue':'all','offset':0,'limit':1})
+            return {'token':self.app.token,'storage':'supabase',
+                    'capabilities':{'review':True,'training':False,'assessment':False},
+                    'counts':queue['counts'],'photo_count':queue['photo_count'],
+                    'metadata_policy':{'stored':'sanitized confirmed-listing snapshot',
+                                       'model_feature_groups':12,'post_decision_outcomes':False},
                     'notice':'Reviews and photos use Supabase. Model jobs need the separate hosted worker cutover.'}
         raise ValueError('This action is not available in cloud review mode yet')
 

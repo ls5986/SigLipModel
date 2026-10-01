@@ -55,6 +55,10 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         status,headers,_=request(port,'POST','/login',form,{'Origin':'https://studio.example.test','Content-Type':'application/x-www-form-urlencoded'})
         assert status==303
         cookie=headers['Set-Cookie'].split(';',1)[0]
+        status,_,body=request(port,'GET','/',headers={'Cookie':cookie})
+        assert status==200 and b'/status#models' in body and b'Training status' in body
+        status,_,body=request(port,'GET','/status',headers={'Cookie':cookie})
+        assert status==200 and b'Training and data status' in body
         status,_,body=request(port,'GET','/api/studio/review-queue',headers={'Cookie':cookie})
         assert status==200 and json.loads(body)['token']=='csrf'
         payload=json.dumps({'answer':True})

@@ -311,11 +311,13 @@ class SupabaseStore:
         items = [i for i in items if scope!='reference' and (i['blocked']==(scope=='quarantine'))]
         counts = {'all':len(items),'ready':0,'unscored':sum(i['status']=='unscored' for i in items),
                   'reviewed':sum(i['status']=='reviewed' for i in items),'photo_match':sum(i['needs_photo_match'] for i in items)}
+        photo_count = sum(i['image_count'] for i in items)
         search = args.get('search','').strip().casefold()
         items = [i for i in items if (queue=='all' or queue=='photo_match' and i['needs_photo_match'] or i['status']==queue)
                  and (not search or search in ' '.join(str(i[k] or '') for k in ('id','address','city','listing_id')).casefold())]
         items.sort(key=lambda i:(not i['image_count'],i['status']=='reviewed',i['address']))
         return {'items':items[offset:offset+limit],'counts':counts,'total':len(items),'offset':offset,'limit':limit,
+                'photo_count':photo_count,
                 'capabilities':{'review':True,'assessment':False,'training':False,'storage':'supabase'}}
 
     def document(self, key):

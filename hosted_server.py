@@ -134,8 +134,22 @@ def create_server(port, app, auth):
             if not self.authenticated():
                 return self.reply(303,b"",headers=[("Location","/login")])
             if path=="/":
-                page=(CODE_ROOT/"review_ui.html").read_bytes().replace(b"Local preview",b"Cloud development")
+                page=(CODE_ROOT/"review_ui.html").read_bytes().replace(
+                    b"Local preview",b"Cloud development"
+                ).replace(
+                    b'/advanced?tab=experiments',b'/status#models'
+                ).replace(
+                    b'Models &amp; results \xe2\x86\x97',b'Training status'
+                ).replace(
+                    b'/advanced?tab=dataset',b'/status#data'
+                ).replace(
+                    b'Data \xe2\x86\x97',b'Data coverage'
+                )
                 return self.reply(200,page,"text/html; charset=utf-8")
+            if path=="/status":
+                return self.reply(
+                    200,(CODE_ROOT/"hosted_status.html").read_bytes(),"text/html; charset=utf-8"
+                )
             if path.startswith("/api/studio/"):
                 try:
                     if path in {"/api/studio/image","/api/studio/thumbnail"}:

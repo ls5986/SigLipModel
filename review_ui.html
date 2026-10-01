@@ -93,7 +93,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 <body>
 <header>
  <div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span class="badge">Local preview</span></div>
- <nav aria-label="Workspace"><button id="review-nav" aria-current="page">Review</button><button id="match-nav">Photo matching</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a></nav>
+ <nav aria-label="Workspace"><button id="match-nav">1 · Confirm photos</button><button id="review-nav" aria-current="page">2 · Rate properties</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a></nav>
  <button id="reviewer-button" class="small">Your name</button>
 </header>
 <div class="statusbar row spread wrap">
@@ -209,7 +209,9 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('correct').hidden=S.mode!=='matching';
   $('agree').disabled=S.busy||!has||blocked;
   $('correct').disabled=S.busy||!has;$('unsure').disabled=S.busy||!has||(S.mode==='review'&&blocked);$('skip').disabled=S.busy||!has;
-  $('score-button').disabled=S.detail?.capabilities?.assessment===false||S.busy||!has||blocked||!S.detail?.images?.length||job?.status==='running';
+  const noAssessment=S.detail?.capabilities?.assessment===false;
+  $('score-button').hidden=noAssessment;
+  $('score-button').disabled=noAssessment||S.busy||!has||blocked||!S.detail?.images?.length||job?.status==='running';
   $('flag-era').disabled=S.busy||!S.detail?.historical_source;
   $('edit-photo').disabled=S.busy||blocked||!current()||!S.imageLoaded;
   $('refresh').disabled=S.busy;$('queue-prev').disabled=S.busy||S.offset===0;$('queue-next').disabled=S.busy||S.offset+20>=S.total;
@@ -257,7 +259,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const m=p?.metadata||{};
   $('property-meta').textContent=p?[p.city,p.year_built?'Built '+p.year_built:null,m.ListingId?'MLS '+m.ListingId:null,m.CloseDate?'Sold '+m.CloseDate:null].filter(Boolean).join(' · '):'Choose another queue.';
   document.body.classList.toggle('matching-mode',S.mode==='matching');
-  $('task-heading').textContent=S.mode==='matching'?'Verify historical photos':'Review properties';
+  $('task-heading').textContent=S.mode==='matching'?'Step 1 of 2 · Confirm acquisition-era photos':'Step 2 of 2 · Rate target properties';
   $('queue-filter').disabled=S.mode==='matching';
   $('review-nav').setAttribute('aria-current',S.mode==='review'?'page':'false');$('match-nav').setAttribute('aria-current',S.mode==='matching'?'page':'false');
   $('agree').textContent=S.mode==='matching'?'Right photos & next':'Rate property';
