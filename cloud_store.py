@@ -257,7 +257,7 @@ class SupabaseStore:
 
     def queue(self, args):
         scope, queue = args.get('scope','acquisitions'), args.get('queue','all')
-        if scope not in {'acquisitions','quarantine','reference'} or queue not in {'all','ready','unscored','reviewed','photo_match'}:
+        if scope not in {'acquisitions','quarantine','reference','training'} or queue not in {'all','ready','unscored','reviewed','photo_match'}:
             raise ValueError('Unknown review queue')
         offset,limit = max(0,int(args.get('offset',0))),min(40,max(1,int(args.get('limit',20))))
         with self.lock:
@@ -309,6 +309,10 @@ class SupabaseStore:
                 self._index = time.monotonic(),list(items.values())
             items = deepcopy(self._index[1])
         items = [i for i in items if scope!='reference' and (i['blocked']==(scope=='quarantine'))]
+        if scope=='training':
+            cohort = self.document('training-cohort-acquisition-250-v1')
+            keys = set((cohort or {}).get('listing_keys', []))
+            items = [item for item in items if item['id'] in keys]
         counts = {'all':len(items),'ready':0,'unscored':sum(i['status']=='unscored' for i in items),
                   'reviewed':sum(i['status']=='reviewed' for i in items),'photo_match':sum(i['needs_photo_match'] for i in items)}
         photo_count = sum(i['image_count'] for i in items)
@@ -327,3 +331,15 @@ class SupabaseStore:
     def save_document(self, key, payload, expected_revision):
         with self.database.connect() as db:
             return self.database.save(db,'document',key,expected_revision,payload)
+
+    def training_readiness(self):
+        from cloud_training import readiness, snapshot
+        _, properties = snapshot(self)
+        return readiness(properties)
+
+    def apply_proposals(self, output):
+        # Editable machine suggestions never overwrite reviewed labels.
+        for proposal in output:
+            key = 'model-proposal:'+proposal['property_id']
+            current = self.document(key)
+            self.save_document(key, proposal, (current or {}).get('revision', 0))

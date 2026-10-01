@@ -335,8 +335,12 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                 return
             path = urlparse(self.path).path
             if path == "/":
-                self.send(200, (CODE_ROOT / "review_ui.html").read_bytes(),
-                          "text/html; charset=utf-8")
+                page = (CODE_ROOT / "review_ui.html").read_bytes()
+                if os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
+                    page = page.replace(b'/advanced?tab=experiments', b'/status#models').replace(b'/advanced?tab=dataset', b'/status#data')
+                self.send(200, page, "text/html; charset=utf-8")
+            elif path == "/status" and os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
+                self.send(200, (CODE_ROOT / "hosted_status.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/connect":
                 self.send(200, (CODE_ROOT / "connect_ui.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/legacy":
@@ -476,7 +480,7 @@ def main() -> None:
         backend = os.environ.get("STUDIO_DATA_BACKEND", "local")
         if backend == "supabase":
             from cloud_runtime import from_env
-            app = from_env()
+            app = from_env(allow_model_worker=True)
         elif backend == "local":
             app = AppData()
         else:

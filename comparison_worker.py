@@ -103,7 +103,7 @@ def process(folder, downloader=download, predictor=infer):
             path = folder / (photo["image_id"] + ".image")
             paths.append(path)
             downloader(photo["url"], path)
-        scores = predictor(paths, bundle, backbone)
+        scores = predictor(paths, bundle, backbone) if paths else []
         if len(scores) != len(paths):
             raise ValueError("Incomplete photo predictions")
         photos = []

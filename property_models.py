@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-import numpy as np
+
+if TYPE_CHECKING:
+    import numpy as np
 
 PHOTO_CONTEXTS = {
     "subject", "subject_interior", "subject_exterior", "shared_amenity",
@@ -94,6 +96,7 @@ def target_class(review: dict | None) -> int | None:
 
 
 def vision_vector(vectors: list[np.ndarray] | np.ndarray) -> np.ndarray | None:
+    import numpy as np
     if isinstance(vectors, np.ndarray):
         values = vectors
     elif vectors:
@@ -117,6 +120,7 @@ def positive_probability(model, values) -> float:
 
 
 def _component_scores(bundle: dict, vectors: list[np.ndarray], metadata: dict) -> tuple[dict, list[str]]:
+    import numpy as np
     models = bundle.get("property_models", {})
     scores: dict[str, float | None] = {"images": None, "metadata": None, "combined": None}
     warnings: list[str] = []
