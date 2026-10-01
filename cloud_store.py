@@ -308,7 +308,7 @@ class SupabaseStore:
                     if item['blocked']: item['acquisition_status']='needs_prior_listing'
                 self._index = time.monotonic(),list(items.values())
             items = deepcopy(self._index[1])
-        items = [i for i in items if scope!='reference' and (i['blocked']==(scope=='quarantine'))]
+        items = [i for i in items if scope=='training' or scope!='reference' and (i['blocked']==(scope=='quarantine'))]
         if scope=='training':
             cohort = self.document('training-cohort-acquisition-250-v1')
             keys = set((cohort or {}).get('listing_keys', []))
