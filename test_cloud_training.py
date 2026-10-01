@@ -117,3 +117,17 @@ def test_conflicting_property_answers_in_same_group_block_training():
     rows[1]['group_id']=rows[0]['group_id']
     gate=readiness(rows)
     assert not gate['ready'] and 'conflicting' in gate['reasons'][0]
+
+
+def test_conflicting_protected_group_answers_also_block_evaluation():
+    rows=[property_row(str(i), 'target' if i%2 else 'not_target') for i in range(10)]
+    a=property_row('held1',protected=True)
+    b=property_row('held2','not_target',protected=True)
+    b['group_id']=a['group_id']
+    assert not readiness(rows+[a,b])['ready']
+
+
+def test_missing_training_preview_is_a_validation_error(tmp_path):
+    jobs=SupabaseJobs(Mock(),tmp_path)
+    with pytest.raises(ValueError,match='preview'):
+        jobs.start({'id':'b'*32})
