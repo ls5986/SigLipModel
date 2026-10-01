@@ -166,7 +166,7 @@ def test_cloud_app_needs_no_original_local_artifacts_and_rejects_local_jobs():
     summary=app.get_studio().get('/api/studio/summary')
     assert summary['storage']=='supabase'
     assert summary['counts']['all']==1 and summary['photo_count']==1
-    assert summary['metadata_policy']['model_feature_groups']==12
+    assert summary['metadata_policy']['model_feature_groups']==9
     with pytest.raises(ValueError,match='No local training'):
         app.get_studio().post('/api/studio/train',{'approved':True})
 

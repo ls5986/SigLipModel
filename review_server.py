@@ -339,6 +339,8 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                 if os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
                     page = page.replace(b'/advanced?tab=experiments', b'/status#models').replace(b'/advanced?tab=dataset', b'/status#data')
                 self.send(200, page, "text/html; charset=utf-8")
+            elif path == "/source-rows" and os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
+                self.send(200, (CODE_ROOT / "source_rows.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/status" and os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
                 self.send(200, (CODE_ROOT / "hosted_status.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/connect":

@@ -10,40 +10,40 @@ from pilot import write_json
 def property_row(key, target='target', *, verified=True, protected=False, status='approved'):
     return {'id':key, 'group_id':key, 'physical_key':key, 'split':'test' if protected else 'train',
             'review':{'status':status, 'target_fit':target}, 'timing_verified':verified,
-            'training_allowed':verified and not protected, 'model_metadata':{'year_built':1960}}
+            'known_target':verified,'training_allowed':verified and not protected, 'model_metadata':{'year_built':1960}}
 
 
-def test_overall_answers_required_and_photo_labels_cannot_supply_them():
-    rows = [property_row(str(i), 'target' if i%2 else 'not_target') for i in range(10)]
-    rows.append(property_row('pending', status='unreviewed'))
+def test_known_targets_need_verification_not_overall_ratings_or_negatives():
+    rows = [property_row(str(i), status='unreviewed') for i in range(5)]
+    rows += [property_row('held'+str(i), protected=True, status='unreviewed') for i in range(2)]
     gate = readiness(rows)
-    assert not gate['ready'] and gate['pending_property_reviews'] == 1
-    assert gate['eligible_targets'] == 5 and gate['eligible_not_targets'] == 5
+    assert gate['ready'] and gate['pending_property_reviews'] == 0
+    assert gate['eligible_targets'] == 5 and gate['eligible_not_targets'] == 0
+    assert gate['verified_heldout_properties'] == 2
 
 
-def test_uncertain_wrong_era_and_protected_groups_do_not_supervise_property_heads():
-    rows = [property_row('yes'+str(i)) for i in range(5)]
-    rows += [property_row('no'+str(i), 'not_target') for i in range(5)]
-    rows += [property_row('maybe','unsure'), property_row('held', protected=True),
-             property_row('wrong', verified=False)]
+def test_unverified_and_protected_groups_do_not_enter_training():
+    rows = [property_row(str(i)) for i in range(5)]
+    rows += [property_row('held'+str(i), protected=True) for i in range(2)]
+    rows += [property_row('pending', verified=False)]
     gate = readiness(rows)
-    assert gate['uncertain'] == 1 and gate['protected_properties'] == 1
-    assert gate['eligible_targets'] == 5 and gate['pending_photo_matches'] == 1
-    assert not gate['ready']
+    assert gate['ready'] and gate['pending_photo_matches'] == 1
+    assert gate['eligible_targets'] == 5 and gate['protected_properties'] == 2
 
 
-def test_ready_requires_independent_groups_not_duplicate_properties():
-    rows = [property_row(str(i), 'target' if i%2 else 'not_target') for i in range(10)]
+def test_reference_readiness_requires_independent_groups():
+    rows = [property_row(str(i)) for i in range(5)]
+    rows += [property_row('held'+str(i), protected=True) for i in range(2)]
     assert readiness(rows)['ready']
-    for row in rows: row['group_id'] = row['review']['target_fit']
+    for row in rows[:5]: row['group_id'] = 'same-house'
     assert not readiness(rows)['ready']
 
 
 def test_cloud_training_blocks_before_photo_download_or_artifact_load(tmp_path, monkeypatch):
     store = Mock()
     jobs = SupabaseJobs(store, tmp_path)
-    monkeypatch.setattr('cloud_training.snapshot', lambda _: ([], [property_row('pending',status='draft')]))
-    with pytest.raises(ValueError, match='overall target rating'): jobs.preview()
+    monkeypatch.setattr('cloud_training.snapshot', lambda _: ([], [property_row('pending',status='draft',verified=False)]))
+    with pytest.raises(ValueError, match='Verify acquisition sale'): jobs.preview()
     store.storage.get.assert_not_called()
     assert not list(jobs.folder.glob('*/snapshot.json'))
 
@@ -103,28 +103,21 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
         def _legacy(self,db,ids): return {'properties':reviews}
         def _reviews(self,db,ids): return eras
     images, properties = snapshot(Store(DB(),None))
-    assert len(properties)==250 and len(images)==250
+    assert len(properties)==251 and len(images)==251
     assert properties[0]['split']=='test' and not properties[0]['training_allowed']
-    assert 50 <= sum(p['split']=='test' for p in properties) <= 51
+    assert 50 <= sum(p['split']=='test' for p in properties) <= 125
     assert 'ClosePrice' not in properties[0]['metadata']
     assert properties[0]['model_metadata']['year_built']==1960
     assert all(i['room'] is None and i['preference'] is None and i['features']=={} for i in images)
     assert readiness(properties)['ready']
+    assert next(p for p in properties if p['id']=='2')['known_target']
+    assert not next(p for p in properties if p['id']=='outside')['known_target']
 
 
-def test_conflicting_property_answers_in_same_group_block_training():
-    rows = [property_row(str(i), 'target' if i%2 else 'not_target') for i in range(10)]
-    rows[1]['group_id']=rows[0]['group_id']
-    gate=readiness(rows)
-    assert not gate['ready'] and 'conflicting' in gate['reasons'][0]
-
-
-def test_conflicting_protected_group_answers_also_block_evaluation():
-    rows=[property_row(str(i), 'target' if i%2 else 'not_target') for i in range(10)]
-    a=property_row('held1',protected=True)
-    b=property_row('held2','not_target',protected=True)
-    b['group_id']=a['group_id']
-    assert not readiness(rows+[a,b])['ready']
+def test_subjective_target_ratings_do_not_override_workbook_provenance():
+    rows = [property_row(str(i), target='not_target', status='unreviewed') for i in range(5)]
+    rows += [property_row('held'+str(i), target='unsure', protected=True) for i in range(2)]
+    assert readiness(rows)['ready']
 
 
 def test_missing_training_preview_is_a_validation_error(tmp_path):

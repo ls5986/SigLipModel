@@ -93,7 +93,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 <body>
 <header>
  <div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span class="badge">Local preview</span></div>
- <nav aria-label="Workspace"><button id="match-nav">1 · Confirm photos</button><button id="review-nav" aria-current="page">2 · Rate properties</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a></nav>
+ <nav aria-label="Workspace"><button id="match-nav">1 · Confirm photos</button><button id="review-nav" aria-current="page">2 · Rate properties</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a><a href="/source-rows" id="source-ledger-link" hidden>All workbook rows</a></nav>
  <button id="reviewer-button" class="small">Your name</button>
 </header>
 <div class="statusbar row spread wrap">
@@ -169,7 +169,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);
- const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'acquisitions',cohortLinkChecked:false,mode:'review',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set()};
+ const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'acquisitions',cohortLinkChecked:false,mode:'review',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set(),knownTargets:false};
  const ROOMS=['kitchen','bathroom','living','bedroom','exterior','outdoor','other'];
  const FEATURES=['dated_kitchen','dated_bathroom','old_flooring','old_cabinetry','dated_appliances','dated_lighting','dated_fixtures','damaged_surfaces','popcorn_ceiling','wood_paneling','clutter_obscures_condition','empty_presentation','visible_deferred_maintenance'];
  const INTERIOR=['kitchen','bathroom','living','bedroom','other'];
@@ -232,7 +232,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('queue-list').replaceChildren(...S.items.map(i=>{
    const button=btn('',()=>action(()=>openProperty(i.id)),'queue-item');button.dataset.propertyId=i.id;button.setAttribute('aria-current',String(S.detail?.property.id===i.id));
    if(i.hero_image_id){const img=el('img');img.src=thumbURL(i.hero_image_id);img.alt='';img.loading='lazy';button.append(img);}
-   const copy=el('span',null,'copy');copy.append(el('strong',i.address),el('small',[i.city,`${i.image_count} photos`].filter(Boolean).join(' · ')),el('small',S.mode==='matching'?'Photo era unverified':i.human_score?`${i.human_score}/5 · Reviewed`:label(i.status)));
+   const copy=el('span',null,'copy');copy.append(el('strong',i.address),el('small',[i.city,`${i.image_count} photos`].filter(Boolean).join(' · ')),el('small',S.mode==='matching'?(i.needs_photo_match?'Sale/photos need verification':'Sale/photos verified'):i.human_score?`${i.human_score}/5 · Reviewed`:label(i.status)));
    button.append(copy);return button;
   }));
   if(!S.items.length)$('queue-list').append(el('p','No properties in this queue. Choose All properties or score an unscored property.','notice'));
@@ -240,13 +240,16 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  async function loadQueue(prefer=null){
   $('dataset-scope').value=S.scope;
   const data=await api('review-queue?'+new URLSearchParams({queue:S.mode==='matching'?'photo_match':S.filter,scope:S.scope,search:$('search').value.trim(),offset:S.offset,limit:20}));
-  const cloud=data.capabilities?.storage==='supabase';$('training-scope').hidden=!cloud;$('training-scope').disabled=!cloud;
+  const cloud=data.capabilities?.storage==='supabase';
+  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';$('review-nav').hidden=true;return loadQueue(prefer);}$('training-scope').hidden=!cloud;$('training-scope').disabled=!cloud;
   if(!S.cohortLinkChecked){S.cohortLinkChecked=true;if(cloud&&new URLSearchParams(location.search).get('cohort')==='training'){S.scope='training';S.offset=0;return loadQueue();}}
   S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
   if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
-  $('progress').textContent=`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
+  $('progress').textContent=S.knownTargets?`${S.counts.all-S.counts.photo_match} photo sets verified · ${S.counts.photo_match} to verify`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
   $('ready-button').textContent=`AI drafts (${S.counts.ready})`;drawQueue();
   const next=S.items.find(i=>i.id===prefer)||S.items.find(i=>i.id===S.detail?.property.id)||S.items[0];
+  const requested=new URLSearchParams(location.search).get('property');
+  if(requested&&!S.request){await openProperty(requested);return;}
   if(next)await openProperty(next.id);else{S.detail=null;draw();}
  }
  async function openProperty(id){
@@ -262,15 +265,15 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const m=p?.metadata||{};
   $('property-meta').textContent=p?[p.city,p.year_built?'Built '+p.year_built:null,m.ListingId?'MLS '+m.ListingId:null,m.CloseDate?'Sold '+m.CloseDate:null].filter(Boolean).join(' · '):'Choose another queue.';
   document.body.classList.toggle('matching-mode',S.mode==='matching');
-  $('task-heading').textContent=S.mode==='matching'?'Step 1 of 2 · Confirm acquisition-era photos':'Step 2 of 2 · Rate target properties';
+  $('task-heading').textContent=S.mode==='matching'?'Confirm acquisition sale and photo set':'Step 2 of 2 · Rate target properties';
   $('queue-filter').disabled=S.mode==='matching';
   $('review-nav').setAttribute('aria-current',S.mode==='review'?'page':'false');$('match-nav').setAttribute('aria-current',S.mode==='matching'?'page':'false');
   $('agree').textContent=S.mode==='matching'?'Right photos & next':'Rate property';
   $('correct').textContent='Wrong photos & next';
   $('unsure').textContent=S.mode==='matching'?"Can’t tell & next":"Not enough information";
   const r=p?.review,approved=r?.status==='approved';
-  $('decision-title').textContent=d?.historical_source?.blocked?'Wrong / uncertain era':approved?(r.target_score?`${r.target_score} / 5 · ${label(r.target_fit)}`:label(r.target_fit)):job?.status==='running'?'AI draft running…':'Ready for your rating';
-  $('model-reason').textContent=approved?r.reason:S.detail?.capabilities?.assessment===false?'Photos and reviews are saved in Supabase. Rate the property directly; cloud model processing is not enabled for this deployment.':job?.prediction?`Optional AI draft: ${job.prediction.target_reason}`:'Review first from the available photos and property facts. You can request an optional AI second opinion.';
+  $('decision-title').textContent=S.knownTargets?(d?.historical_source?.timing_verified?'Known target · photos verified':'Known target · verify sale and photos'):d?.historical_source?.blocked?'Wrong / uncertain era':approved?(r.target_score?`${r.target_score} / 5 · ${label(r.target_fit)}`:label(r.target_fit)):job?.status==='running'?'AI draft running…':'Ready for your rating';
+  $('model-reason').textContent=S.knownTargets?'This workbook supplies known targets. Confirm the correct acquisition sale and photos; no target/pass rating is required.':approved?r.reason:S.detail?.capabilities?.assessment===false?'Photos and reviews are saved in Supabase. Rate the property directly; cloud model processing is not enabled for this deployment.':job?.prediction?`Optional AI draft: ${job.prediction.target_reason}`:'Review first from the available photos and property facts. You can request an optional AI second opinion.';
   $('condition').textContent=approved&&r.condition_label?'Your visible condition: '+label(r.condition_label):job?.prediction?'AI condition draft: '+label(condition(job)):'';
   $('model-version').textContent=job?.prediction?`${job.model} · ${job.image_count} selected photos · optional AI draft`:'Human review does not require an AI request. Reviews do not retrain automatically.';
   $('score-button').textContent=job?.prediction?'Refresh optional AI opinion':job?.status==='running'?'Generating AI opinion…':'Get optional AI second opinion';

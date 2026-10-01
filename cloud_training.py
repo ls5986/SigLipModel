@@ -1,12 +1,11 @@
 """Explicit local model worker using frozen Supabase reviews, never a local label fallback."""
-from collections import Counter
 import shutil
 from uuid import uuid4
 
 from acquisition_policy import supports_prior
 from model_loop import fingerprint
 from pilot import ROOT, UnionFind, read_json, write_json
-from property_models import ACCEPTED_METADATA_KEYS, metadata_features, target_class
+from property_models import ACCEPTED_METADATA_KEYS, metadata_features
 from studio_data import now
 from studio_jobs import StudioJobs
 
@@ -14,31 +13,22 @@ COHORT_KEY = 'training-cohort-acquisition-250-v1'
 
 
 def readiness(properties):
-    missing = [r['id'] for r in properties if r['review'].get('status') != 'approved']
-    era = [r['id'] for r in properties if not r['timing_verified']]
-    eligible = [r for r in properties if r['training_allowed'] and target_class(r['review']) is not None]
-    group_labels = {}
-    for row in properties:
-        if target_class(row['review']) is None: continue
-        group_labels.setdefault(row['group_id'], set()).add(target_class(row['review']))
-    conflicts = {group for group, values in group_labels.items() if len(values)>1}
-    counts = Counter(target_class(r['review']) for r in eligible)
-    groups = {label: len({r['group_id'] for r in eligible if target_class(r['review']) == label})
-              for label in (0, 1)}
+    eligible = [p for p in properties if p.get('known_target') and p['training_allowed'] and not p.get('label_exclusion')]
+    heldout = [p for p in properties if p.get('known_target') and p['split']=='test' and not p.get('label_exclusion')]
+    training_groups = len({p['group_id'] for p in eligible})
+    evaluation_groups = len({p['group_id'] for p in heldout})
     reasons = []
-    if conflicts: reasons.append(f'{len(conflicts)} physical groups have conflicting property target answers')
-    if missing: reasons.append(f'{len(missing)} properties still need an overall target rating')
-    if era: reasons.append(f'{len(era)} photo sets still need acquisition-era verification')
-    if min(counts.get(0, 0), counts.get(1, 0)) < 5 or min(groups.values()) < 3:
-        reasons.append('Need five decisive ratings and three independent groups in each target class')
-    return {'cohort': 'acquisition-250-v1', 'properties': len(properties),
-            'reviewed': len(properties)-len(missing), 'pending_property_reviews': len(missing),
-            'pending_photo_matches': len(era), 'eligible_targets': counts.get(1, 0),
-            'eligible_not_targets': counts.get(0, 0), 'independent_groups': groups,
-            'uncertain': sum(r['review'].get('status') == 'approved' and target_class(r['review']) is None
-                             for r in properties),
-            'protected_properties': sum(r['split'] == 'test' for r in properties),
-            'ready': not reasons and bool(properties), 'reasons': reasons}
+    if training_groups < 5: reasons.append('Verify acquisition sale and photos for at least five independent training groups')
+    if evaluation_groups < 2: reasons.append('Verify acquisition sale and photos for at least two protected evaluation groups')
+    return {'cohort':'all-imported-known-targets-v2','objective':'known-target-similarity-v1',
+            'properties':len(properties), 'reviewed':sum(p['timing_verified'] for p in properties),
+            'pending_property_reviews':0, 'pending_photo_matches':sum(not p['timing_verified'] for p in properties),
+            'eligible_targets':len(eligible), 'eligible_not_targets':0,
+            'independent_groups':{'training':training_groups,'evaluation':evaluation_groups},
+            'protected_properties':sum(p['split']=='test' for p in properties),
+            'verified_heldout_properties':len(heldout),'uncertain':0,
+            'ready':not reasons, 'reasons':reasons,
+            'notice':'Known targets from workbook provenance. Overall target/pass ratings are not required. Pending rows are excluded.'}
 
 
 def snapshot(store):
@@ -46,8 +36,7 @@ def snapshot(store):
     with store.database.connect() as db:
         db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
         cohort = store.database.state(db, 'document', COHORT_KEY)
-        if not cohort or len(cohort.get('listing_keys', [])) != 250:
-            raise ValueError('Freeze the 250-property training cohort first')
+        cohort = cohort or {'listing_keys':[]}
         keys = cohort['listing_keys']
         records = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,
                 jsonb_build_object('mls_candidates',jsonb_build_array(jsonb_build_object(
@@ -57,12 +46,13 @@ def snapshot(store):
             ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
             LEFT JOIN LATERAL (SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
               WHERE item->'listing'->>'ListingKey'=e.listing_key LIMIT 1) c ON true
-            WHERE e.workspace_id=%s ORDER BY e.id''', (store.workspace,)).fetchall()
+            WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL AND cardinality(e.source_rows)>0 ORDER BY e.id''', (store.workspace,)).fetchall()
         photos = db.execute('''SELECT p.*,e.listing_key,e.group_id FROM acq_training.photos p
             JOIN acq_training.examples e ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
             WHERE p.workspace_id=%s AND p.revoked_at IS NULL
             AND (p.retention_until IS NULL OR p.retention_until>now()) ORDER BY p.id''',
             (store.workspace,)).fetchall()
+        keys = sorted({r['listing_key'] for r in records})
         legacy = store._legacy(db, [*keys, *[r['listing_key']+':'+str(r['provider_media_key'])
                                                for r in photos if r['listing_key'] in keys]])
         live = store._reviews(db, [*keys, *[r['listing_key']+':'+str(r['provider_media_key'])
@@ -97,7 +87,11 @@ def snapshot(store):
     import hashlib
     cohort_groups = {union.find(str(r['group_id'])) for r in records if r['listing_key'] in keys}
     reserved = sorted(cohort_groups, key=lambda g: hashlib.sha256(('acquisition-250-v1:'+g).encode()).hexdigest())
-    protected.update(reserved[:max(1, len(reserved)//5)])
+    # Stable hash membership survives later recovery of additional workbook rows.
+    protected.update(g for g in reserved if int(hashlib.sha256(('known-target-holdout-v2:'+g).encode()).hexdigest()[:8],16) / 2**32 < .2)
+    original_groups = {union.find(str(r['group_id'])) for r in records if r['listing_key'] in cohort['listing_keys']}
+    original_reserved = sorted(original_groups,key=lambda g:hashlib.sha256(('acquisition-250-v1:'+g).encode()).hexdigest())
+    protected.update(original_reserved[:max(1,len(original_reserved)//5)])
     examples, properties = [], []
     for key in keys:
         sources = [r for r in records if r['listing_key'] == key]
@@ -123,12 +117,19 @@ def snapshot(store):
             'metadata': {k:v for k,v in metadata.items() if k in ACCEPTED_METADATA_KEYS},
             'model_metadata':metadata_features(metadata), 'review':review,
             'human_review_revision':review.get('revision',0), 'timing_verified':verified,
+            'known_target':verified, 'target_origin':'user-confirmed-workbook-cohort',
+            'source_rows':sorted({n for r in sources for n in r['source_rows']}),
             'training_allowed':verified and split != 'test',
             'label_exclusion':None if verified else 'Acquisition era is not verified'})
         for identifier,p in unique.items():
             review = store._review('image', identifier, legacy, live)
             approved = review.get('status') == 'approved'
-            context = review.get('context') if approved else None
+            context = review.get('context') if approved else p.get('context')
+            provider = p.get('context_evidence',{}).get('provider_metadata',{})
+            description = str(provider.get('LongDescription') or provider.get('ShortDescription') or '').casefold()
+            if context in {None,'unknown'}:
+                if any(term in description for term in ('community pool','community room','community exercise','hoa','clubhouse')): context='shared_amenity'
+                elif 'floor plan' in description or 'floorplan' in description: context='floor_plan'
             excluded = not verified or context in {'shared_amenity','floor_plan','unrelated'}
             examples.append({'id':identifier, 'property_id':key, 'group_id':group, 'split':split,
                 'physical_key':group, 'sha256':p['image_sha256'],
@@ -170,14 +171,16 @@ class SupabaseJobs(StudioJobs):
         evidence = self.root/'cloud-evidence'
         evidence.mkdir(exist_ok=True)
         for row in rows:
+            if row.get('label_exclusion'): continue
             path = evidence/row['sha256']
             if not path.exists():
                 cached = self.store.storage.get(row['storage_bucket'],row['storage_object_key'],row['sha256'])
                 shutil.copyfile(cached,path)
             row['path'] = str(path)
-        preview = {**gate, 'id':identifier, 'kind':kind, 'eligible_images':len(rows)}
+        preview = {**gate, 'id':identifier, 'kind':kind, 'eligible_images':sum(not r.get('label_exclusion') for r in rows)}
         frozen = {'kind':kind,'examples':rows,'properties':properties,'created_at':now(),
-                  'review_fingerprint':fingerprint(rows,properties),'preview':preview}
+                  'review_fingerprint':fingerprint(rows,properties),'preview':preview,
+                  'objective':'known-target-similarity-v1'}
         write_json(folder/'snapshot.json',frozen)
         write_json(folder/'status.json',{'id':identifier,'kind':kind,'status':'preview',
                                         'created_at':now(),'detail':preview})

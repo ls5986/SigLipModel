@@ -34,6 +34,9 @@ The previous private datasets can be used in place; do not copy them into Git.
 .\.venv\Scripts\python.exe -B launch.py --open
 ```
 
+The standalone local reviewer supports optional subjective property ratings.
+The hosted Supabase workbook workflow below uses known-target sale/photo verification instead.
+
 The default address is `http://127.0.0.1:8768`. Use `--port 0` for an available
 port. Keep the process running. `start_ui.ps1` is an equivalent launcher.
 The saved runtime address is under `ACQ_DATA_ROOT`, not in the code checkout.
@@ -317,64 +320,68 @@ workspace under the restricted role. No real label needs to be changed for this 
 A fresh cache should recover a known private photo with the saved hash; that final
 Storage credential check must run in the configured deployment environment.
 
-## Supabase cohort training and MLS dev comparison
+## Supabase known-target learning and MLS dev comparison
 
-The `acquisition-250-v1` cohort is frozen in
-`acq_training.studio_state` under document key
-`training-cohort-acquisition-250-v1`. This is a review batch, not 250 positive
-labels. Review it at `/?cohort=training`; `/status` reports remaining property
-ratings and photo-era checks. Approved uncertain ratings remain unknown.
+The imported workbook is the known-target source. All 618 source rows remain
+in Supabase, including unresolved records and repeated parcels. `/source-rows`
+shows every row, its stored candidate listings, acquisition dates, retained
+photo coverage, verification status and durable correction notes. Notes do not
+replace listing/photo evidence or silently approve a row. Unresolved/wrong-sale
+matches need rematching and missing acquisition photos need recovery before use.
 
-The hosted Render review app stays lightweight and never starts a model worker.
-To train from **current Supabase reviews** on the computer with the restored
-backbone, cached embeddings and baseline heads, use the existing server-only
-training configuration (`SUPABASE_PROJECT_REF`, `STUDIO_DATABASE_URL`,
-`STUDIO_WORKSPACE_ID`, `STUDIO_STORAGE_SECRET`) plus:
+The initial 250 listing keys remain a convenient photo-review batch at
+`/?cohort=training`; they are no longer the training cap. The hosted reviewer
+opens in sale/photo verification mode. Overall target/pass ratings and negative
+examples are not required. Existing subjective ratings remain stored separately
+and do not override the workbook's known-target provenance.
+
+Confirm the selected MLS listing is the right acquisition sale and the images
+show the property in that era. Verification is bound to the photo-byte hashes:
+changing the photo set invalidates it. Quarantined, unverified, withdrawn and
+expired evidence stays out. Rooms/features are optional independent annotations;
+a positive property never automatically becomes a rough room or a preferred photo.
+
+The first candidate is a **positive-only reference similarity model**, not a
+binary classifier or a fine-tuned SigLIP encoder. It fits a versioned reference
+index from frozen SigLIP image embeddings and descriptive metadata, including
+numeric scales from training references only. It returns image similarity,
+metadata similarity and their equal-weight combination against the same
+reference, with up to five independent nearest examples and workbook row IDs.
+The score is not target probability, condition severity or profitability.
+Price, days on market, sale outcomes and reviewer annotations are not features.
+The original sanitized listing snapshots remain retained for provenance.
+
+The nine initial metadata groups are year built, bedrooms, bathrooms, living
+area, lot size, property type, city, state and postal code. Missing data remains
+missing; metadata similarity requires at least three shared fields. Full listing
+remarks are retained but this initial model does not embed their text.
+
+Physical-property groups and exact image aliases cannot cross train/evaluation
+boundaries. Original protected test groups and the initial batch holdout are
+preserved. Stable hash membership protects additional groups as rows are recovered.
+Evaluation reports heldout coverage and similarity, not accuracy, AUC or false
+positive rates. Validate actual ranking usefulness on fresh MLS dev properties.
+
+The hosted Render app saves reviews and remains lightweight. On the trusted
+computer containing the restored backbone, baseline room heads, embeddings and
+manifest, use the existing server-only Supabase configuration plus:
 
 ```powershell
 $env:STUDIO_DATA_BACKEND = "supabase"
 $env:STUDIO_MODEL_WORKER = "1"
-# ACQ_DATA_ROOT must point to your existing restored model/data folder.
+# ACQ_DATA_ROOT points to the existing restored model/data folder.
 python review_server.py --open
 ```
 
-On that local Studio's `/status`, Train becomes available only after every
-cohort property has an approved overall answer and verified acquisition-era
-photos, with enough independent target and non-target groups. Only approved
-photo labels supervise room/feature/preference heads; property answers supervise
-property vision and metadata heads. Whole linked groups, exact-image aliases,
-original test identities, and a deterministic 20% cohort holdout stay outside
-training. Training uses a frozen snapshot and refuses a changed review preview.
-Candidate weights remain on the trusted local worker; editable proposals and
-completion metadata are saved to Supabase. This is not a hosted artifact release
-or automatic production promotion.
+`/status` allows a candidate preview when at least five independent verified
+training groups and two verified protected evaluation groups exist. This is an
+exploratory minimum, not evidence of model quality. Pending records remain
+excluded, so you can verify batches without finishing every source row first.
+The preview freezes source lineage, metadata, hashes, annotations and exclusions;
+changed verification or review state requires a new preview.
 
-Connect this worker from MLS dev using **Connect Vision Studio**. The worker
-advertises `acq-property-request-v2`; MLS dev then sends saved photos plus
-allowlisted pre-decision fields and returns separate image, metadata, and fusion
-scores. Select best available evidence, images only, listing fields only, or
-both. An unavailable component reports insufficient evidence. No paid AI call,
-automatic retraining, or live MLS assessment update occurs.
-
-
-### Acquisition fit is independent of condition
-
-Rate overall shortlist fit from acquisition-time evidence, then record visible
-condition and the basis (renovation, pricing, layout/location, mixed or unknown)
-separately. A maintained original home can be a positive example; a rough home
-can be a negative example. Historical acquisition/resale membership is provenance,
-not automatic approval or verified profitability. Pricing judgments still need
-comp, repair-cost and transaction-cost validation outside this model.
-
-Property answers supervise property fit heads; they never label every photo as
-rough or desirable. Photo rooms, features and preferences require their own
-reviews. Review forms start unanswered and do not prefill AI condition labels.
-
-Protected evaluation reports maintained targets, rough targets, rough passes,
-maintained passes and pricing/characteristic-led examples separately for vision,
-metadata and fusion. Each slice reports coverage; a single-class slice reports
-missed targets/false targets at the experimental 0.5 threshold, without claiming
-AUC or balanced accuracy. Empty slices are evidence gaps, not passed tests.
-Add reviewed non-targets if this historical cohort yields too few; never convert
-uncertain answers or known acquisitions into artificial negatives. Compare on
-newer MLS dev properties after training with the existing connected worker.
+Connect the local worker from MLS dev using **Connect Vision Studio**. The
+existing property request protocol returns separate image/metadata/combined
+similarity and nearest source examples. Unavailable explicit modes report
+insufficient evidence. The experiment never overwrites the live MLS assessment,
+automatically retrains or promotes a production model.

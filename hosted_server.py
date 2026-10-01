@@ -146,6 +146,8 @@ def create_server(port, app, auth):
                     b'Data \xe2\x86\x97',b'Data coverage'
                 )
                 return self.reply(200,page,"text/html; charset=utf-8")
+            if path=="/source-rows":
+                return self.reply(200,(CODE_ROOT/"source_rows.html").read_bytes(),"text/html; charset=utf-8")
             if path=="/status":
                 return self.reply(
                     200,(CODE_ROOT/"hosted_status.html").read_bytes(),"text/html; charset=utf-8"

@@ -22,9 +22,6 @@ METADATA_FIELDS = {
     "bathrooms": (("BathroomsTotalInteger", "BathroomsTotalDecimal", "bathrooms", "baths"), "number"),
     "living_area": (("LivingArea", "living_area", "sqft"), "number"),
     "lot_size": (("LotSizeArea", "LotSizeSquareFeet", "lot_size"), "number"),
-    "list_price": (("ListPrice", "list_price"), "number"),
-    "original_list_price": (("OriginalListPrice", "original_list_price"), "number"),
-    "days_on_market": (("DaysOnMarket", "days_on_market"), "number"),
     "property_type": (("PropertySubType", "PropertyType", "property_type"), "category"),
     "city": (("City", "city"), "category"),
     "state": (("StateOrProvince", "state"), "category"),
@@ -159,6 +156,9 @@ def predict_property(bundle: dict, vectors: list[np.ndarray], metadata: dict | N
     if requested_mode not in PREDICTION_MODES:
         raise ValueError("Unsupported prediction mode")
     metadata = metadata if isinstance(metadata, dict) else {}
+    if bundle.get("target_similarity"):
+        from target_similarity import predict_similarity
+        return predict_similarity(bundle["target_similarity"], vectors, metadata, requested_mode)
     scores, warnings = _component_scores(bundle, vectors, metadata)
     available = {
         "images_only": scores["images"],

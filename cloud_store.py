@@ -337,6 +337,81 @@ class SupabaseStore:
         _, properties = snapshot(self)
         return readiness(properties)
 
+    def source_rows(self, args):
+        """Full workbook ledger; unresolved rows remain visible and never train."""
+        offset = max(0, int(args.get('offset', 0)))
+        limit = min(40, max(1, int(args.get('limit', 20))))
+        search = args.get('search', '').strip().casefold()
+        state_filter = args.get('status', 'all')
+        if state_filter not in {'all','verified','verify','rematch','missing_photos'}:
+            raise ValueError('Unknown source-row status')
+        with self.database.connect() as db:
+            rows = db.execute('''SELECT e.id,e.listing_key,e.source_rows,e.source_snapshot,
+                (SELECT count(*) FROM acq_training.photos p WHERE
+                 (p.workspace_id,p.example_id)=(e.workspace_id,e.id) AND p.revoked_at IS NULL
+                 AND (p.retention_until IS NULL OR p.retention_until>now())) AS photo_count
+                FROM acq_training.examples e WHERE e.workspace_id=%s ORDER BY e.id''',
+                (self.workspace,)).fetchall()
+            states = {(r['kind'],r['item_id']):{**r['payload'],'revision':r['revision']} for r in db.execute('''
+                SELECT kind,item_id,payload,revision FROM acq_training.studio_state
+                WHERE workspace_id=%s AND kind IN ('era','document')''',(self.workspace,))}
+            photo_rows = db.execute('''SELECT e.listing_key,p.provider_media_key,p.image_sha256
+                FROM acq_training.photos p JOIN acq_training.examples e
+                ON (p.workspace_id,p.example_id)=(e.workspace_id,e.id)
+                WHERE p.workspace_id=%s AND p.revoked_at IS NULL
+                AND (p.retention_until IS NULL OR p.retention_until>now())''',(self.workspace,)).fetchall()
+        by_listing = {}
+        for photo in photo_rows:
+            by_listing.setdefault(photo['listing_key'],{}).setdefault(photo['provider_media_key'],set()).add(photo['image_sha256'])
+        supported = {}
+        for row in rows:
+            supported[row['listing_key']] = supported.get(row['listing_key'],True) and supports_prior(self._selected(row))
+        items = []
+        for row in rows:
+            selected = self._selected(row)
+            source = trim_metadata(row['source_snapshot'].get('spreadsheet', {}))
+            era = states.get(('era',row['listing_key']),{})
+            attached = by_listing.get(row['listing_key'],{})
+            photo_count = len(attached)
+            status = 'rematch' if not supported[row['listing_key']] or era.get('decision')=='wrong_era' else (
+                'missing_photos' if not photo_count else 'verify')
+            # Detail verifies the exact photo-byte hash; an old approval alone is insufficient.
+            if status=='verify' and era.get('decision')=='correct_era':
+                digest = hashlib.sha256(json.dumps(sorted(next(iter(hashes)) for hashes in attached.values())).encode()).hexdigest()
+                if all(len(hashes)==1 for hashes in attached.values()) and era.get('evidence_hash')==digest: status='verified'
+            for source_row in row['source_rows']:
+                note = states.get(('document','source-row:'+str(source_row)),{})
+                items.append({'source_row':source_row,'listing_key':row['listing_key'],
+                    'address':source.get('Address') or source.get('UnparsedAddress') or selected.get('listing',{}).get('UnparsedAddress') or 'Unresolved source row',
+                    'source':source,'status':status,'photo_count':photo_count,
+                    'verification_note':note,
+                    'candidates':[{'listing':trim_metadata(c.get('listing',{})),
+                                   'match':c.get('match',{}),'prior_supported':supports_prior(c)}
+                                  for c in row['source_snapshot'].get('mls_candidates',[])]})
+        # Source rows identify workbook records; do not collapse repeated parcels.
+        unique = {item['source_row']:item for item in items}
+        items = sorted(unique.values(),key=lambda item:item['source_row'])
+        counts = {state:sum(i['status']==state for i in items) for state in ('verified','verify','rematch','missing_photos')}
+        total_rows = len(items)
+        items = [i for i in items if (state_filter=='all' or i['status']==state_filter)
+                 and (not search or search in (str(i['source_row'])+' '+i['address']+' '+str(i['listing_key'])).casefold())]
+        return {'items':items[offset:offset+limit],'counts':counts,'source_rows':total_rows,
+                'total':len(items),'offset':offset,'limit':limit}
+
+    def source_row_note(self, payload):
+        source_row = payload.get('source_row')
+        if type(source_row) is not int or source_row < 1:
+            raise ValueError('Valid source row required')
+        reviewer, note = payload.get('reviewer',''), payload.get('note','')
+        if not isinstance(reviewer,str) or not 1<=len(reviewer.strip())<=100 or not isinstance(note,str) or not 1<=len(note.strip())<=2000:
+            raise ValueError('Reviewer and a short correction note are required')
+        with self.database.connect() as db:
+            exists = db.execute('SELECT 1 FROM acq_training.examples WHERE workspace_id=%s AND %s=ANY(source_rows) LIMIT 1',
+                                (self.workspace,source_row)).fetchone()
+            if not exists: raise ValueError('Unknown workbook row')
+            return self.database.save(db,'document','source-row:'+str(source_row),payload.get('expected_revision'),
+                                      {'source_row':source_row,'reviewer':reviewer.strip(),'note':note.strip(),'at':now()})
+
     def apply_proposals(self, output):
         # Editable machine suggestions never overwrite reviewed labels.
         for proposal in output:

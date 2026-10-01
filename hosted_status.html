@@ -17,27 +17,27 @@
    <h2>The review workflow</h2>
    <div class="steps">
     <div class="step"><span class="number">Step 1</span><strong>Confirm the photos</strong><p>Verify these are the correct property and acquisition-era photos. Mark later renovations, floor plans, amenities, and unrelated images so they cannot teach condition.</p></div>
-    <div class="step"><span class="number">Step 2</span><strong>Rate the property</strong><p>Score whether the property is worth investigating. This is a property label; it does not automatically label every photo.</p></div>
+    <div class="step"><span class="number">Step 2</span><strong>Known target provenance</strong><p>The imported workbook contains known target properties. Once the acquisition sale and photos are confirmed, the example can teach similarity. No target/pass rating is required.</p></div>
     <div class="step"><span class="number">Step 3</span><strong>Teach individual evidence</strong><p>Select standout photos and correct photo context, room, and opportunity when needed. Approved corrections become candidate training labels.</p></div>
    </div>
   </section>
   <section class="card" id="models">
    <h2>Model status</h2>
-   <span class="status" id="training-state">Checking…</span><p><button id="train" hidden disabled>Train reviewed candidate</button></p><p id="job-state"></p>
+   <span class="status" id="training-state">Checking…</span><p><button id="train" hidden disabled>Build known-target similarity candidate</button></p><p id="job-state"></p>
    <p><strong>Saving a review does not immediately retrain the model.</strong></p>
    <p id="training-copy">The hosted review app is checking whether a training worker and promoted candidate are connected.</p>
    <div class="callout"><strong>Current safe behavior</strong><br>Reviews are durable feedback. New weights require a frozen dataset, a versioned training run, protected evaluation, and explicit promotion.</div>
   </section>
   <section class="card" id="data">
-   <h2>Review data</h2><p><a href="/?cohort=training">Review the frozen 250-property training batch</a></p><p id="cohort-status">Checking property ratings and photo matches…</p>
-   <div class="metrics"><div class="metric"><strong id="properties">—</strong><span>properties</span></div><div class="metric"><strong id="reviewed">—</strong><span>rated</span></div><div class="metric"><strong id="photo-match">—</strong><span>photo sets to verify</span></div><div class="metric"><strong id="photos">—</strong><span>photos</span></div></div>
+   <h2>Review data</h2><p><a href="/?cohort=training">Review the initial 250-property photo batch</a></p><p><a href="/source-rows">Review all imported workbook rows, including unresolved matches</a></p><p id="cohort-status">Checking sale and photo verification…</p>
+   <div class="metrics"><div class="metric"><strong id="properties">—</strong><span>properties</span></div><div class="metric"><strong id="reviewed">—</strong><span>photo sets verified</span></div><div class="metric"><strong id="photo-match">—</strong><span>photo sets to verify</span></div><div class="metric"><strong id="photos">—</strong><span>photos</span></div></div>
    <h3>MLS metadata</h3>
-   <p>The full sanitized listing snapshot is retained with the confirmed listing. The current metadata candidate uses <strong>12 pre-decision feature groups</strong>, not every field indiscriminately.</p>
+   <p>The full sanitized listing snapshot is retained with the confirmed listing. The current metadata candidate uses <strong>9 descriptive feature groups</strong>, with price, days on market and resale outcomes excluded.</p>
    <p class="small">Identifiers, private/contact fields, URLs, and later-sale outcome fields are excluded from model input. Additional safe MLS fields can be added under a versioned feature policy after leakage review.</p>
   </section>
   <section class="card wide">
    <h2>When a property becomes trainable</h2>
-   <ul><li>The property/listing identity and acquisition era are confirmed.</li><li>The property has a decisive rating (1–2 or 4–5); “Maybe” and insufficient evidence stay unknown.</li><li>Wrong-era, amenity, floor-plan, and unrelated photos are excluded.</li><li>The approved property label is joined to its immutable pre-decision metadata snapshot.</li><li>A new candidate is trained and evaluated by physical-property group before promotion.</li></ul>
+   <ul><li>The property/listing identity and acquisition era are confirmed.</li><li>The source workbook supplies known-target provenance. No overall rating or negative class is required.</li><li>Wrong-era, amenity, floor-plan, and unrelated photos are excluded.</li><li>The verified sale is joined to its stored acquisition metadata and photo hashes.</li><li>A new candidate is trained and evaluated by physical-property group before promotion.</li></ul>
   </section>
  </div>
  <p id="error" class="error" hidden></p>
@@ -49,12 +49,12 @@
   const data=await response.json();if(!response.ok)throw Error(data.error||'Status unavailable');
   const counts=data.counts||{};
   document.getElementById('properties').textContent=counts.all??0;
-  document.getElementById('reviewed').textContent=counts.reviewed??0;
+  document.getElementById('reviewed').textContent=(counts.all??0)-(counts.photo_match??0);
   document.getElementById('photo-match').textContent=counts.photo_match??0;
   document.getElementById('photos').textContent=data.photo_count??0;
   const gateResponse=await fetch('/api/studio/training-readiness',{cache:'no-store',credentials:'same-origin'});
   const gate=await gateResponse.json();
-  document.getElementById('cohort-status').textContent=gateResponse.ok?`${gate.reviewed}/${gate.properties} rated · ${gate.pending_photo_matches} photo sets to verify · ${gate.eligible_targets} eligible targets · ${gate.eligible_not_targets} eligible non-targets · ${gate.protected_properties} held out. ${gate.reasons.join('. ')}`:(gate.error||'Training batch status unavailable');
+  document.getElementById('cohort-status').textContent=gateResponse.ok?`${gate.reviewed}/${gate.properties} matched listings verified · ${gate.pending_photo_matches} photo sets to verify · ${gate.eligible_targets} training references · ${gate.verified_heldout_properties??0} verified evaluation references. ${gate.reasons.join('. ')}`:(gate.error||'Training batch status unavailable');
   const enabled=data.capabilities?.training===true;
   document.getElementById('training-state').textContent=enabled?'Training connected':'Reviews saved · training not connected';
   const button=document.getElementById('train');button.hidden=!enabled;button.disabled=!gate.ready;

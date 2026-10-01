@@ -24,6 +24,7 @@ class CloudStudio:
     def get(self, path):
         parsed = urlparse(path)
         args = {k:v[0] for k,v in parse_qs(parsed.query).items()}
+        if parsed.path=='/api/studio/source-rows': return self.store.source_rows(args)
         if parsed.path=='/api/studio/training-readiness':
             return self.store.training_readiness()
         if self.jobs:
@@ -43,11 +44,12 @@ class CloudStudio:
                     'jobs':self.jobs.list_jobs() if self.jobs else [],
                     'counts':queue['counts'],'photo_count':queue['photo_count'],
                     'metadata_policy':{'stored':'sanitized confirmed-listing snapshot',
-                                       'model_feature_groups':12,'post_decision_outcomes':False},
+                                       'model_feature_groups':9,'post_decision_outcomes':False},
                     'notice':'Reviews and photos use Supabase. Model jobs need the separate hosted worker cutover.'}
         raise ValueError('This action is not available in cloud review mode yet')
 
     def post(self, path, payload):
+        if path=='/api/studio/source-row-note': return self.store.source_row_note(payload)
         if path=='/api/studio/review': return self.store.save_review(payload)
         if path=='/api/studio/era-review': return self.store.review_era(payload)
         if self.jobs:

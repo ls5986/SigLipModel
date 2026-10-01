@@ -57,6 +57,9 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         cookie=headers['Set-Cookie'].split(';',1)[0]
         status,_,body=request(port,'GET','/',headers={'Cookie':cookie})
         assert status==200 and b'/status#models' in body and b'Training status' in body
+        status,_,body=request(port,'GET','/source-rows',headers={'Cookie':cookie})
+        assert status==200 and b'All workbook rows' in body
+        assert request(port,'GET','/source-rows')[0]==303
         status,_,body=request(port,'GET','/status',headers={'Cookie':cookie})
         assert status==200 and b'Training and data status' in body
         status,_,body=request(port,'GET','/api/studio/review-queue',headers={'Cookie':cookie})

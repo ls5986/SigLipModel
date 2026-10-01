@@ -69,6 +69,7 @@ def training_bundle():
     bundle["preference_models"] = {}
     bundle.pop("context_model", None)
     bundle["property_models"] = {}
+    bundle.pop("target_similarity", None)
     return bundle, "silver"
 
 
@@ -91,7 +92,7 @@ def main():
     if not folder.is_relative_to((pilot.ROOT / "artifacts" / "studio_jobs").resolve()):
         raise ValueError("Unexpected job folder")
     snapshot = pilot.read_json(folder / "snapshot.json")
-    examples = snapshot["examples"]
+    examples = [r for r in snapshot["examples"] if not r.get("label_exclusion")] if snapshot.get("objective") == "known-target-similarity-v1" else snapshot["examples"]
     properties = snapshot.get("properties", [])
     if not examples:
         raise ValueError("Import photos before running a local model job")
@@ -328,7 +329,7 @@ def main():
         for prop in properties
         if any(not key.endswith("_missing") for key in metadata_features(prop.get("metadata")))
     }
-    if snapshot["kind"] == "train":
+    if snapshot["kind"] == "train" and snapshot.get("objective") != "known-target-similarity-v1":
         property_models = bundle.setdefault("property_models", {})
         vision = fit_property_model(
             "property:vision", vision_features, properties,
@@ -453,6 +454,22 @@ def main():
         }
         if not fitted:
             raise ValueError("Not enough reviewed examples to fit any head; prior model retained.")
+        joblib.dump(bundle, folder / "studio_heads.joblib")
+    if snapshot["kind"] == "train" and snapshot.get("objective") == "known-target-similarity-v1":
+        from target_similarity import fit_reference_index, evaluate_reference_index
+        vectors_by_property = {
+            prop["id"]: [x[i] for i in indices_by_property.get(prop["id"], [])
+                         if not examples[i].get("label_exclusion") and usable_context(effective_contexts[i])]
+            for prop in properties
+        }
+        bundle["property_models"] = {}
+        bundle["target_similarity"] = fit_reference_index(properties, vectors_by_property)
+        report["objective"] = snapshot["objective"]
+        report["reference_properties"] = len(bundle["target_similarity"]["references"])
+        report["protected_evaluation"] = evaluate_reference_index(bundle["target_similarity"], properties, vectors_by_property)
+        report["components"] = {"property_similarity":True, "photo_context":"context_model" in bundle,
+                                "room":"room_model" in bundle}
+        report["caution"] = "Positive-only reference index using frozen SigLIP embeddings and descriptive metadata. No probability or profitability claims."
         joblib.dump(bundle, folder / "studio_heads.joblib")
     grouped = {}
     for i, row in enumerate(examples):

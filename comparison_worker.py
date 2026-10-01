@@ -96,7 +96,7 @@ def process(folder, downloader=download, predictor=infer):
     from model_loop import fingerprint
     if fingerprint(snapshot["examples"], snapshot.get("properties", [])) != frozen["model"]["review_fingerprint"]:
         raise ValueError("Training snapshot changed")
-    known = {row["sha256"] for row in snapshot["examples"] if row["split"] != "test"}
+    known = {row["sha256"] for row in snapshot["examples"] if row["split"] != "test" and not row.get("label_exclusion")}
     paths = []
     try:
         for photo in request["photos"]:
