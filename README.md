@@ -465,3 +465,64 @@ All workbook properties remain known targets once their acquisition sale/photo a
 and metadata still contributes. Interior condition is unknown without visible interior evidence.
 Actual absence of usable images falls back to metadata. Price never enters target similarity inputs.
 Photo condition labels are stored for review; the current trainer does not train a separate overall-condition head.
+
+
+### First 2026 sale correction
+
+Use the earliest actual 2026 sale for each physical house, including repeated workbook rows.
+Recording dates never substitute for actual sale or MLS close dates. Later-sale images are hidden
+from acquisition review and cannot be approved or queued for labeling. Original records remain retained.
+For 17633 Corte Potosi, the target sale is January 13, 2026; the saved April 25 listing is not that sale.
+The January listing/photos need recovery; missing first-sale evidence does not change the house's target label.
+
+For a house with multiple actual sales in 2026, use its first 2026 sale. A single
+2026 resale does not replace a valid 2025 acquisition example. Candidate close
+dates cannot compete with themselves as independent workbook sale dates.
+
+### One local Copilot + SigLIP labeling worker
+
+Use Python 3.11+ in your existing working SigLIP virtual environment. Do not reinstall Torch.
+
+```powershell
+python -m pip install -r requirements-copilot.txt
+python -m copilot download-runtime
+python local_label_worker.py --check
+python local_label_worker.py
+```
+
+Before `--check`, fill the local `.env` entries `STUDIO_DATABASE_URL` and
+`STUDIO_STORAGE_SECRET` using your development database connection and existing
+private storage secret. Keep the existing `SUPABASE_PROJECT_REF` and
+`STUDIO_WORKSPACE_ID`. Never commit secrets. Install the interactive CLI with `winget install GitHub.Copilot` on Windows
+(or `npm install -g @github/copilot` with Node.js 22+). Copilot uses your own
+GitHub Copilot CLI login: open `copilot`, enter `/login`, and complete account sign-in locally.
+If you use a separately installed CLI, `COPILOT_CLI_PATH` can point at it.
+VS Code Copilot sign-in alone is not a guarantee the CLI is signed in.
+`STUDIO_COPILOT_MODEL` defaults to `gpt-4.1`; preflight lists alternatives if that
+vision model is unavailable. Copilot requires plan/model access and can consume
+Copilot credits; it does not need `OPENAI_API_KEY`.
+
+The single worker first classifies rooms with local SigLIP. In the review app,
+choose **Local Copilot**, then **Test draft tags on up to 8 photos**. Only explicit
+test requests trigger Copilot inference. Hosted OpenAI workers cannot claim
+Copilot tests. Sessions are fresh per batch, tools are disabled, photo labels are
+cached by provider/model/image/room, and human review is still required.
+`--once` processes currently queued requests and exits. `--check` performs no
+labeling inference. It checks database access, CLI authentication and vision
+model availability before loading SigLIP.
+
+### MLS remarks and synthetic photo exclusion
+
+Sale-specific MLS remarks are preserved in property training snapshots and shown
+in the review app. `python listing_text_report.py` computes recurring words and
+phrases among supported sale matches, deduplicates physical groups, strips
+price/financing clauses, and saves the result as `mls-phrase-report` in Supabase.
+These are descriptive cohort patterns, not a validated text prediction model.
+
+Explicit AI imagery, virtual staging or digital rendering disclosures in MLS
+remarks exclude the entire attached photo set until original photos are
+identified. Photo-caption disclosures exclude that photo. Exclusion applies to
+both automatic labeling and visual training, including previously approved
+condition labels. A manual similarity checkbox cannot bypass it. The target
+property and metadata remain eligible once its sale is verified; excluded images
+remain available for inspection. Original MLS text and photos are never deleted.

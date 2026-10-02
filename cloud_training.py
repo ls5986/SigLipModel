@@ -2,7 +2,7 @@
 import shutil
 from uuid import uuid4
 
-from acquisition_policy import supports_prior
+from acquisition_policy import supports_prior, annotate_first_sales
 from model_loop import fingerprint
 from pilot import ROOT, UnionFind, read_json, write_json
 from property_models import ACCEPTED_METADATA_KEYS, metadata_features
@@ -39,7 +39,7 @@ def snapshot(store):
         cohort = cohort or {'listing_keys':[]}
         keys = cohort['listing_keys']
         records = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,
-                jsonb_build_object('mls_candidates',jsonb_build_array(jsonb_build_object(
+                jsonb_build_object('spreadsheet',jsonb_build_object('Prior Sale Date',e.source_snapshot->'spreadsheet'->>'Prior Sale Date','Last Sale Date',e.source_snapshot->'spreadsheet'->>'Last Sale Date'),'mls_candidates',jsonb_build_array(jsonb_build_object(
                     'listing', c.item->'listing', 'match', c.item->'match'))) AS source_snapshot,
                 g.identity_key,g.identity_verified,g.protected_test
             FROM acq_training.examples e JOIN acq_training.property_groups g
@@ -64,6 +64,7 @@ def snapshot(store):
               jsonb_array_elements(d.payload->'images') i
             WHERE d.workspace_id=%s AND replace(d.logical_path,chr(92),'/')='data/manifest.json'
               AND i->>'split'='test' ''', (store.workspace,)).fetchall()
+    annotate_first_sales(records)
     union = UnionFind(sorted({str(r['group_id']) for r in records}))
     by_listing, by_identity, by_hash = {}, {}, {}
     for r in records:
@@ -110,12 +111,14 @@ def snapshot(store):
         # _history expects source_rows as well as source_snapshot.
         historical_sources = sources
         history = store._history(historical_sources, photo_rows, era)
-        verified = history['timing_verified'] and all(supports_prior(store._selected(r)) for r in sources)
+        verified = history['timing_verified'] and all(supports_prior(store._selected(r),r['source_snapshot'].get('spreadsheet'),r['source_snapshot'].get('mls_candidates')) for r in sources)
         metadata = store._selected(sources[0]).get('listing', {})
         review = store._review('property', key, legacy, live)
         properties.append({'id':key, 'physical_key':group, 'group_id':group, 'split':split,
             'metadata': {k:v for k,v in metadata.items() if k in ACCEPTED_METADATA_KEYS},
             'model_metadata':metadata_features(metadata), 'review':review,
+            'mls_remarks':__import__('listing_text').remarks(metadata),
+            'synthetic_evidence':__import__('listing_text').image_evidence(metadata),
             'human_review_revision':review.get('revision',0), 'timing_verified':verified,
             'photo_coverage':history['photo_coverage'],
             'known_target':verified, 'target_origin':'user-confirmed-workbook-cohort',
@@ -137,9 +140,11 @@ def snapshot(store):
             draft = next((i for i in automatic.get('images',[]) if i.get('image_id')==identifier and i.get('sha256')==p['image_sha256']),{})
             if context in {None,'unknown'}: context = draft.get('context',context)
             from photo_selection import selection
-            included = selection(context,review)['included']
+            from listing_text import image_evidence
+            disclosure = image_evidence(metadata,description)
+            included = selection(context,review,disclosure)['included']
             excluded = not verified or not included
-            condition_excluded = not verified or context in {'shared_amenity','floor_plan','unrelated'}
+            condition_excluded = not verified or disclosure['excluded'] or context in {'shared_amenity','floor_plan','unrelated'}
             examples.append({'id':identifier, 'property_id':key, 'group_id':group, 'split':split,
                 'physical_key':group, 'sha256':p['image_sha256'],
                 'path':None,

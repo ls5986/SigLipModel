@@ -1,7 +1,9 @@
 """Conservative image relevance defaults; humans can override similarity selection."""
 EXCLUDED = {'shared_amenity','floor_plan','unrelated'}
 
-def selection(context, review=None):
+def selection(context, review=None, disclosure=None):
+    if disclosure and disclosure.get("excluded"):
+        return {"included":False,"source":"MLS disclosure","reason":disclosure["reason"]}
     review = review or {}
     override = review.get('include_in_similarity')
     if type(override) is bool:

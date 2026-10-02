@@ -7,7 +7,7 @@ import threading
 import time
 from uuid import UUID
 
-from acquisition_policy import supports_prior
+from acquisition_policy import supports_prior, first_sale_policy, annotate_first_sales
 from photo_view import effective_photo
 from studio_data import FEATURES, StudioStore, now, trim_metadata, validate_review
 
@@ -64,7 +64,11 @@ class SupabaseStore:
 
     def _examples(self, db, identifier):
         rows = db.execute('''SELECT e.id,e.listing_key,e.source_rows,e.source_snapshot,
-             e.group_id,g.protected_test FROM acq_training.examples e
+             e.group_id,g.protected_test,
+             (SELECT min(left(sale.value,10)) FROM acq_training.examples sibling
+              CROSS JOIN LATERAL jsonb_each_text(sibling.source_snapshot->'spreadsheet') sale
+              WHERE sibling.workspace_id=e.workspace_id AND sibling.group_id=e.group_id
+              AND sale.key IN ('Prior Sale Date','Last Sale Date') AND sale.value ~ '^2026-[0-9]{2}-[0-9]{2}') AS first_sale_date FROM acq_training.examples e
              JOIN acq_training.property_groups g ON g.workspace_id=e.workspace_id AND g.id=e.group_id
              WHERE e.workspace_id=%s AND e.listing_key=%s ORDER BY e.id''',
              (self.workspace, identifier)).fetchall()
@@ -74,8 +78,11 @@ class SupabaseStore:
 
     @staticmethod
     def _selected(example):
-        return next((c for c in example['source_snapshot'].get('mls_candidates', [])
+        candidate = next((c for c in example['source_snapshot'].get('mls_candidates', [])
                      if str(c.get('listing', {}).get('ListingKey')) == example['listing_key']), {})
+        if candidate and example.get('first_sale_date'):
+            candidate = {**candidate,'match':{**candidate.get('match',{}),'first_actual_sale_date_2026':example['first_sale_date']}}
+        return candidate
 
     def _photos(self, db, identifier):
         rows = db.execute('''SELECT p.id,p.provider_media_key,p.image_sha256,p.storage_bucket,
@@ -134,18 +141,20 @@ class SupabaseStore:
         return StudioStore.reviews(None, Empty(), kind, identifier, legacy)
 
     def _history(self, examples, photos, review):
-        supported = all(supports_prior(self._selected(e)) for e in examples)
+        supported = all(supports_prior(self._selected(e),e['source_snapshot'].get('spreadsheet'),e['source_snapshot'].get('mls_candidates')) for e in examples)
         digest = hashlib.sha256(json.dumps(sorted(p['image_sha256'] for p in photos)).encode()).hexdigest()
+        policy = first_sale_policy(self._selected(examples[0]),examples[0]['source_snapshot'].get('spreadsheet'),examples[0]['source_snapshot'].get('mls_candidates'))
         wrong = review and review.get('decision')=='wrong_era'
         blocked = bool(wrong or not supported)
-        return {'source_rows':sorted({n for e in examples for n in e['source_rows']}),
+        return {'sale_policy':policy,
+                'source_rows':sorted({n for e in examples for n in e['source_rows']}),
                 'source':examples[0]['source_snapshot'].get('spreadsheet', {}),
                 'mls_listing':trim_metadata(self._selected(examples[0]).get('listing', {})),
                 'evidence_hash':digest, 'review':review, 'blocked':blocked,
                 'photo_coverage':review.get('photo_coverage','unknown') if review and review.get('evidence_hash')==digest else 'unknown',
                 'acquisition_status':'wrong_era' if wrong else 'prior_acquisition_candidate' if supported else 'needs_prior_listing',
                 'block_reason':'You flagged these photos as the wrong property or era.' if wrong else
-                  'Earlier acquisition listing/photos need rematching.' if blocked else None,
+                  policy.get('reason') or 'First acquisition listing/photos need rematching.' if blocked else None,
                 'timing_verified':bool(photos and review and review.get('decision')=='correct_era' and
                                        review.get('evidence_hash')==digest and not blocked),
                 'trainable':False,'training_gate':'Review labels and protected groups remain separate checks'}
@@ -161,9 +170,13 @@ class SupabaseStore:
         from automatic_labels import active_policy
         POLICY = active_policy()
         automatic_images = {i['image_id']:i for i in automatic.get('images',[]) if i.get('image_id')} if automatic.get('policy')==POLICY else {}
-        metadata = trim_metadata(self._selected(examples[0]).get('listing', {}))
+        listing = self._selected(examples[0]).get('listing', {})
+        metadata = trim_metadata(listing)
         metadata['source_role'] = 'historical candidate'
+        history = self._history(examples,photos,live.get(('era',identifier)))
+        mismatched = bool(history['sale_policy']['target_sale_date'] and not history['sale_policy']['supported'])
         images, coverage = [], {r:'unknown' for r in ('kitchen','bathroom','living')}
+        if mismatched: photos = []
         for p in photos:
             review = self._review('image',p['image_id'],legacy,live)
             machine = proposed_images.get(p['image_id'],{})
@@ -197,15 +210,19 @@ class SupabaseStore:
                      'warnings':['Protected test group: evaluation only'] if p['protected_test'] else []}
             image['effective'] = effective_photo(image)
             from photo_selection import selection
-            image['selection'] = selection(image['effective']['context'],review)
+            from listing_text import image_evidence
+            image['synthetic_evidence'] = image_evidence(listing,description)
+            image['selection'] = selection(image['effective']['context'],review,image['synthetic_evidence'])
             images.append(image)
         return {'property':{'id':identifier,'address':metadata.get('UnparsedAddress',identifier),
                  'city':metadata.get('City'),'year_built':metadata.get('YearBuilt'),
                  'property_type':metadata.get('PropertySubType'),'metadata':metadata,
-                 'review':self._review('property',identifier,legacy,live)},
+                 'review':self._review('property',identifier,legacy,live),
+                 'mls_remarks':__import__('listing_text').remarks(listing),
+                 'synthetic_evidence':__import__('listing_text').image_evidence(listing)},
                 'images':images,'coverage':coverage,'property_suggestions':[], 'assessment':None,
-                'historical_source':self._history(examples,photos,live.get(('era',identifier))),
-                'capabilities':{'review':True,'assessment':False,'training':False,'autolabel':True,'storage':'supabase'}}
+                'historical_source':history,
+                'capabilities':{'review':True,'assessment':False,'training':False,'autolabel':not mismatched and any(not i['synthetic_evidence']['excluded'] for i in images),'storage':'supabase'}}
 
     def save_review(self, payload):
         kind, identifier = payload.get('kind'), payload.get('id')
@@ -260,6 +277,8 @@ class SupabaseStore:
 
     def review_era(self, payload):
         identifier = payload.get('property_id')
+        label_provider = payload.get('label_provider','openai')
+        if label_provider not in {'openai','copilot'}: raise ValueError('Unknown draft label provider')
         if not isinstance(identifier,str): raise ValueError('Property ID required')
         if payload.get('decision') not in {'correct_era','wrong_era','unsure'}:
             raise ValueError('Invalid era decision')
@@ -272,7 +291,7 @@ class SupabaseStore:
                                     self.database.state(db,'era',identifier))
             if payload.get('evidence_hash')!=history['evidence_hash']:
                 raise RuntimeError('Photo evidence changed; reload before saving')
-            if payload['decision']=='correct_era' and not all(supports_prior(self._selected(e)) for e in self._examples(db,identifier)):
+            if payload['decision']=='correct_era' and not all(supports_prior(self._selected(e),e['source_snapshot'].get('spreadsheet'),e['source_snapshot'].get('mls_candidates')) for e in self._examples(db,identifier)):
                 raise ValueError('Rematch the prior acquisition before approving its era')
             coverage = payload.get('photo_coverage',history['photo_coverage'])
             if coverage not in {'unknown','interior_available','no_interior'}:
@@ -309,11 +328,11 @@ class SupabaseStore:
             if self._index is None or time.monotonic()-self._index[0]>15:
                 with self.database.connect() as db:
                     # Compact listing summary only: no full source snapshots, review history, or photo bytes.
-                    rows = db.execute('''SELECT e.listing_key,e.source_rows,
+                    rows = db.execute('''SELECT e.listing_key,e.source_rows,e.group_id,
                         c.item->'listing'->>'UnparsedAddress' AS address,
                         c.item->'listing'->>'City' AS city,
                         c.item->'listing'->>'ListingId' AS listing_id,
-                        jsonb_build_object('listing',jsonb_build_object('StandardStatus',c.item->'listing'->>'StandardStatus'),
+                        jsonb_build_object('listing',jsonb_build_object('StandardStatus',c.item->'listing'->>'StandardStatus','CloseDate',c.item->'listing'->>'CloseDate'),
                           'match',c.item->'match') AS candidate
                       FROM acq_training.examples e
                       LEFT JOIN LATERAL (SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
@@ -332,6 +351,7 @@ class SupabaseStore:
                     states = {(r['kind'],r['item_id']):r['payload'] for r in db.execute('''SELECT kind,item_id,payload
                        FROM acq_training.studio_state WHERE workspace_id=%s AND kind IN ('property','era')''',(self.workspace,))}
                     legacy = self._legacy(db,sorted({r['listing_key'] for r in rows}), ['properties'])
+                annotate_first_sales(rows)
                 items = {}
                 for row in rows:
                     key = row['listing_key']
@@ -380,13 +400,14 @@ class SupabaseStore:
     def autolabel_status(self, identifier):
         from datetime import datetime, timezone
         request = self.document('autolabel-request:'+identifier) or {}
-        worker = self.document('autolabel-room-worker' if request.get('stage','rooms')=='rooms' and request.get('policy','').startswith('siglip-rooms-openai-') else 'autolabel-worker') or {}
+        worker_key = 'autolabel-room-worker' if request.get('stage','rooms')=='rooms' and request.get('policy','').startswith('siglip-rooms-openai-') else 'autolabel-copilot-worker' if request.get('label_provider')=='copilot' else 'autolabel-worker'
+        worker = self.document(worker_key) or {}
         try:
             online = (datetime.now(timezone.utc)-datetime.fromisoformat(worker['at'])).total_seconds()<90 and worker['status'] in {'ready','running','loading'}
         except (KeyError, ValueError, TypeError): online = False
         return {'status':request.get('status','not_requested'),'worker_online':online,
                 'worker_status':worker.get('status') if online or worker.get('status')=='unconfigured' else 'disconnected',
-                'stage':request.get('stage'),'mode':request.get('mode'),'test_photos':request.get('test_photos',0),
+                'label_provider':request.get('label_provider','openai'),'stage':request.get('stage'),'mode':request.get('mode'),'test_photos':request.get('test_photos',0),
                 'usage':request.get('usage'),
                 'error':request.get('error')}
 
@@ -394,11 +415,18 @@ class SupabaseStore:
         from automatic_labels import active_policy
         POLICY = active_policy()
         identifier = payload.get('property_id')
+        label_provider = payload.get('label_provider','openai')
+        if label_provider not in {'openai','copilot'}: raise ValueError('Unknown draft label provider')
         if not isinstance(identifier,str): raise ValueError('Property ID required')
         with self.database.connect() as db:
             self._lock_property(db,identifier)
             sources, photos = self._examples(db,identifier), self._photos(db,identifier)
             if not photos: raise ValueError('No retained photos to label')
+            from listing_text import image_evidence
+            if image_evidence(self._selected(sources[0]).get('listing',{}))['excluded']:
+                raise ValueError('MLS discloses AI imagery or virtual staging. Identify original photos before labeling.')
+            if not all(supports_prior(self._selected(r),r['source_snapshot'].get('spreadsheet'),r['source_snapshot'].get('mls_candidates')) for r in sources):
+                raise ValueError('Correct first-sale listing/photos required before labeling')
             digest = self._history(sources,photos,None)['evidence_hash']
             result = self.database.state(db,'document','autolabel-result:'+identifier) or {}
             key = 'autolabel-request:'+identifier
@@ -412,7 +440,7 @@ class SupabaseStore:
                 if payload.get('test') is True and current.get('status') in {'awaiting_test','completed','failed'}:
                     stage = 'features' if result.get('room_labels_complete') else 'rooms'
                     self.database.save(db,'document',key,current.get('revision',0),{
-                        **current,'stage':stage,'mode':'test','max_photos':8,'status':'queued','at':now()})
+                        **current,'label_provider':label_provider,'stage':stage,'mode':'test','max_photos':8,'status':'queued','at':now()})
                     return {'status':'queued','stage':stage,'mode':'test'}
                 return {'status':current['status'],'stage':current.get('stage','rooms'),'mode':current.get('mode','rooms')}
             if result.get('evidence_hash')==digest and result.get('policy')==POLICY:
@@ -422,7 +450,7 @@ class SupabaseStore:
             if current.get('evidence_hash')==digest and current.get('policy')==POLICY and current.get('status') in {'queued','running'}:
                 return {'status':current['status']}
             self.database.save(db,'document',key,current.get('revision',0),{
-                'property_id':identifier,'evidence_hash':digest,'policy':POLICY,
+                'property_id':identifier,'evidence_hash':digest,'policy':POLICY,'label_provider':label_provider,
                 'status':'queued','at':now(),**({'stage':'rooms','mode':'test' if payload.get('test') is True else 'rooms','max_photos':8} if hybrid else {})})
         return {'status':'queued'}
 
@@ -450,7 +478,7 @@ class SupabaseStore:
         if state_filter not in {'all','verified','verify','rematch','missing_photos'}:
             raise ValueError('Unknown source-row status')
         with self.database.connect() as db:
-            rows = db.execute('''SELECT e.id,e.listing_key,e.source_rows,e.source_snapshot,
+            rows = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,e.source_snapshot,
                 (SELECT count(*) FROM acq_training.photos p WHERE
                  (p.workspace_id,p.example_id)=(e.workspace_id,e.id) AND p.revoked_at IS NULL
                  AND (p.retention_until IS NULL OR p.retention_until>now())) AS photo_count
@@ -464,12 +492,13 @@ class SupabaseStore:
                 ON (p.workspace_id,p.example_id)=(e.workspace_id,e.id)
                 WHERE p.workspace_id=%s AND p.revoked_at IS NULL
                 AND (p.retention_until IS NULL OR p.retention_until>now())''',(self.workspace,)).fetchall()
+        annotate_first_sales(rows)
         by_listing = {}
         for photo in photo_rows:
             by_listing.setdefault(photo['listing_key'],{}).setdefault(photo['provider_media_key'],set()).add(photo['image_sha256'])
         supported = {}
         for row in rows:
-            supported[row['listing_key']] = supported.get(row['listing_key'],True) and supports_prior(self._selected(row))
+            supported[row['listing_key']] = supported.get(row['listing_key'],True) and supports_prior(self._selected(row),row['source_snapshot'].get('spreadsheet'),row['source_snapshot'].get('mls_candidates'))
         items = []
         for row in rows:
             selected = self._selected(row)
@@ -491,7 +520,7 @@ class SupabaseStore:
                     'photo_coverage':era.get('photo_coverage','unknown') if status=='verified' else 'unknown',
                     'verification_note':note,
                     'candidates':[{'listing':trim_metadata(c.get('listing',{})),
-                                   'match':c.get('match',{}),'prior_supported':supports_prior(c)}
+                                   'match':c.get('match',{}),'prior_supported':supports_prior(c,row['source_snapshot'].get('spreadsheet'),row['source_snapshot'].get('mls_candidates'))}
                                   for c in row['source_snapshot'].get('mls_candidates',[])]})
         # Source rows identify workbook records; do not collapse repeated parcels.
         unique = {item['source_row']:item for item in items}

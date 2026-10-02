@@ -1,0 +1,3 @@
+# Additional local dependency; keep your existing SigLIP/Torch environment.
+# Python 3.11 or newer. Never install this on the lightweight hosted review server.
+github-copilot-sdk==1.0.16

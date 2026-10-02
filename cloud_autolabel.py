@@ -7,8 +7,9 @@ from automatic_labels import POLICY, SiglipLabels
 from studio_data import now
 
 
-def heartbeat(store, status, detail=None, stage=None):
+def heartbeat(store, status, detail=None, stage=None, provider=None):
     key = 'autolabel-room-worker' if stage=='rooms' else 'autolabel-worker'
+    if stage=='features' and provider=='copilot': key = 'autolabel-copilot-worker'
     previous = store.document(key) or {}
     store.save_document(key, {'status':status,'at':now(),'detail':detail}, previous.get('revision',0))
 
@@ -21,6 +22,7 @@ def process(store, identifier, classifier):
     if request.get('policy') != policy: return False
     stage = getattr(classifier,'stage',None)
     if stage and request.get('stage','rooms')!=stage: return False
+    if stage=='features' and request.get('label_provider','openai')!=getattr(classifier,'provider','openai'): return False
     if request['status']=='running':
         started = datetime.fromisoformat(request['at'])
         if (datetime.now(timezone.utc)-started).total_seconds()<180: return False
@@ -36,7 +38,7 @@ def process(store, identifier, classifier):
         detail = store.property(identifier)
         if detail['historical_source']['evidence_hash']!=request['evidence_hash']:
             raise ValueError('Photo set changed; reopen the property to request current labels')
-        rows = detail['images']
+        rows = [r for r in detail['images'] if not r.get('synthetic_evidence',{}).get('excluded')]
         prior = store.document('autolabel-result:'+identifier) or {}
         if stage=='features':
             if request.get('mode')!='test' or not prior.get('room_labels_complete'):
@@ -56,7 +58,7 @@ def process(store, identifier, classifier):
                           **({'room_source':'SigLIP'} if stage else {}),'image_id':row['id'],'sha256':row['sha256']}
                           for row,pred in zip(batch,predictions))
             claimed = store.save_document(key,{**claimed,'at':now()},claimed['revision'])
-            heartbeat(store,'running',{'property_id':identifier,'photos':len(images),'total':len(rows)},stage=stage)
+            heartbeat(store,'running',{'property_id':identifier,'photos':len(images),'total':len(rows)},stage=stage,provider=getattr(classifier,'provider',None))
         latest = store.property(identifier)
         if latest['historical_source']['evidence_hash']!=request['evidence_hash']:
             raise ValueError('Photo set changed during labeling; results were not published')

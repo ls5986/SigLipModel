@@ -120,3 +120,26 @@ def test_selection_override_preserves_imported_human_labels():
     result=store.save_photo_selection({'id':'house:photo','included':False,'reviewer':'QA','expected_revision':0})
     assert result['status']=='approved' and result['features']['dated_bathroom']
     assert result['room']=='bathroom' and result['include_in_similarity'] is False
+
+
+def test_hosted_openai_cannot_claim_local_copilot_test(monkeypatch):
+    monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
+    store=WorkerStore()
+    store.docs['autolabel-request:p'].update(policy=hybrid_policy(),stage='features',mode='test',label_provider='copilot')
+    class Hosted:
+        policy=hybrid_policy();stage='features'
+        def classify(self,*args,**kwargs): raise AssertionError('Must not spend OpenAI credits for Copilot requests')
+    assert not process(store,'p',Hosted())
+    assert store.docs['autolabel-request:p']['status']=='queued'
+
+
+def test_synthetic_photos_never_reach_room_worker(monkeypatch):
+    monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
+    store=WorkerStore()
+    store.docs['autolabel-request:p'].update(policy=hybrid_policy(),stage='rooms',mode='rooms')
+    store.detail['images'][0]['synthetic_evidence']={'excluded':True}
+    class Rooms:
+        policy=hybrid_policy();stage='rooms'
+        def classify(self,*args,**kwargs): raise AssertionError('Synthetic photo must not reach SigLIP')
+    assert process(store,'p',Rooms())
+    assert store.docs['autolabel-result:p']['images']==[]

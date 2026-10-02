@@ -47,10 +47,10 @@ For non-subject images all features must be null. Return every numbered image ex
 
 
 class OpenAILabels:
-    def __init__(self, store, client=None):
+    def __init__(self, store, client=None, *, require_key=True):
         self.store = store
-        self.key = os.environ.get('OPENAI_API_KEY','').strip()
-        if not self.key: raise ValueError('OPENAI_API_KEY is not configured')
+        self.key = os.environ.get('OPENAI_API_KEY','').strip() if require_key else ''
+        if require_key and not self.key: raise ValueError('OPENAI_API_KEY is not configured')
         self.model = os.environ.get('STUDIO_OPENAI_MODEL','gpt-4.1-mini')
         self.policy = policy()
         self.client = client or httpx.Client(timeout=90, follow_redirects=False)
@@ -78,7 +78,7 @@ class OpenAILabels:
             with open(path,'rb') as source:
                 digest = hashlib.sha256(source.read()).hexdigest()
             tag = room_tags[len(cache_keys)] if hybrid else {}
-            key = 'autolabel-cache:'+hashlib.sha256((self.policy+digest+json.dumps({'room':tag.get('room'),'context':tag.get('context')},sort_keys=True)).encode()).hexdigest()
+            key = 'autolabel-cache:'+hashlib.sha256((getattr(self,'cache_policy',self.policy)+digest+json.dumps({'room':tag.get('room'),'context':tag.get('context')},sort_keys=True)).encode()).hexdigest()
             cache_keys.append(key)
             cached.append(self.store.document(key))
         if all(cached): return [row['prediction'] for row in cached]

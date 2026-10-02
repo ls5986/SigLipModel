@@ -17,7 +17,7 @@ def fingerprint(rows, properties=None):
     property_fields = (
         "id", "physical_key", "group_id", "split", "model_metadata", "review",
         "human_review_revision", "training_allowed", "label_exclusion",
-        "known_target", "target_origin", "source_rows", "photo_coverage",
+        "known_target", "target_origin", "source_rows", "photo_coverage", "mls_remarks", "synthetic_evidence",
     )
     property_labels = [
         {key: row.get(key) for key in property_fields}
