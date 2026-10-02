@@ -32,6 +32,15 @@ def test_positive_only_index_excludes_test_pending_and_rejected_evidence():
     assert result['mode_used']=='images_and_metadata'
     assert result['nearest_examples'] and result['evidence_confidence']=='low'
     assert result['score']==result['component_scores']['combined']
+    reason=result['metadata_reason']
+    assert reason['kind']=='nearest_known_target_similarity'
+    assert reason['reference_property_id']==result['nearest_examples'][0]['property_id']
+    assert len(reason['comparisons'])>=3
+    assert reason['score']==pytest.approx(np.mean([
+        row['field_similarity'] for row in reason['comparisons']
+    ]))
+    assert all({'field','subject_value','reference_value','field_similarity'}<=set(row)
+               for row in reason['comparisons'])
     report=evaluate_reference_index(index,properties,vectors)
     assert report['heldout_groups']==3 and report['components']['combined']['n']==3
     assert 'roc_auc' not in report and 'accuracy' not in report

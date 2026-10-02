@@ -46,13 +46,33 @@ def fit_reference_index(properties, vectors_by_property):
 
 
 def metadata_similarity(query, reference, scales):
+    score, shared, _ = metadata_similarity_details(query, reference, scales)
+    return score, shared
+
+
+def metadata_similarity_details(query, reference, scales):
     shared = [name for name in METADATA_FIELDS if name in query and name in reference]
     # One matching categorical field must not produce a misleading perfect score.
     if len(shared) < 3:
-        return None, shared
-    scores = [math.exp(-abs(query[name] - reference[name]) / scales[name])
-              if name in scales else float(query[name] == reference[name]) for name in shared]
-    return float(np.mean(scores)), shared
+        return None, shared, []
+    details = []
+    for name in shared:
+        if name in scales:
+            field_score = math.exp(-abs(query[name] - reference[name]) / scales[name])
+            comparison = "numeric distance scaled by the known-target range"
+        else:
+            field_score = float(query[name] == reference[name])
+            comparison = "exact categorical match"
+        details.append({
+            "field":name,
+            "subject_value":query[name],
+            "reference_value":reference[name],
+            "field_similarity":float(field_score),
+            "comparison":comparison,
+        })
+    return float(np.mean([
+        detail["field_similarity"] for detail in details
+    ])), shared, details
 
 
 def predict_similarity(index, vectors, metadata, requested_mode="automatic", exclude_group=None):
@@ -65,10 +85,13 @@ def predict_similarity(index, vectors, metadata, requested_mode="automatic", exc
         image_score = None
         if signature is not None and ref["images"] is not None:
             image_score = float(np.clip(np.dot(signature, ref["images"]), 0, 1))
-        meta_score, shared = metadata_similarity(fields, ref["metadata"], index["numeric_scales"])
+        meta_score, shared, metadata_comparison = metadata_similarity_details(
+            fields, ref["metadata"], index["numeric_scales"],
+        )
         combined = (image_score + meta_score) / 2 if image_score is not None and meta_score is not None else None
         neighbors.append({"property_id": ref["property_id"], "group_id": ref["group_id"],
                           "source_rows": ref["source_rows"], "shared_metadata_fields": shared,
+                          "metadata_comparison": metadata_comparison,
                           "component_scores": {"images": image_score, "metadata": meta_score, "combined": combined}})
     key_for_mode = {"images_only": "images", "metadata_only": "metadata", "images_and_metadata": "combined"}
     mode = requested_mode
@@ -88,9 +111,18 @@ def predict_similarity(index, vectors, metadata, requested_mode="automatic", exc
         mode = "insufficient_evidence"
     best = unique[0] if unique else None
     scores = best["component_scores"] if best else {"images": None, "metadata": None, "combined": None}
+    metadata_reason = {
+        "kind":"nearest_known_target_similarity",
+        "reference_property_id":best["property_id"] if best else None,
+        "score":scores.get("metadata"),
+        "formula":"Mean of the field similarities shared with the selected nearest known target.",
+        "minimum_shared_fields":3,
+        "comparisons":best.get("metadata_comparison",[]) if best else [],
+    }
     return {"requested_mode": requested_mode, "mode_used": mode,
             "score": scores.get(key) if best else None, "component_scores": scores,
             "score_kind": "known_target_similarity", "nearest_examples": unique[:5],
+            "metadata_reason":metadata_reason,
             "reference_properties": len(index["references"]),
             "evidence_confidence": "low", "usable_photos": len(vectors),
             "metadata_completeness": metadata_completeness(metadata),

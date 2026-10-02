@@ -9,7 +9,7 @@ const fs=require('node:fs');
   const html=fs.readFileSync(__dirname+'/workbench_ui.html','utf8');
   const image=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABAf/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPxB//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPxB//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxB//9k=','base64');
   const feedback=[],requests=[];
-  const result={property_id:'p1',model:{version:'v0'},prediction:{score:.75,mode_used:'images_and_metadata',component_scores:{metadata:.6,images:.8,combined:.75},nearest_examples:[{property_id:'known-1'}]},condition:{physical_condition:'C4_AVERAGE_FUNCTIONAL',modernization_state:'ORIGINAL'},photos:[{image_id:'p1:1',room:'kitchen',single_photo_target_score:.9}]};
+  const result={property_id:'p1',model:{version:'v0'},prediction:{score:.75,mode_used:'images_and_metadata',component_scores:{metadata:.6,images:.8,combined:.75},nearest_examples:[{property_id:'known-1'}],metadata_reason:{kind:'nearest_known_target_similarity',reference_property_id:'known-1',score:.6,comparisons:[{field:'year_built',subject_value:1960,reference_value:1958,field_similarity:.82},{field:'bedrooms',subject_value:3,reference_value:3,field_similarity:1},{field:'property_type',subject_value:'single family',reference_value:'single family',field_similarity:1}]},metadata_input:{YearBuilt:1960,ListPrice:500000,BedroomsTotal:3},public_remarks:'Original kitchen and deferred maintenance.'},condition:{physical_condition:'C4_AVERAGE_FUNCTIONAL',modernization_state:'ORIGINAL'},photos:[{image_id:'p1:1',room:'kitchen',single_photo_target_score:.9}]};
   let dataset=null,training=null,fixedBatch=null,currentRunProperty='p1';
   const challenge={id:'mls:mls-1',listing_key:'mls-1',address:'Unseen Example',city:'San Diego',photo_count:1,metadata:{ListingKey:'mls-1',ListingId:'MLS-1',YearBuilt:1955,ListPrice:650000},images:[{media_key:'photo-1',room:'kitchen',sha256:'b'.repeat(64),bytes:100}],opportunity:{score:82}};
   await page.route('http://workbench.test/**',async route=>{
@@ -23,8 +23,8 @@ const fs=require('node:fs');
    if(url.pathname.endsWith('/challenge/batches'))return route.fulfill({json:{items:fixedBatch?[fixedBatch]:[]}});
    if(url.pathname.endsWith('/challenge/batch')&&method==='POST'){fixedBatch={id:'c'.repeat(32),name:'Browser random five',fingerprint:'d'.repeat(64),counts:{properties:1,photos:1,metadata_only:0},items:[{...challenge,address:'Fixed Example',id:'challenge:'+'c'.repeat(32)+':mls-1',batch_id:'c'.repeat(32),fixed_challenge:true}]};return route.fulfill({json:fixedBatch});}
    if(url.pathname.endsWith('/challenge/batch'))return route.fulfill({json:fixedBatch});
-   if(url.pathname.endsWith('/properties'))return route.fulfill({json:{token:'token',total:1,items:[{id:'p1',address:'Example',city:'San Diego',year_built:1960,photo_count:1}]}});
-   if(url.pathname.endsWith('/property'))return route.fulfill({json:{property:{id:'p1',address:'Example',city:'San Diego',metadata:{ListPrice:500000,BedroomsTotal:3,BathroomsTotalInteger:2,LivingArea:1400}},images:[{id:'p1:1',room:'kitchen'}]}});
+   if(url.pathname.endsWith('/properties'))return route.fulfill({json:{token:'token',total:2,items:[{id:'p1',address:'Example',city:'San Diego',year_built:1960,photo_count:1},{id:'p2',address:'Example 2',city:'La Mesa',year_built:1970,photo_count:1}]}});
+   if(url.pathname.endsWith('/property')){const id=url.searchParams.get('id')||'p1';return route.fulfill({json:{property:{id,address:id==='p1'?'Example':'Example 2',city:id==='p1'?'San Diego':'La Mesa',metadata:{ListPrice:id==='p1'?500000:600000,BedroomsTotal:3,BathroomsTotalInteger:2,LivingArea:1400},mls_remarks:id==='p1'?'Original kitchen and deferred maintenance.':'Second property remarks.'},images:[{id:id+':1',room:'kitchen'}]}});}
    if(url.pathname.endsWith('/run')&&method==='POST'){const request=JSON.parse(route.request().postData());requests.push(request);currentRunProperty=request.property_id;return route.fulfill({json:{id:'a'.repeat(32),status:'queued'}});}
    if(url.pathname.endsWith('/run'))return route.fulfill({json:{request:{id:'a'.repeat(32),property_id:currentRunProperty,status:'completed'},result:{...result,property_id:currentRunProperty}}});
    if(url.pathname.endsWith('/feedback')){feedback.push(JSON.parse(route.request().postData()));return route.fulfill({json:{revision:1}});}
@@ -55,8 +55,14 @@ const fs=require('node:fs');
   await page.locator('#name-form button').click();
   await page.locator('#feedback button.primary').click();
   await page.waitForFunction(()=>!document.querySelector('#result').classList.contains('hidden'));
+  await page.waitForFunction(()=>document.querySelector('#address').textContent==='Example 2');
   assert.equal(feedback[0].target_label,'NOT_TARGET');
   assert.equal(feedback[0].hard_negative,true);
+  assert.match(await page.locator('#result-label').innerText(),/Previous reviewed result · Example/i);
+  assert.match(await page.locator('#metadata-method').innerText(),/not a probability.*3 shared field similarities.*known-1/i);
+  assert.deepEqual(await page.locator('#metadata-input .fact strong').allInnerTexts(),['1960','$500,000','3']);
+  assert.equal(await page.locator('#metadata-remarks').innerText(),'Original kitchen and deferred maintenance.');
+  assert.equal(await page.locator('#feedback').isHidden(),true);
   const asideBox=await page.locator('#test-panel aside').boundingBox();
   const mainBox=await page.locator('#test-panel main').boundingBox();
   const sourceHeight=await page.locator('#property-source').locator('..').evaluate(node=>node.getBoundingClientRect().height);

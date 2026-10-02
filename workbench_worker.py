@@ -16,6 +16,13 @@ from model_loop import candidate
 from property_models import predict_property
 from studio_data import now
 
+METADATA_INPUT_FIELDS = (
+    "YearBuilt","PhotosCount","LivingArea","BedroomsTotal",
+    "BathroomsTotalInteger","BathroomsTotalDecimal","ListPrice",
+    "OriginalListPrice","DaysOnMarket","PropertyType","PropertySubType",
+    "PostalCode","City","StateOrProvince","LotSizeArea","LotSizeSquareFeet",
+)
+
 
 class WorkbenchScorer:
     def __init__(self, store, siglip):
@@ -186,6 +193,13 @@ class WorkbenchScorer:
                 self.bundle,vectors,detail["property"].get("metadata"),requested_mode
             )
             influences = [None]*len(vectors)
+        source_metadata = detail["property"].get("metadata",{})
+        prediction["metadata_input"] = {
+            key:source_metadata[key] for key in METADATA_INPUT_FIELDS
+            if source_metadata.get(key) is not None
+            and source_metadata.get(key)!=""
+        }
+        prediction["public_remarks"] = detail["property"].get("mls_remarks") or ""
         photos = []
         for image,influence in zip(eligible,influences):
             photos.append({
