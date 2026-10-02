@@ -49,6 +49,11 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         assert status==200 and json.loads(body)['version']=='unknown'
         status,headers,_=request(port,'GET','/')
         assert status==303 and headers['Location']=='/login'
+        status,_,body=request(port,'GET','/api/studio/workbench/challenge/batches')
+        assert status==401
+        assert json.loads(body)=={
+            'error':'Your session expired. Sign in again.','login':'/login',
+        }
         form=urlencode({'username':'owner@example.test','password':'wrong'})
         assert request(port,'POST','/login',form,{'Origin':'https://studio.example.test','Content-Type':'application/x-www-form-urlencoded'})[0]==401
         form=urlencode({'username':'owner@example.test','password':'correct horse battery'})
@@ -84,6 +89,14 @@ def test_review_ui_handles_html_api_responses_and_exposes_tagged_queue():
     assert "contentType.includes('application/json')" in page
     assert "window.location.assign('/login')" in page
     assert 'response.json();' in page
+    assert page.index("contentType.includes('application/json')") < page.index('response.json();')
+
+
+def test_workbench_handles_expired_sessions_before_parsing_json():
+    page = open('workbench_ui.html', encoding='utf-8').read()
+    assert "redirect:'error'" in page
+    assert "contentType.includes('application/json')" in page
+    assert "window.location.assign(data.login||'/login')" in page
     assert page.index("contentType.includes('application/json')") < page.index('response.json();')
 
 
