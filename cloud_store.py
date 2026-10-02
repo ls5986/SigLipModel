@@ -38,18 +38,24 @@ def validation_candidate(example):
 
 
 def validation_photo_pair(detail):
-    images = [
+    retained = [
         image for image in detail.get('images',[])
         if image.get('selection',{}).get('included',True)
-        and image.get('effective',{}).get('context') in {'subject','subject_interior'}
-        and image.get('effective',{}).get('room') in {'kitchen','bathroom','living','bedroom','other'}
+        and image.get('effective',{}).get('context') not in {'shared_amenity','floor_plan','unrelated'}
+    ]
+    interiors = [
+        image for image in retained
+        if image.get('effective',{}).get('room') in {'kitchen','bathroom','living','bedroom','other'}
     ]
     selected = []
     for room in ('kitchen','bathroom'):
-        match = next((image for image in images
+        match = next((image for image in interiors
                       if image.get('effective',{}).get('room')==room and image not in selected),None)
         if match: selected.append(match)
-    for image in images:
+    for image in interiors:
+        if len(selected)>=2: break
+        if image not in selected: selected.append(image)
+    for image in retained:
         if len(selected)>=2: break
         if image not in selected: selected.append(image)
     return selected[:2]
@@ -782,6 +788,15 @@ class SupabaseStore:
             example = self._validation_example(db,identifier)
             review = self.database.state(db,'document','mls-validation:'+str(example['id']))
         result = self._validation_summary(example,review)
+        candidate = validation_candidate(example)
+        listing = candidate.get('listing',{})
+        result['listing_remarks'] = __import__('listing_text').remarks(listing)
+        result['listing_metadata'] = trim_metadata(listing)
+        result['match_evidence'] = {
+            key:candidate.get('match',{}).get(key) for key in
+            ('exact_apn','street_number_matches','unit_conflict','rank_score',
+             'transaction_match','best_sale_context')
+        }
         result['photos'] = []
         if result['listing_key']:
             try:

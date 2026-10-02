@@ -187,6 +187,18 @@ def test_validation_photo_pair_prefers_kitchen_and_bathroom():
     assert [row['id'] for row in selected]==['kitchen','bath']
 
 
+def test_validation_photo_pair_falls_back_to_any_retained_property_photos():
+    rows=[
+        {'id':'exterior','selection':{'included':True},
+         'effective':{'room':'exterior','context':'subject'}},
+        {'id':'outdoor','selection':{'included':True},
+         'effective':{'room':'outdoor','context':'unknown'}},
+        {'id':'floorplan','selection':{'included':True},
+         'effective':{'room':'other','context':'floor_plan'}},
+    ]
+    assert [row['id'] for row in validation_photo_pair({'images':rows})]==['exterior','outdoor']
+
+
 def test_validation_decision_uses_revisioned_state_and_certifies_training():
     db=MemoryDatabase()
     class ValidationStore(Store):

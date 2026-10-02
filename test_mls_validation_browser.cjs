@@ -13,8 +13,8 @@ const fs=require('node:fs');
    {id:'two',match_status:'unresolved',source_address:'615 Elm Ave',apn:'573-200-06-00',listing_id:'80079634',revision:0},
   ];
   const details={
-   one:{...records[0],prior_sale_date:'2026-02-18',prior_sale_amount:376500,last_sale_date:'2026-06-22',last_sale_amount:515000,listing_address:'134 Espanas Gln',close_date:'2026-02-27',close_price:376500,photos:[{id:'one:kitchen',room:'kitchen'},{id:'one:bath',room:'bathroom'}]},
-   two:{...records[1],prior_sale_date:'2026-08-24',prior_sale_amount:610000,last_sale_date:'2026-08-27',last_sale_amount:635000,listing_address:'615 Elm Ave',close_date:null,close_price:null,photos:[]},
+   one:{...records[0],prior_sale_date:'2026-02-18',prior_sale_amount:376500,last_sale_date:'2026-06-22',last_sale_amount:515000,listing_address:'134 Espanas Gln',close_date:'2026-02-27',close_price:376500,listing_remarks:'Original kitchen and baths.',listing_metadata:{StandardStatus:'Closed',YearBuilt:1963,BedroomsTotal:3,BathroomsTotalInteger:2,LivingArea:1400,PhotosCount:24},photos:[{id:'one:kitchen',room:'kitchen'},{id:'one:bath',room:'bathroom'}]},
+   two:{...records[1],prior_sale_date:'2026-08-24',prior_sale_amount:610000,last_sale_date:'2026-08-27',last_sale_amount:635000,listing_address:'615 Elm Ave',close_date:null,close_price:null,listing_remarks:'Newly remodeled kitchen and bathrooms.',listing_metadata:{StandardStatus:'Active',YearBuilt:1951,PhotosCount:37,ListPrice:1399000},photos:[]},
   };
   const saved=[];
   await page.route('http://validation.test/**',async route=>{
@@ -32,6 +32,8 @@ const fs=require('node:fs');
   await page.goto('http://validation.test/',{waitUntil:'networkidle'});
   assert.equal(await page.locator('#progress').innerText(),'0 / 108 reviewed · 108 remaining');
   assert.equal(await page.locator('#address').innerText(),'134 Espanas Gln');
+  assert.match(await page.locator('#listing-remarks').innerText(),/Original kitchen/);
+  assert.match(await page.locator('#metadata-grid').innerText(),/Year built/);
   assert.equal(await page.locator('.photo img').count(),2);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
   await page.locator('#confirm').click();
@@ -41,6 +43,8 @@ const fs=require('node:fs');
   assert.equal(saved[0].decision,'confirmed');
   assert.equal(await page.locator('#progress').innerText(),'1 / 108 reviewed · 107 remaining');
   assert.equal(await page.locator('.placeholder').count(),2);
+  assert.match(await page.locator('#listing-remarks').innerText(),/Newly remodeled/);
+  assert.match(await page.locator('.placeholder').first().innerText(),/MLS reports 37 photos/);
   await page.keyboard.press('u');
   await page.waitForFunction(()=>document.querySelector('#empty').hidden===false);
   assert.equal(saved[1].decision,'unsure');
