@@ -37,7 +37,7 @@ def validation_candidate(example):
     return max(candidates,key=rank,default={})
 
 
-def validation_photo_pair(detail):
+def validation_photo_gallery(detail, limit=8):
     retained = [
         image for image in detail.get('images',[])
         if image.get('selection',{}).get('included',True)
@@ -53,12 +53,30 @@ def validation_photo_pair(detail):
                       if image.get('effective',{}).get('room')==room and image not in selected),None)
         if match: selected.append(match)
     for image in interiors:
-        if len(selected)>=2: break
+        if len(selected)>=limit: break
         if image not in selected: selected.append(image)
     for image in retained:
-        if len(selected)>=2: break
+        if len(selected)>=limit: break
         if image not in selected: selected.append(image)
-    return selected[:2]
+    return selected[:limit]
+
+
+def validation_photo_pair(detail):
+    return validation_photo_gallery(detail, 2)
+
+
+def validation_room(metadata):
+    text = ' '.join(str(metadata.get(key) or '') for key in
+                    ('ShortDescription','LongDescription','ImageOf','MediaCategory')).casefold()
+    if 'kitchen' in text: return 'kitchen'
+    if any(term in text for term in ('bathroom','bath ','shower','tub','toilet','vanity')):
+        return 'bathroom'
+    if 'bedroom' in text: return 'bedroom'
+    if any(term in text for term in ('living room','family room','great room')):
+        return 'living'
+    if any(term in text for term in ('exterior','front view','rear view','yard','patio','pool')):
+        return 'exterior'
+    return 'property'
 
 
 class Database:
@@ -172,6 +190,25 @@ class SupabaseStore:
         for row in rows:
             result.setdefault(row['field'], {})[row['item_id']] = row['value']
         return result
+
+    def validation_image_path(self, identifier):
+        try:
+            _,example_id,media_key = identifier.split(':',2)
+            example_uuid = UUID(example_id)
+        except (ValueError,TypeError):
+            raise ValueError('Unknown validation image') from None
+        with self.database.connect() as db:
+            example = self._validation_example(db,example_uuid)
+            state = self.database.state(
+                db,'document','mls-validation-media:'+str(example['id'])
+            ) or {}
+        rows = [
+            row for row in state.get('images',[])
+            if str(row.get('provider_media_key'))==media_key
+        ]
+        if len(rows)!=1: raise ValueError('Validation image unavailable or ambiguous')
+        row = rows[0]
+        return self.storage.get(row['storage_bucket'],row['storage_object_key'],row['image_sha256'])
 
     def _reviews(self, db, identifiers):
         return {(r['kind'],r['item_id']):{**r['payload'],'revision':r['revision']}
@@ -408,6 +445,8 @@ class SupabaseStore:
         return result
 
     def image_path(self, identifier):
+        if isinstance(identifier,str) and identifier.startswith('validation:'):
+            return self.validation_image_path(identifier)
         if not isinstance(identifier,str) or ':' not in identifier: raise ValueError('Unknown image')
         property_id, media_key = identifier.rsplit(':',1)
         with self.database.connect() as db:
@@ -787,6 +826,10 @@ class SupabaseStore:
         with self.database.connect() as db:
             example = self._validation_example(db,identifier)
             review = self.database.state(db,'document','mls-validation:'+str(example['id']))
+            validation_media = self.database.state(
+                db,'document','mls-validation-media:'+str(example['id'])
+            ) or {}
+            validation_photos = validation_media.get('images',[])
         result = self._validation_summary(example,review)
         candidate = validation_candidate(example)
         listing = candidate.get('listing',{})
@@ -798,13 +841,27 @@ class SupabaseStore:
              'transaction_match','best_sale_context')
         }
         result['photos'] = []
-        if result['listing_key']:
+        if validation_photos:
+            rows = [{
+                'id':'validation:'+str(example['id'])+':'+str(row['provider_media_key']),
+                'room':validation_room(row['context_evidence'].get('provider_metadata',{})),
+                'sequence':row['context_evidence'].get('provider_metadata',{}).get('Order'),
+            } for row in validation_photos]
+            preferred = []
+            for room in ('kitchen','bathroom'):
+                match = next((row for row in rows if row['room']==room and row not in preferred),None)
+                if match: preferred.append(match)
+            for row in rows:
+                if len(preferred)>=8: break
+                if row not in preferred: preferred.append(row)
+            result['photos'] = preferred[:8]
+        elif result['listing_key']:
             try:
                 detail = self.property(result['listing_key'])
                 result['photos'] = [{
                     'id':image['id'],'room':image.get('effective',{}).get('room','interior'),
                     'sequence':image.get('sequence'),
-                } for image in validation_photo_pair(detail)]
+                } for image in validation_photo_gallery(detail)]
             except (ValueError,OSError):
                 pass
         return result

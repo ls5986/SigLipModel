@@ -7,7 +7,9 @@ import httpx
 import pytest
 
 from cloud_storage import PrivateStorage
-from cloud_store import SupabaseStore, validation_candidate, validation_photo_pair
+from cloud_store import (
+    SupabaseStore, validation_candidate, validation_photo_gallery, validation_photo_pair,
+)
 from cloud_runtime import CloudApp
 from studio_data import validate_review
 
@@ -197,6 +199,14 @@ def test_validation_photo_pair_falls_back_to_any_retained_property_photos():
          'effective':{'room':'other','context':'floor_plan'}},
     ]
     assert [row['id'] for row in validation_photo_pair({'images':rows})]==['exterior','outdoor']
+
+
+def test_validation_photo_gallery_returns_up_to_eight_without_empty_slots():
+    rows=[{'id':str(index),'selection':{'included':True},
+           'effective':{'room':'living','context':'subject'}} for index in range(10)]
+    assert [row['id'] for row in validation_photo_gallery({'images':rows})]==[
+        str(index) for index in range(8)
+    ]
 
 
 def test_validation_decision_uses_revisioned_state_and_certifies_training():

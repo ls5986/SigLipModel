@@ -77,7 +77,7 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
                 'YearBuilt':1960,'ClosePrice':999999},'match':{'exact_apn':True,
                 'street_number_matches':True,'unit_conflict':False,'sale_agreements':[
                     {'source_sale':'prior','price_agrees':True,'minimum_date_gap_days':1}]}}]}))
-        photos.append(dict(listing_key=key,group_id=key,provider_media_key='photo',
+        photos.append(dict(example_id=key,listing_key=key,group_id=key,provider_media_key='photo',
             image_sha256=digest,storage_bucket='acq-training-private',storage_object_key=key+'/photo'))
         reviews[key] = {'status':'approved','target_fit':'target' if i%2 else 'not_target'}
         eras['era',key] = {'decision':'correct_era','evidence_hash':hashlib.sha256(json.dumps([digest]).encode()).hexdigest()}
@@ -85,15 +85,21 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
     photos.append({**photos[0],'listing_key':'outside','group_id':'outside'})
     from uuid import UUID
     validated_id=UUID('11111111-1111-1111-1111-111111111111')
+    validated_digest=hashlib.sha256(b'validated').hexdigest()
     validated_candidate={'listing':{'ListingKey':'validated-listing','StandardStatus':'Closed',
-        'YearBuilt':1955},'match':{'exact_apn':True,'street_number_matches':True}}
+        'YearBuilt':1955,'PhotosCount':1},'match':{'exact_apn':True,'street_number_matches':True}}
     validated_record=dict(id=validated_id,group_id='validated-group',source_rows=[999],
         identity_key='validated-group',identity_verified=True,protected_test=False,
         source_snapshot={'spreadsheet':{'Address':'Validated house'},
                          'mls_candidates':[validated_candidate]})
     validation_state=[{'item_id':'mls-validation:'+str(validated_id),'payload':{
         'decision':'confirmed','certified_for_training':True,
-        'selected_listing_key':'validated-listing'}}]
+        'selected_listing_key':'validated-listing'}},
+        {'item_id':'mls-validation-media:'+str(validated_id),'payload':{
+        'status':'sampled','provider_media_count':1,'reported_photo_count':37,'truncated':True,
+        'images':[{'provider_media_key':'validated-photo','image_sha256':validated_digest,
+            'storage_bucket':'acq-training-private','storage_object_key':'validation-photo',
+            'context':'unknown','context_evidence':{}}]}}]
     class Query:
         def __init__(self,rows): self.rows=rows
         def fetchall(self): return self.rows
@@ -106,7 +112,9 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
             return {'listing_keys':keys}
         def execute(self,sql,args=None):
             if sql.startswith('SET '): return None
-            if "item_id LIKE 'mls-validation:" in sql: return Query(validation_state)
+            if "item_id LIKE 'mls-validation-media:" in sql:
+                return Query([validation_state[1]])
+            if "item_id LIKE 'mls-validation:" in sql: return Query([validation_state[0]])
             if 'e.id=ANY' in sql: return Query([validated_record])
             if 'SELECT e.id' in sql: return Query(records)
             if 'SELECT p.*' in sql: return Query(photos)
@@ -120,7 +128,7 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
     eras['document','autolabel-result:3']={'policy':POLICY,'evidence_hash':eras['era','3']['evidence_hash'],
         'images':[{'image_id':'3:photo','sha256':photos[3]['image_sha256'],'context':'floor_plan'}]}
     images, properties = snapshot(Store(DB(),None))
-    assert len(properties)==252 and len(images)==251
+    assert len(properties)==252 and len(images)==252
     assert properties[0]['split']=='test' and not properties[0]['training_allowed']
     assert 50 <= sum(p['split']=='test' for p in properties) <= 125
     assert 'ClosePrice' not in properties[0]['metadata']
@@ -138,7 +146,7 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
     certified=next(p for p in properties if p['id']=='validated-listing')
     assert certified['known_target'] and certified['training_allowed']
     assert certified['target_origin']=='human-certified-mls-validation'
-    assert certified['photo_coverage']=='no_interior'
+    assert next(i for i in images if i['property_id']=='validated-listing')['sha256']==validated_digest
 
 
 def test_subjective_target_ratings_do_not_override_workbook_provenance():

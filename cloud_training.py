@@ -46,6 +46,12 @@ def snapshot(store):
         validations = {
             row['item_id'].split(':',1)[1]:row['payload'] for row in validation_rows
         }
+        validation_media_rows = db.execute('''SELECT item_id,payload
+            FROM acq_training.studio_state WHERE workspace_id=%s AND kind='document'
+            AND item_id LIKE 'mls-validation-media:%%' ''',(store.workspace,)).fetchall()
+        validation_media = {
+            row['item_id'].split(':',1)[1]:row['payload'] for row in validation_media_rows
+        }
         records = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,
                 jsonb_build_object('spreadsheet',jsonb_build_object('Prior Sale Date',e.source_snapshot->'spreadsheet'->>'Prior Sale Date','Last Sale Date',e.source_snapshot->'spreadsheet'->>'Last Sale Date'),'mls_candidates',jsonb_build_array(jsonb_build_object(
                     'listing', c.item->'listing', 'match', c.item->'match'))) AS source_snapshot,
@@ -77,11 +83,30 @@ def snapshot(store):
                       'mls_candidates':[selected],
                   },
               })
-        photos = db.execute('''SELECT p.*,e.listing_key,e.group_id FROM acq_training.photos p
+        photos = db.execute('''SELECT p.*,e.id AS example_id,e.listing_key,e.group_id
+            FROM acq_training.photos p
             JOIN acq_training.examples e ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
             WHERE p.workspace_id=%s AND p.revoked_at IS NULL
             AND (p.retention_until IS NULL OR p.retention_until>now()) ORDER BY p.id''',
             (store.workspace,)).fetchall()
+        photos = [dict(photo) for photo in photos]
+        for photo in photos:
+            validation = validations.get(str(photo['example_id']))
+            if validation and not photo.get('listing_key'):
+                photo['listing_key'] = validation.get('selected_listing_key')
+        records_by_id = {str(record['id']):record for record in records}
+        for example_id,media in validation_media.items():
+            validation = validations.get(example_id)
+            record = records_by_id.get(example_id)
+            if not validation or not record:
+                continue
+            for image in media.get('images',[]):
+                photos.append({
+                    **image,'example_id':record['id'],
+                    'listing_key':validation.get('selected_listing_key'),
+                    'group_id':record['group_id'],'revoked_at':None,
+                    'retention_until':None,
+                })
         keys = sorted({r['listing_key'] for r in records})
         legacy = store._legacy(db, [*keys, *[r['listing_key']+':'+str(r['provider_media_key'])
                                                for r in photos if r['listing_key'] in keys]])
@@ -145,7 +170,21 @@ def snapshot(store):
             validations.get(str(source['id']),{}).get('certified_for_training') is True
             for source in sources
         )
-        verified = manually_certified or (
+        media_complete = True
+        if manually_certified:
+            validations_for_sources = [
+                (source,validations.get(str(source['id']),{}),
+                 validation_media.get(str(source['id']),{}))
+                for source in sources if str(source['id']) in validations
+            ]
+            media_complete = all(
+                int(store._selected(source).get('listing',{}).get('PhotosCount') or 0)==0
+                or media.get('status') in {'complete','sampled'}
+                and int(media.get('provider_media_count') or 0)>0
+                and len(media.get('images',[]))==int(media.get('provider_media_count') or 0)
+                for source,validation,media in validations_for_sources
+            )
+        verified = manually_certified and media_complete or (
             history['timing_verified'] and all(
                 supports_prior(store._selected(r),r['source_snapshot'].get('spreadsheet'),
                                r['source_snapshot'].get('mls_candidates'))
@@ -165,7 +204,9 @@ def snapshot(store):
                 if manually_certified else 'user-confirmed-workbook-cohort',
             'source_rows':sorted({n for r in sources for n in r['source_rows']}),
             'training_allowed':verified and split != 'test',
-            'label_exclusion':None if verified else 'Acquisition era is not verified'})
+            'label_exclusion':None if verified else
+                'Certified MLS media sample is incomplete' if manually_certified else
+                'Acquisition era is not verified'})
         for identifier,p in unique.items():
             review = store._review('image', identifier, legacy, live)
             approved = review.get('status') == 'approved'

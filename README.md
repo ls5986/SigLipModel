@@ -63,6 +63,11 @@ One-click decisions are **Confirm acquisition listing**, **Wrong MLS listing**,
 `studio_state` history and advances immediately. Confirmation sets
 `certified_for_training` on the validation state; the next frozen training snapshot
 includes that selected MLS record without mutating the immutable imported example.
+The two photos shown in the validator are a preview only. A confirmed listing whose
+MLS metadata reports photos is training-eligible only after the bounded media backfill
+has recovered a retained sample (eight photos by default). All retained sample photos enter the frozen
+snapshot; non-subject items such as floor plans and shared amenities retain provenance
+but are excluded from subject-condition similarity.
 The detailed room/condition/opportunity reviewer remains available at
 `/property-review`.
 
