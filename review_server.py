@@ -352,7 +352,17 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
             elif path.startswith("/api/studio/"):
                 try:
                     studio = app.get_studio()
-                    if path == "/api/studio/image":
+                    if path == "/api/studio/workbench/challenge-image":
+                        from urllib.parse import parse_qs
+
+                        query = parse_qs(urlparse(self.path).query)
+                        blob = studio.challenge_image(
+                            query.get("listing_key", [""])[0],
+                            query.get("media_key", [""])[0],
+                            query.get("batch_id", [None])[0],
+                        )
+                        self.send(200, blob, "image/jpeg")
+                    elif path == "/api/studio/image":
                         from urllib.parse import parse_qs
 
                         query = parse_qs(urlparse(self.path).query)

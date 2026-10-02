@@ -20,6 +20,14 @@ services:
         sync: false
       - key: STUDIO_STORAGE_SECRET
         sync: false
+      - key: MLS_SOURCE_SUPABASE_URL
+        value: https://uxlfqsgynbbgspaakzey.supabase.co
+      - key: MLS_SOURCE_DATABASE_URL
+        sync: false
+      - key: TRESTLE_CLIENT_ID
+        sync: false
+      - key: TRESTLE_CLIENT_SECRET
+        sync: false
       - key: STUDIO_PUBLIC_ORIGIN
         sync: false
       - key: STUDIO_LOGIN_USERNAME

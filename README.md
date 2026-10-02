@@ -153,25 +153,44 @@ to a negative.
 
 The hosted development workbench at `/workbench` supports:
 
-1. Search an existing Supabase MLS property.
-2. Queue V0 metadata/image/combined scoring on the local worker.
-3. Optionally decide TARGET/NOT_TARGET/UNKNOWN before revealing predictions.
-4. Inspect component scores, evidence mode, nearest known targets and influential
+1. Search the current training cohort or browse the approved MLS sourcing project
+   by active listing, address/city/ZIP/listing ID, deterministic random five, or
+   current opportunity five. Training and protected-test overlaps are excluded.
+2. Freeze a named MLS challenge batch. Its sanitized metadata and up to eight
+   representative selected photos are hashed by content; later runs fail if the
+   source evidence changes.
+3. Queue V0 metadata/image/combined scoring on the local worker.
+4. Optionally decide TARGET/NOT_TARGET/UNKNOWN before revealing predictions.
+5. Inspect component scores, evidence mode, nearest known targets and influential
    photos.
-5. Save explicit target feedback, hard negatives, condition/modernization corrections
-   and photo exclusions without retraining.
-6. Review false-positive, false-negative, disagreement, metadata-only,
-   limited-visual and hard-negative queues.
-7. Preview Dataset Vnext with added/removed/changed examples and split counts.
-8. Explicitly freeze the next dataset version.
-9. Queue one local metadata/vision/fusion training job.
-10. Compare the immutable V0 baseline with the latest V1 candidate.
+6. Save explicit target feedback, hard negatives, condition/modernization corrections
+   and photo exclusions without retraining. Fixed-challenge feedback remains isolated
+   unless **Promote to Dataset Vnext** is explicitly selected; UNKNOWN cannot promote.
+7. Review false-positive, false-negative, high-confidence-wrong, candidate-regression,
+   disagreement, metadata-only, limited-visual and hard-negative queues.
+8. Preview Dataset Vnext with exact added/removed/changed examples, split counts and
+   before/after protected-test hashes.
+9. Explicitly freeze the next dataset version.
+10. Queue one local metadata/vision/fusion training job with persisted stages.
+11. Compare any two immutable saved candidates. V0 is clearly marked as a
+    positive-similarity baseline, not a classifier accuracy result.
 
 V1 metadata uses a versioned pre-decision feature policy plus deterministic TF-IDF
 remarks. V1 vision compares mean, max and mean+max frozen SigLIP property aggregation
-using validation data only. Fusion records metadata/vision availability and image
+using validation data only. Fusion is fit from deterministic grouped out-of-fold
+metadata and vision predictions from training groups; validation selects the visual
+aggregation, and the protected test is read only after selection. Fusion records
+metadata/vision availability and image
 coverage, falls back to metadata when images are absent, and never penalizes a
 property merely because it has only one or two usable photos.
+
+The MLS challenge adapter reads only `mls_properties`,
+`mls_property_intelligence`, `mls_opportunities` and `mls_run_properties` from
+Supabase project `uxlfqsgynbbgspaakzey`. It validates both the Supabase URL and
+database identity, starts every transaction with `SET TRANSACTION READ ONLY`, and
+never treats an existing opportunity score as ground truth. Configure
+`MLS_SOURCE_DATABASE_URL`, `MLS_SOURCE_SUPABASE_URL`, `TRESTLE_CLIENT_ID` and
+`TRESTLE_CLIENT_SECRET` on the development service. Production remains untouched.
 
 The initial metadata classifier is regularized logistic regression over sparse
 structured/TF-IDF features. This intentionally reuses the pinned scikit-learn
@@ -183,21 +202,26 @@ do not replace this baseline without protected and challenge-set evidence.
 #### Workbench clicks
 
 1. Open **Model Workbench → Test a property**.
-2. Search an existing MLS record, optionally enable **Blind review**, and choose
-   **RUN CURRENT MODEL**.
-3. Review Metadata, Vision and Combined scores, mode used, condition/modernization,
+2. Choose **Confirmed dataset** for an existing record, or choose **Active MLS**,
+   **Random 5 unseen listings**, or **Top 5 current opportunities**.
+3. For unseen MLS results, name and freeze the visible set. Choose the resulting
+   **Fixed batch** source so every rerun uses the same metadata/photo hashes.
+4. Optionally enable **Blind review**, and choose **RUN CURRENT MODEL**. Run and
+   train buttons remain disabled while the local worker heartbeat is stale/offline.
+5. Review Metadata, Vision and Combined scores, mode used, condition/modernization,
    nearest known targets and top visual evidence.
-4. Save **YES / NO / UNSURE**, optional **Hard negative**, condition/modernization,
-   explanation and excluded photos. For room/context/wrong-era corrections choose
-   **Correct rooms, photos or era**.
-5. Open **Review errors** to filter false positives, false negatives, disagreements,
+6. Save **YES / NO / UNSURE**, optional **Hard negative**, condition/modernization,
+   explanation and excluded photos. Challenge feedback is challenge-only by default;
+   explicitly check **Promote to Dataset Vnext** only after review. For
+   room/context/wrong-era corrections choose **Correct rooms, photos or era**.
+7. Open **Review errors** to filter false positives, false negatives, disagreements,
    metadata-only, limited-visual and hard-negative cases.
-6. Open **Dataset versions → Preview Dataset Vnext**. Review counts and added,
+8. Open **Dataset versions → Preview Dataset Vnext**. Review counts and added,
    removed and changed examples. Freeze explicitly.
-7. Open **Train → TRAIN NEW CANDIDATE**. The button remains disabled until train,
+9. Open **Train → TRAIN NEW CANDIDATE**. The button remains disabled until train,
    validation and protected-test class coverage is sufficient.
-8. Open **Compare** to inspect immutable V0 metrics beside the latest V1 protected
-   metrics. Return to **Test a property** to rerun challenge cases.
+10. Open **Compare** to select any two immutable saved versions. Return to
+    **Test a property** to rerun the same fixed challenge batch.
 
 The image backbone is `google/siglip2-base-patch16-224`; it stays frozen while
 lightweight classifiers learn photo context, room, visible-feature and

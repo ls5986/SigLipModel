@@ -1,12 +1,14 @@
 """Train versioned V1 metadata, vision, and fusion candidates from a frozen dataset."""
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import Counter
 from pathlib import Path
 
 import joblib
 import numpy as np
+from sklearn.model_selection import StratifiedGroupKFold
 
 import pilot
 from model_workbench import pending_training
@@ -20,23 +22,54 @@ from v1_models import (
 def property_rows(store,scorer,dataset):
     rows = []
     for item in dataset["examples"]:
-        detail = store.property(item["property_id"])
         excluded = set(item.get("excluded_photo_ids",[]))
-        images = [
-            image for image in detail["images"]
-            if image["id"] not in excluded
-            and image.get("selection",{}).get("included",True)
-            and image.get("effective",{}).get("context")
-                not in {"shared_amenity","floor_plan","unrelated"}
-        ][:12]
-        vectors = scorer.embeddings([store.image_path(image["id"]) for image in images])
+        if item["property_id"].startswith("challenge:"):
+            from mls_source import ExistingMLSSupabaseSource
+            from model_workbench import challenge_item
+            challenge = challenge_item(store,item["property_id"])
+            if not hasattr(scorer,"mls_source"):
+                scorer.mls_source = ExistingMLSSupabaseSource.from_env()
+            blobs = []
+            for photo in challenge.get("images",[])[:12]:
+                image_id = item["property_id"]+":"+photo["media_key"]
+                if image_id in excluded:
+                    continue
+                blob = scorer.mls_source.image_bytes(
+                    challenge["listing_key"],photo["media_key"],
+                )
+                if hashlib.sha256(blob).hexdigest()!=photo.get("sha256"):
+                    raise ValueError(
+                        "MLS photo changed after the challenge batch was frozen"
+                    )
+                blobs.append(blob)
+            vectors = scorer.embedding_blobs(blobs) if blobs else []
+            metadata = challenge.get("metadata",{})
+            remarks = metadata.get("PublicRemarks") or ""
+            coverage = "selected_mls_media" if blobs else "metadata_only"
+        else:
+            detail = store.property(item["property_id"])
+            images = [
+                image for image in detail["images"]
+                if image["id"] not in excluded
+                and image.get("selection",{}).get("included",True)
+                and image.get("effective",{}).get("context")
+                    not in {"shared_amenity","floor_plan","unrelated"}
+            ][:12]
+            vectors = scorer.embeddings([
+                store.image_path(image["id"]) for image in images
+            ])
+            metadata = detail["property"].get("metadata",{})
+            remarks = detail["property"].get("mls_remarks") or ""
+            coverage = detail.get(
+                "historical_source",{},
+            ).get("photo_coverage","unknown")
         rows.append({
             **item,
-            "metadata":detail["property"].get("metadata",{}),
-            "remarks":detail["property"].get("mls_remarks") or "",
+            "metadata":metadata,
+            "remarks":remarks,
             "vectors":vectors,
             "image_count":len(vectors),
-            "coverage":detail.get("historical_source",{}).get("photo_coverage","unknown"),
+            "coverage":coverage,
         })
     return rows
 
@@ -45,14 +78,69 @@ def labels(rows):
     return np.asarray([int(row["target_label"]=="TARGET") for row in rows])
 
 
-def train_candidate(rows):
+def grouped_folds(rows,maximum=5):
+    y = labels(rows)
+    groups = np.asarray([row["group_id"] for row in rows])
+    group_counts = {
+        label:len({groups[i] for i,value in enumerate(y) if value==label})
+        for label in (0,1)
+    }
+    folds = min(maximum,min(group_counts.values()))
+    if folds<2:
+        raise ValueError("Need at least two independent groups in each class for OOF stacking")
+    splitter = StratifiedGroupKFold(
+        n_splits=folds,shuffle=True,random_state=20260922,
+    )
+    result = []
+    for fit,holdout in splitter.split(np.zeros(len(rows)),y,groups):
+        if set(groups[fit]) & set(groups[holdout]):
+            raise AssertionError("Physical property group crossed an OOF fold")
+        result.append((fit,holdout))
+    return result,{"folds":folds,"groups_per_class":group_counts,
+                   "policy":"stratified-group-kfold-seed-20260922"}
+
+
+def metadata_oof(rows,folds):
+    scores = np.full(len(rows),np.nan)
+    for fit,holdout in folds:
+        model = MetadataClassifier.fit(
+            [rows[i]["metadata"] for i in fit],
+            [rows[i]["remarks"] for i in fit],
+            labels([rows[i] for i in fit]),
+        )
+        scores[holdout] = model.predict(
+            [rows[i]["metadata"] for i in holdout],
+            [rows[i]["remarks"] for i in holdout],
+        )
+    if not np.isfinite(scores).all():
+        raise AssertionError("Metadata OOF predictions are incomplete")
+    return scores
+
+
+def vision_oof(rows,folds,aggregation):
+    scores = np.full(len(rows),np.nan)
+    for fit,holdout in folds:
+        fit_rows = [rows[i] for i in fit if rows[i]["vectors"]]
+        model = VisionClassifier.fit(
+            [row["vectors"] for row in fit_rows],labels(fit_rows),aggregation,
+        )
+        holdout_rows = [rows[i] for i in holdout]
+        scores[holdout] = model.predict([row["vectors"] for row in holdout_rows])
+    return scores
+
+
+def train_candidate(rows, progress=lambda stage: None):
     train = [row for row in rows if row["split"]=="train"]
     validation = [row for row in rows if row["split"]=="validation"]
     test = [row for row in rows if row["split"]=="test"]
     require_class_diversity(labels(train),[row["group_id"] for row in train])
-    metadata = MetadataClassifier.fit(
-        [row["metadata"] for row in train],[row["remarks"] for row in train],
-        labels(train),
+    require_class_diversity(
+        labels(validation),[row["group_id"] for row in validation],
+        minimum_per_class=2,minimum_groups=2,
+    )
+    require_class_diversity(
+        labels(test),[row["group_id"] for row in test],
+        minimum_per_class=1,minimum_groups=1,
     )
     vision_train = [row for row in train if row["vectors"]]
     require_class_diversity(
@@ -60,6 +148,7 @@ def train_candidate(rows):
         minimum_per_class=3,minimum_groups=3,
     )
     # Choose aggregation using validation only; protected test is not inspected.
+    progress("selecting_vision_aggregation")
     vision_options = {}
     for mode in ("mean","max","mean_max"):
         model = VisionClassifier.fit(
@@ -75,19 +164,20 @@ def train_candidate(rows):
             vision_options[mode][1].get("balanced_accuracy") or 0,mode
         )
     )
-    vision = vision_options[selected_mode][0]
-
-    validation_meta = metadata.predict(
-        [row["metadata"] for row in validation],[row["remarks"] for row in validation]
-    )
-    validation_vision = vision.predict([row["vectors"] for row in validation])
-    require_class_diversity(
-        labels(validation),[row["group_id"] for row in validation],
-        minimum_per_class=2,minimum_groups=2,
-    )
+    progress("generating_grouped_oof_predictions")
+    folds,fold_report = grouped_folds(train)
+    oof_metadata = metadata_oof(train,folds)
+    oof_vision = vision_oof(train,folds,selected_mode)
+    progress("training_fusion_from_oof")
     fusion = FusionClassifier.fit(
-        validation_meta,validation_vision,
-        [row["image_count"] for row in validation],labels(validation),
+        oof_metadata,oof_vision,[row["image_count"] for row in train],labels(train),
+    )
+    metadata = MetadataClassifier.fit(
+        [row["metadata"] for row in train],[row["remarks"] for row in train],
+        labels(train),
+    )
+    vision = VisionClassifier.fit(
+        [row["vectors"] for row in vision_train],labels(vision_train),selected_mode,
     )
 
     def evaluate(items):
@@ -123,6 +213,7 @@ def train_candidate(rows):
             } for i,row in enumerate(items)],
         }
 
+    progress("evaluating_protected_test")
     metrics = {
         "objective":"target-vs-not-target-v1",
         "feature_policy":FEATURE_POLICY,
@@ -133,6 +224,12 @@ def train_candidate(rows):
             "hard_negatives":sum(row.get("hard_negative") is True for row in rows),
         },
         "vision_aggregation":selected_mode,
+        "fusion_training":{
+            "source":"grouped_oof_training_predictions",
+            **fold_report,
+            "validation_labels_used":False,
+            "protected_test_used":False,
+        },
         "vision_validation_options":{
             mode:result[1] for mode,result in vision_options.items()
         },
@@ -159,7 +256,8 @@ def process_training_request(store,scorer):
     if not current or current.get("status")!="queued":
         return False
     claimed = store.save_document(
-        key,{**current,"status":"running","started_at":now()},current["revision"]
+        key,{**current,"status":"running","stage":"loading_frozen_dataset",
+             "started_at":now()},current["revision"]
     )
     latest_pointer = store.document("workbench-training-latest") or {}
     store.save_document(
@@ -167,12 +265,25 @@ def process_training_request(store,scorer):
         {**{k:v for k,v in claimed.items() if k!="revision"}},
         latest_pointer.get("revision",0),
     )
+    def progress(stage):
+        state = store.document(key)
+        updated = {
+            **{k:v for k,v in state.items() if k!="revision"},
+            "status":"running","stage":stage,"stage_updated_at":now(),
+        }
+        store.save_document(key,updated,state["revision"])
+        latest = store.document("workbench-training-latest") or {}
+        store.save_document(
+            "workbench-training-latest",updated,latest.get("revision",0),
+        )
     try:
         dataset = store.document("workbench-dataset:"+claimed["dataset_fingerprint"])
         if not dataset or dataset.get("status")!="frozen":
             raise ValueError("Frozen dataset is unavailable")
+        progress("extracting_metadata_and_embeddings")
         rows = property_rows(store,scorer,dataset)
-        bundle = train_candidate(rows)
+        bundle = train_candidate(rows,progress)
+        progress("writing_versioned_artifact")
         folder = pilot.ARTIFACTS/"workbench_candidates"/claimed["id"]
         folder.mkdir(parents=True,exist_ok=False)
         joblib.dump(bundle,folder/"candidate.joblib")
@@ -181,6 +292,7 @@ def process_training_request(store,scorer):
         artifact_sha = pilot.sha(folder/"candidate.joblib")
         result = {
             "id":claimed["id"],"status":"completed","completed_at":now(),
+            "stage":"completed",
             "version":claimed["id"],"dataset_version":dataset["dataset_version"],
             "dataset_fingerprint":dataset["fingerprint"],
             "artifact_path":str(folder/"candidate.joblib"),

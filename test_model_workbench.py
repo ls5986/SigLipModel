@@ -3,7 +3,10 @@ import copy
 import pytest
 
 import model_workbench as module
-from model_workbench import dataset_preview, freeze_dataset, save_feedback
+from model_workbench import (
+    candidate_history,compare_candidates,dataset_preview,freeze_dataset,
+    save_feedback,worker_state,
+)
 from workbench_worker import process_pending_runs
 
 
@@ -93,3 +96,69 @@ def test_pending_run_saves_result_without_retraining():
     assert process_pending_runs(store,Scorer())==1
     assert store.document('workbench-run:'+request['id'])['status']=='completed'
     assert store.document('workbench-result:'+request['id'])['model']['version']=='v0'
+
+
+def test_worker_heartbeat_live_stale_and_stopped(monkeypatch):
+    store=Store()
+    store.docs['workbench-worker']={
+        'status':'ready','at':'2026-01-01T00:00:00+00:00','detail':{'model_version':'v0'},
+        'revision':1,
+    }
+    class Clock:
+        @classmethod
+        def now(cls,tz): return __import__('datetime').datetime(2026,1,1,0,0,30,tzinfo=tz)
+        @classmethod
+        def fromisoformat(cls,value): return __import__('datetime').datetime.fromisoformat(value)
+    monkeypatch.setattr(module,'datetime',Clock)
+    assert worker_state(store)['actionable']
+    assert not worker_state(store,threshold_seconds=20)['online']
+    store.docs['workbench-worker']['status']='stopped'
+    assert worker_state(store)['status']=='stopped'
+    assert not worker_state(store)['actionable']
+
+
+def test_candidate_history_is_immutable_and_comparison_explains_v0_boundary():
+    store=Store()
+    store.docs['model-baseline:v0-positive-similarity']={
+        'version':'v0','metrics':{'positive_similarity':True},'revision':1,
+    }
+    candidates=[
+        {'payload':{
+            'id':'v1b','version':'V1 B','dataset_version':'Dataset V2',
+            'artifact_sha256':'b'*64,'metrics':{'protected_test':{'fusion':{
+                'balanced_accuracy':.7,'brier':.2,
+            }}},
+        }},
+        {'payload':{
+            'id':'v1a','version':'V1 A','dataset_version':'Dataset V1',
+            'artifact_sha256':'a'*64,'metrics':{'protected_test':{'fusion':{
+                'balanced_accuracy':.6,'brier':.3,
+            }}},
+        }},
+    ]
+    class Database:
+        class Context:
+            def __enter__(self): return self
+            def __exit__(self,*args): return None
+            def execute(self,*args):
+                class Result:
+                    def fetchall(inner): return copy.deepcopy(candidates)
+                return Result()
+        def connect(self): return self.Context()
+    store.database=Database()
+    history=candidate_history(store)
+    assert [item['id'] for item in history['items']]==[
+        'v0-positive-similarity','v1b','v1a',
+    ]
+    boundary=compare_candidates(store,{
+        'left':'v0-positive-similarity','right':'v1b',
+    })
+    assert not boundary['comparable']
+    assert 'not classifier metrics' in boundary['notice']
+    comparison=compare_candidates(store,{'left':'v1a','right':'v1b'})
+    assert comparison['comparable']
+    accuracy=next(
+        row for row in comparison['metrics']
+        if row['metric']=='balanced_accuracy'
+    )
+    assert accuracy['delta']==pytest.approx(.1)

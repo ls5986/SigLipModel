@@ -162,6 +162,14 @@ def create_server(port, app, auth):
                 )
             if path.startswith("/api/studio/"):
                 try:
+                    if path=="/api/studio/workbench/challenge-image":
+                        args=parse_qs(urlparse(self.path).query)
+                        blob=app.get_studio().challenge_image(
+                            args.get("listing_key",[""])[0],
+                            args.get("media_key",[""])[0],
+                            args.get("batch_id",[None])[0],
+                        )
+                        return self.reply(200,blob,"image/jpeg")
                     if path in {"/api/studio/image","/api/studio/thumbnail"}:
                         identifier=parse_qs(urlparse(self.path).query).get("id",[""])[0]
                         file=app.get_studio().store.image_path(identifier)

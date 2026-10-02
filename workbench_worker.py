@@ -1,6 +1,8 @@
 """Local scorer for queued hosted workbench runs."""
 from __future__ import annotations
 
+import hashlib
+import io
 from collections import Counter
 from pathlib import Path
 
@@ -45,12 +47,23 @@ class WorkbenchScorer:
             self.bundle = joblib.load(file)
 
     def embeddings(self, paths):
+        images = []
+        for path in paths:
+            with Image.open(path) as source:
+                images.append(ImageOps.exif_transpose(source).convert("RGB"))
+        return self._embed_images(images)
+
+    def embedding_blobs(self, blobs):
+        images = []
+        for blob in blobs:
+            with Image.open(io.BytesIO(blob)) as source:
+                images.append(ImageOps.exif_transpose(source).convert("RGB"))
+        return self._embed_images(images)
+
+    def _embed_images(self, source_images):
         vectors = []
-        for start in range(0,len(paths),4):
-            images = []
-            for path in paths[start:start+4]:
-                with Image.open(path) as source:
-                    images.append(ImageOps.exif_transpose(source).convert("RGB"))
+        for start in range(0,len(source_images),4):
+            images = source_images[start:start+4]
             inputs = self.siglip.processor(images=images,return_tensors="pt")
             with self.siglip.torch.inference_mode():
                 values = self.siglip.model.get_image_features(
@@ -64,19 +77,56 @@ class WorkbenchScorer:
 
     def score(self, identifier, requested_mode="automatic"):
         self.load_current()
-        detail = self.store.property(identifier)
-        with self.store.database.connect() as db:
-            group = db.execute('''SELECT group_id FROM acq_training.examples
-                WHERE workspace_id=%s AND listing_key=%s ORDER BY id LIMIT 1''',
-                (self.store.workspace,identifier)).fetchone()
-        eligible = [
-            image for image in detail["images"]
-            if image.get("selection",{}).get("included",True)
-            and image.get("effective",{}).get("context")
-                not in {"shared_amenity","floor_plan","unrelated"}
-        ][:12]
-        paths = [self.store.image_path(image["id"]) for image in eligible]
-        vectors = self.embeddings(paths) if paths else []
+        if identifier.startswith("challenge:"):
+            from mls_source import ExistingMLSSupabaseSource
+            from model_workbench import challenge_item
+            item = challenge_item(self.store,identifier)
+            if not hasattr(self,"mls_source"):
+                self.mls_source = ExistingMLSSupabaseSource.from_env()
+            eligible = [{
+                "id":identifier+":"+photo["media_key"],
+                "effective":{"room":photo.get("room"),"context":"interior_or_listing"},
+                "selection":{"included":True},
+                "condition_draft":"unknown",
+                "challenge_photo":photo,
+            } for photo in item.get("images",[])][:12]
+            blobs = []
+            for image in eligible:
+                photo = image["challenge_photo"]
+                blob = self.mls_source.image_bytes(
+                    item["listing_key"],photo["media_key"],
+                )
+                if hashlib.sha256(blob).hexdigest()!=photo.get("sha256"):
+                    raise ValueError(
+                        "MLS photo changed after the challenge batch was frozen"
+                    )
+                blobs.append(blob)
+            vectors = self.embedding_blobs(blobs) if blobs else []
+            metadata = item.get("metadata",{})
+            detail = {
+                "property":{
+                    "metadata":metadata,
+                    "mls_remarks":metadata.get("PublicRemarks") or "",
+                },
+                "historical_source":{
+                    "photo_coverage":"selected_mls_media" if eligible else "metadata_only",
+                },
+            }
+            group = None
+        else:
+            detail = self.store.property(identifier)
+            with self.store.database.connect() as db:
+                group = db.execute('''SELECT group_id FROM acq_training.examples
+                    WHERE workspace_id=%s AND listing_key=%s ORDER BY id LIMIT 1''',
+                    (self.store.workspace,identifier)).fetchone()
+            eligible = [
+                image for image in detail["images"]
+                if image.get("selection",{}).get("included",True)
+                and image.get("effective",{}).get("context")
+                    not in {"shared_amenity","floor_plan","unrelated"}
+            ][:12]
+            paths = [self.store.image_path(image["id"]) for image in eligible]
+            vectors = self.embeddings(paths) if paths else []
         if self.bundle.get("metadata_model") and self.bundle.get("vision_model"):
             metadata_score = float(self.bundle["metadata_model"].predict(
                 [detail["property"].get("metadata",{})],
@@ -142,11 +192,12 @@ class WorkbenchScorer:
                 "image_id":image["id"],
                 "room":image.get("effective",{}).get("room"),
                 "context":image.get("effective",{}).get("context"),
-                "influence_score":float(influence) if influence is not None else None,
+                "single_photo_target_score":float(influence) if influence is not None else None,
                 "condition_draft":image.get("condition_draft","unknown"),
             })
         photos.sort(key=lambda row:(
-            row["influence_score"] is None,-(row["influence_score"] or 0),row["image_id"]
+            row["single_photo_target_score"] is None,
+            -(row["single_photo_target_score"] or 0),row["image_id"]
         ))
         conditions = [
             image.get("condition_draft") for image in eligible

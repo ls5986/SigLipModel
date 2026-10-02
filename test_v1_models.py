@@ -6,7 +6,7 @@ from v1_models import (
     FusionClassifier, MetadataClassifier, VisionClassifier,
     classification_metrics, require_class_diversity,
 )
-from workbench_training import train_candidate
+from workbench_training import grouped_folds, train_candidate
 
 
 def synthetic():
@@ -76,3 +76,22 @@ def test_train_candidate_builds_all_components_and_protected_metrics():
     assert bundle['vision_model']
     assert bundle['fusion_model']
     assert bundle['metrics']['protected_test']['fusion']['n']==2
+    assert bundle['metrics']['fusion_training']['source']=='grouped_oof_training_predictions'
+    assert bundle['metrics']['fusion_training']['validation_labels_used'] is False
+    assert bundle['metrics']['fusion_training']['protected_test_used'] is False
+
+
+def test_oof_folds_are_deterministic_and_group_disjoint():
+    rows=[]
+    for index in range(12):
+        rows.append({'property_id':str(index),'group_id':'g'+str(index),
+                     'target_label':'TARGET' if index%2 else 'NOT_TARGET'})
+    first,report=grouped_folds(rows,maximum=3)
+    second,_=grouped_folds(rows,maximum=3)
+    assert report['folds']==3
+    assert [(a.tolist(),b.tolist()) for a,b in first]==[
+        (a.tolist(),b.tolist()) for a,b in second
+    ]
+    for fit,holdout in first:
+        assert not ({rows[i]['group_id'] for i in fit}&
+                    {rows[i]['group_id'] for i in holdout})
