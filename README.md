@@ -61,6 +61,33 @@ Absent environment settings, private runtime files default to `~/.siglipmodel`.
   Human review does not require it. It is a bounded selected-photo draft, not a
   full photographic inspection.
 
+The hosted queue is organized by the human task, not by historical dataset names:
+**Needs review**, **Listing / photos**, **Condition / opportunity**, **Complete**,
+and **Needs correction**. Reviewers can also group work by **interior photos**,
+**exterior/limited photos**, or **metadata only**. Internal frozen cohorts remain
+versioned in the training pipeline but are not exposed as reviewer-facing batches.
+
+### Review UX and model-design principles
+
+- SigLIP/SigLIP2 embeddings and zero-shot prompts are drafts, not human truth; prompt
+  wording and calibration matter ([SigLIP](https://arxiv.org/abs/2303.15343),
+  [SigLIP2](https://arxiv.org/abs/2502.14786)).
+- A property is a bag of photos. One informative image may matter more than the
+  average image, so property aggregation should compare max/top-k and eventually
+  attention-based multiple-instance learning rather than relying only on mean pooling
+  ([Ilse et al., ICML 2018](https://proceedings.mlr.press/v80/ilse18a.html)).
+- Missing images are a first-class evidence state. The UI records which modalities
+  were used, and models must explicitly support image-only, metadata-only, and combined
+  inference rather than inventing missing evidence
+  ([Wu et al., 2024](https://arxiv.org/abs/2409.07825)).
+- Acquisition-era identity, visible condition, and opportunity are separate constructs.
+  Later-sale outcomes and later-renovation photos cannot leak into acquisition labels
+  ([Kaufman et al.](https://doi.org/10.1145/2382577.2382579);
+  [Jacobs & Wallach](https://arxiv.org/abs/1912.05511)).
+- The interface states what the system can and cannot do, shows why a case needs review,
+  supports correction, and never silently retrains from a click
+  ([Amershi et al., CHI 2019](https://doi.org/10.1145/3290605.3300233)).
+
 An approved property judgment does not approve every photo. Human corrections take
 precedence over model drafts. Shared amenities, floor plans, and unrelated images
 cannot silently become subject-property condition evidence. A match to a later

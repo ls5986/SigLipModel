@@ -76,6 +76,7 @@ nav{display:flex;gap:8px;align-items:center}nav button{border:0;background:var(-
 .statusbar{min-height:52px;padding:10px 24px;border-bottom:1px solid var(--cp-border);background:var(--cp-bg-elevated)}#message{margin:8px 24px;display:flex;align-items:center;gap:12px}#message[hidden]{display:none}#message-text{flex:1}
 .workspace{display:grid;grid-template-columns:220px minmax(460px,1fr) 360px;flex:1;min-height:0;gap:0}
 .queue{background:var(--cp-surface);border-right:1px solid var(--cp-border);display:flex;flex-direction:column;min-height:0}.queue-tools{padding:16px;display:grid;gap:10px}.queue-tools input,.queue-tools select{width:100%;min-width:0;padding:8px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface)}
+.queue-tabs{display:flex;flex-wrap:wrap;gap:6px}.queue-tabs button{font-size:11px;padding:7px 9px;white-space:normal}.queue-tabs button[aria-pressed="true"]{color:var(--cp-accent);background:var(--cp-accent-soft);border-color:var(--cp-accent);font-weight:700}.queue-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--cp-text-soft)}.queue-badge{display:inline-block;margin-top:4px;padding:2px 6px;border:1px solid var(--cp-border);border-radius:999px;background:var(--cp-surface-soft);font-size:10px;color:var(--cp-text-muted)}
 #queue-list{overflow:auto;flex:1;padding:0 8px}.queue-item{display:flex;gap:10px;text-align:left;white-space:normal;width:100%;padding:10px 8px;margin-bottom:5px;border-color:var(--cp-surface)}.queue-item[aria-current="true"]{border-color:var(--cp-accent);background:var(--cp-accent-soft)}.queue-item img{width:62px;height:52px;border-radius:7px;object-fit:cover;flex-shrink:0;background:var(--cp-surface-soft)}.queue-item strong{font-size:12px;display:block}.queue-item small{display:block;font-size:11px}.queue-item .copy{min-width:0;overflow-wrap:anywhere}.pagination{padding:12px 10px;border-top:1px solid var(--cp-border)}
 .viewer{padding:18px;display:flex;flex-direction:column;min-width:0;min-height:0;gap:12px}.property-heading{min-height:48px;min-width:0}.property-heading>div{min-width:0}.property-heading h1,.property-heading p{overflow-wrap:anywhere}.photo-stage{position:relative;flex:1;min-height:260px;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:12px;overflow:hidden;display:grid;place-items:center}.photo-stage img{width:100%;height:100%;object-fit:contain;position:absolute}.photo-stage .image-state{z-index:1;background:var(--cp-panel-strong);padding:16px;border-radius:10px;max-width:90%;text-align:center}.photo-stage .image-state[hidden]{display:none}.photo-step{position:absolute;bottom:12px;right:12px;z-index:2;background:var(--cp-panel-strong);padding:5px;border-radius:10px}.photo-step button{padding:5px 12px}
 .room-tabs{display:flex;gap:6px;overflow:auto;flex-shrink:0}.room-tabs button{font-size:12px;padding:6px 10px}.room-tabs button[aria-pressed="true"]{color:var(--cp-accent);background:var(--cp-accent-soft);border-color:var(--cp-accent)}
@@ -88,7 +89,7 @@ footer{min-height:80px;background:var(--cp-surface);border-top:1px solid var(--c
 dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:24px;max-width:720px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}dialog::backdrop{background:var(--cp-overlay)}dialog form{display:grid;gap:16px;min-width:0}dialog label,dialog fieldset,dialog .filmstrip{min-width:0}dialog input:not([type="checkbox"]),dialog select,dialog textarea{width:100%;max-width:100%}dialog fieldset{margin:0;padding:12px;border:1px solid var(--cp-border);border-radius:10px}dialog legend{padding:0 6px;font-weight:600}dialog .review-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}dialog .choice-grid label{display:flex;align-items:flex-start;white-space:normal}dialog .choice-grid input{flex:none;margin-top:3px}dialog .dialog-actions{position:sticky;bottom:-24px;background:var(--cp-surface);padding:12px 0;margin-bottom:-12px;border-top:1px solid var(--cp-border)}@media(max-width:600px){dialog{padding:16px}dialog .review-columns,dialog .choice-grid{grid-template-columns:1fr}dialog .dialog-actions{bottom:-16px}dialog .dialog-actions button{white-space:normal}}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}.features{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px}dialog img{max-height:170px;max-width:100%;object-fit:contain}ul{padding-left:19px;margin:5px 0}#queue-toggle{display:none}
 @media(min-width:1600px){.workspace{grid-template-columns:250px minmax(560px,1fr) 390px}.viewer{padding:24px}}
 @media(max-width:1180px){.workspace{grid-template-columns:205px minmax(400px,1fr) 330px}.viewer{padding:14px}.inspector{padding:16px}.actions button{padding:10px 12px}.footer-copy{max-width:300px}}
-@media(max-width:980px){body{height:auto;min-height:100dvh}header{height:auto;min-height:60px;padding:12px;flex-wrap:wrap;gap:8px}nav{width:100%;justify-content:space-between;overflow:auto}nav a{font-size:12px}.statusbar{padding:10px 12px}.workspace{display:flex;flex-direction:column;height:auto;min-height:0}.queue{display:none;max-height:420px;border-bottom:1px solid var(--cp-border)}.queue.expanded{display:flex}#queue-toggle{display:inline-block}.viewer{padding:12px}.photo-stage{height:48dvh;flex:none;min-height:280px}.inspector{border-left:0;border-top:1px solid var(--cp-border)}footer{position:sticky;bottom:0;z-index:5;flex-direction:column;padding:10px;gap:8px}.footer-copy{max-width:none;font-size:12px}.footer-copy small{display:none}.actions{width:100%}.actions button{flex:1;padding:10px 5px;font-size:12px}#message{margin:8px 12px}.features{grid-template-columns:1fr}}
+@media(max-width:980px){body{height:auto;min-height:100dvh}header{height:auto;min-height:60px;padding:12px;flex-wrap:wrap;gap:8px}nav{width:100%;justify-content:space-between;overflow:auto}nav a{font-size:12px}.statusbar{padding:10px 12px}.workspace{display:flex;flex-direction:column;height:auto;min-height:0}.queue{display:none;max-height:420px;border-bottom:1px solid var(--cp-border)}.queue.expanded{display:flex}.queue-open .queue{max-height:calc(100dvh - 150px)}.queue-open .viewer,.queue-open .inspector,.queue-open footer{display:none}#queue-toggle{display:inline-block}.viewer{padding:12px}.photo-stage{height:48dvh;flex:none;min-height:280px}.inspector{border-left:0;border-top:1px solid var(--cp-border)}footer{position:sticky;bottom:0;z-index:5;flex-direction:column;padding:10px;gap:8px}.footer-copy{max-width:none;font-size:12px}.footer-copy small{display:none}.actions{width:100%}.actions button{flex:1;padding:10px 5px;font-size:12px}#message{margin:8px 12px}.features{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -107,7 +108,8 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   <form class="queue-tools" id="search-form">
    <div class="row spread"><strong id="queue-title">Properties</strong><small id="queue-count"></small></div>
    <input id="search" type="search" placeholder="Search address or MLS ID" aria-label="Search properties">
-   <select id="dataset-scope" aria-label="Dataset"><option id="training-scope" hidden disabled value="training">250-property training batch</option><option value="acquisitions">Your acquisition candidates</option><option value="quarantine">Wrong era / needs earlier listing</option><option value="reference">Other reference properties</option></select>
+   <div id="cloud-queue-controls" class="stack" hidden><span class="queue-label">What needs attention?</span><div id="cloud-task-tabs" class="queue-tabs"><button type="button" data-scope="acquisitions" data-filter="todo">Needs review</button><button type="button" data-scope="acquisitions" data-filter="photo_match">Listing / photos</button><button type="button" data-scope="acquisitions" data-filter="opportunity">Condition / opportunity</button><button type="button" data-scope="acquisitions" data-filter="complete">Complete</button><button type="button" data-scope="quarantine" data-filter="all">Needs correction</button></div><span class="queue-label">Evidence available</span><div id="cloud-evidence-tabs" class="queue-tabs"><button type="button" data-evidence="all">All</button><button type="button" data-evidence="interior">Interior photos</button><button type="button" data-evidence="limited">Exterior / metadata</button><button type="button" data-evidence="metadata_only">Metadata only</button></div></div>
+   <select id="dataset-scope" aria-label="Dataset"><option value="acquisitions">Your acquisition candidates</option><option value="quarantine">Wrong era / needs earlier listing</option><option value="reference">Other reference properties</option></select>
    <select id="queue-filter" aria-label="Review queue"><option value="todo">Still needs review</option><option value="photo_match">Needs listing/photo decision</option><option value="opportunity">Photos confirmed; rate opportunity</option><option value="complete">Review complete</option><option value="all">All matched listings</option><option value="tagged">Tagged photos ready</option><option value="ready">AI property draft available</option><option value="unscored">Not reviewed yet</option><option value="reviewed">Reviewed</option></select>
   </form>
   <div id="queue-list"><p class="muted" style="padding:12px">Loading your properties…</p></div>
@@ -194,7 +196,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);
- const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'acquisitions',cohortLinkChecked:false,mode:'review',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set(),knownTargets:false};
+ const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'acquisitions',evidence:'all',mode:'review',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set(),knownTargets:false};
  const ROOMS=['kitchen','bathroom','living','bedroom','exterior','outdoor','other'];
  const FEATURES=['dated_kitchen','dated_bathroom','old_flooring','old_cabinetry','dated_appliances','dated_lighting','dated_fixtures','damaged_surfaces','popcorn_ceiling','wood_paneling','clutter_obscures_condition','empty_presentation','visible_deferred_maintenance'];
  const INTERIOR=['kitchen','bathroom','living','bedroom','other'];
@@ -272,6 +274,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    const state=S.knownTargets?(i.review_complete?'Review complete ✓':i.needs_photo_match?'Step 1 · Confirm listing and photos':'Step 2 · Rate condition and opportunity'):S.mode==='matching'?(i.needs_photo_match?'Sale/photos need verification':'Sale/photos verified'):i.human_score?`${i.human_score}/5 · Reviewed`:label(i.status);
    copy.append(el('strong',i.address),el('small',[i.city,`${i.image_count} photos`].filter(Boolean).join(' · ')),el('small',state));
    if(S.knownTargets&&i.tagged_photo_count)copy.append(el('small',`${i.tagged_photo_count} draft photo tags available`,'muted'));
+   if(S.knownTargets)copy.append(el('span',i.evidence_mode==='interior'?`${i.interior_tagged_count} interior photos`:i.evidence_mode==='metadata_only'?'Metadata only':'Exterior / limited photos','queue-badge'));
    button.append(copy);return button;
   }));
   if(!S.items.length)$('queue-list').append(el('p','Nothing remains in this view. Choose All matched listings or another review step.','notice'));
@@ -279,10 +282,9 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  async function loadQueue(prefer=null){
   $('dataset-scope').value=S.scope;
   const requestedQueue=S.knownTargets?S.filter:S.mode==='matching'?'photo_match':S.filter;
-  const data=await api('review-queue?'+new URLSearchParams({queue:requestedQueue,scope:S.scope,search:$('search').value.trim(),offset:S.offset,limit:20}));
+  const data=await api('review-queue?'+new URLSearchParams({queue:requestedQueue,scope:S.scope,evidence:S.evidence,search:$('search').value.trim(),offset:S.offset,limit:20}));
   const cloud=data.capabilities?.storage==='supabase';
-  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';S.filter='todo';$('queue-filter').value='todo';$('review-nav').hidden=true;$('match-nav').textContent='Review properties';$('ready-button').hidden=true;return loadQueue(prefer);}$('training-scope').hidden=!cloud;$('training-scope').disabled=!cloud;
-  if(!S.cohortLinkChecked){S.cohortLinkChecked=true;if(cloud&&new URLSearchParams(location.search).get('cohort')==='training'){S.scope='training';S.offset=0;return loadQueue();}}
+  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';S.filter='todo';S.scope='acquisitions';$('queue-filter').value='todo';$('review-nav').hidden=true;$('match-nav').textContent='Review properties';$('ready-button').hidden=true;$('cloud-queue-controls').hidden=false;$('dataset-scope').hidden=true;$('queue-filter').hidden=true;drawCloudTabs();return loadQueue(prefer);}
   S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
   if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
   $('progress').textContent=S.knownTargets?`${S.counts.todo} incomplete of ${S.counts.all} matched listings`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
@@ -299,13 +301,19 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   if(requested&&!S.request){await openProperty(requested);return;}
   if(next)await openProperty(next.id);else{S.detail=null;draw();}
  }
+ function drawCloudTabs(){
+  for(const button of document.querySelectorAll('#cloud-task-tabs button'))button.setAttribute('aria-pressed',String(button.dataset.scope===S.scope&&button.dataset.filter===S.filter));
+  for(const button of document.querySelectorAll('#cloud-evidence-tabs button'))button.setAttribute('aria-pressed',String(button.dataset.evidence===S.evidence));
+ }
+ function chooseCloudQueue(button){S.scope=button.dataset.scope;S.filter=button.dataset.filter;S.offset=0;S.detail=null;drawCloudTabs();action(()=>loadQueue());}
+ function chooseEvidence(button){S.evidence=button.dataset.evidence;S.offset=0;S.detail=null;drawCloudTabs();action(()=>loadQueue());}
  function summaryStat(value,labelText){const node=el('span');node.append(el('strong',String(value)),document.createTextNode(labelText));return node;}
  async function openProperty(id){
   const ticket=++S.request;const detail=await api('property?'+new URLSearchParams({id}));
   if(ticket!==S.request)return;
   const same=S.detail?.property.id===id,oldPhoto=S.photo;S.detail=detail;S.room='all';
   S.photo=same&&detail.images.some(i=>i.id===oldPhoto)?oldPhoto:(detail.images.find(i=>roomOf(i)==='kitchen')||detail.images[0])?.id;
-  document.querySelector('.queue').classList.remove('expanded');drawQueue();draw();
+  document.querySelector('.queue').classList.remove('expanded');document.body.classList.remove('queue-open');drawQueue();draw();
   $('autolabel-status').hidden=!detail.capabilities?.autolabel;$('retry-autolabel').hidden=true;$('test-autolabel').disabled=true;$('label-tools').hidden=!detail.capabilities?.autolabel||!detail.images.length;
   if(detail.capabilities?.autolabel&&detail.images.length)startAutolabel(id,ticket);
   else{S.labelTask=null;$('autolabel-status').textContent='No valid first-sale photos to classify.';}
@@ -640,6 +648,8 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  $('edit-photo').onclick=()=>withName(openPhoto);$('score-button').onclick=previewScore;
  $('flag-era').onclick=()=>withName(()=>saveEra('wrong_era'));
  $('dataset-scope').onchange=()=>action(async()=>{S.scope=$('dataset-scope').value;S.offset=0;S.detail=null;await loadQueue();});
+ for(const button of document.querySelectorAll('#cloud-task-tabs button'))button.onclick=()=>chooseCloudQueue(button);
+ for(const button of document.querySelectorAll('#cloud-evidence-tabs button'))button.onclick=()=>chooseEvidence(button);
  $('photo-prev').onclick=()=>{const a=photoList(),i=a.findIndex(v=>v.id===S.photo);if(i>0){S.photo=a[i-1].id;drawHero();}};
  $('photo-next').onclick=()=>{const a=photoList(),i=a.findIndex(v=>v.id===S.photo);if(i<a.length-1){S.photo=a[i+1].id;drawHero();}};
  $('queue-prev').onclick=()=>action(async()=>{S.offset=Math.max(0,S.offset-20);S.detail=null;await loadQueue();});
@@ -650,7 +660,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  $('review-nav').onclick=()=>mode('review');$('match-nav').onclick=()=>mode('matching');
  $('ready-button').onclick=()=>{S.mode='review';S.filter='ready';$('queue-filter').value='ready';S.offset=0;S.detail=null;action(loadQueue);};
  $('refresh').onclick=()=>{if(editing()){note('Finish or cancel your unsaved edits before reloading.');return;}action(loadQueue);};
- $('queue-toggle').onclick=()=>document.querySelector('.queue').classList.toggle('expanded');
+ $('queue-toggle').onclick=()=>{const open=document.querySelector('.queue').classList.toggle('expanded');document.body.classList.toggle('queue-open',open);};
  $('dismiss').onclick=()=>$('message').hidden=true;$('retry').onclick=()=>{if(S.retry)S.retry();};
  for(const b of document.querySelectorAll('[data-close]'))b.onclick=()=>$(b.dataset.close).close();
  window.addEventListener('beforeunload',e=>{if(editing()&&$('score-dialog').open===false){e.preventDefault();e.returnValue='';}});

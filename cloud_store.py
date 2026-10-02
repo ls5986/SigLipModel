@@ -376,10 +376,13 @@ class SupabaseStore:
 
     def queue(self, args):
         scope, queue = args.get('scope','acquisitions'), args.get('queue','all')
+        evidence_filter = args.get('evidence','all')
         if scope not in {'acquisitions','quarantine','reference','training'} or queue not in {
             'all','ready','unscored','reviewed','photo_match','tagged','todo','opportunity','complete'
         }:
             raise ValueError('Unknown review queue')
+        if evidence_filter not in {'all','interior','limited','metadata_only'}:
+            raise ValueError('Unknown evidence filter')
         offset,limit = max(0,int(args.get('offset',0))),min(40,max(1,int(args.get('limit',20))))
         with self.lock:
             if self._index is None or time.monotonic()-self._index[0]>15:
@@ -426,7 +429,16 @@ class SupabaseStore:
                     label_result = states.get(('document','autolabel-result:'+key),{})
                     tagged_images = [image for image in label_result.get('images', [])
                                      if isinstance(image, dict) and image.get('image_id')]
+                    interior_tags = [
+                        image for image in tagged_images
+                        if image.get('context') in {'subject','subject_interior'}
+                        and image.get('room') in {'kitchen','bathroom','living','bedroom'}
+                    ]
                     photo = photos.get(key,{})
+                    evidence_mode = (
+                        'interior' if interior_tags else
+                        'limited' if photo.get('count',0) else 'metadata_only'
+                    )
                     items[key] = {'id':key,'address':row['address'] or key,'city':row['city'],
                         'listing_id':row['listing_id'],'image_count':photo.get('count',0),'hero_image_id':photo.get('hero'),
                         'status':'reviewed' if review.get('status')=='approved' else 'unscored',
@@ -436,6 +448,8 @@ class SupabaseStore:
                         'needs_photo_match':not(photo.get('count') and era.get('decision')=='correct_era' and era.get('evidence_hash')==photo.get('evidence_hash')),'blocked':blocked or era.get('decision')=='wrong_era',
                         'autolabel_status':label_request.get('status','not_requested'),
                         'tagged_photo_count':len(tagged_images),
+                        'interior_tagged_count':len(interior_tags),
+                        'evidence_mode':evidence_mode,
                         'source_role':'historical candidate','acquisition_status':'prior_acquisition_candidate'}
                     items[key]['review_complete'] = (
                         not items[key]['needs_photo_match'] and items[key]['status']=='reviewed'
@@ -460,6 +474,9 @@ class SupabaseStore:
         counts['tagged'] = sum(
             i['autolabel_status']=='completed' and i['tagged_photo_count'] > 0 for i in items
         )
+        counts['interior'] = sum(i['evidence_mode']=='interior' for i in items)
+        counts['limited'] = sum(i['evidence_mode']=='limited' for i in items)
+        counts['metadata_only'] = sum(i['evidence_mode']=='metadata_only' for i in items)
         photo_count = sum(i['image_count'] for i in items)
         search = args.get('search','').strip().casefold()
         items = [i for i in items if (queue=='all' or queue=='todo' and not i['review_complete']
@@ -468,8 +485,12 @@ class SupabaseStore:
                   or queue=='photo_match' and i['needs_photo_match']
                   or queue=='tagged' and i['autolabel_status']=='completed' and i['tagged_photo_count']
                   or i['status']==queue)
+                 and (evidence_filter=='all' or evidence_filter=='limited' and i['evidence_mode']!='interior'
+                      or i['evidence_mode']==evidence_filter)
                  and (not search or search in ' '.join(str(i[k] or '') for k in ('id','address','city','listing_id')).casefold())]
-        items.sort(key=lambda i:(not i['image_count'],i['status']=='reviewed',i['address']))
+        evidence_priority = {'metadata_only':0,'limited':1,'interior':2}
+        items.sort(key=lambda i:(i['review_complete'],not i['needs_photo_match'],
+                                evidence_priority[i['evidence_mode']],i['address']))
         return {'items':items[offset:offset+limit],'counts':counts,'total':len(items),'offset':offset,'limit':limit,
                 'photo_count':photo_count,
                 'capabilities':{'review':True,'assessment':False,'training':False,'storage':'supabase'}}
