@@ -103,6 +103,9 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
         def _legacy(self,db,ids): return {'properties':reviews}
         def _reviews(self,db,ids): return eras
     eras['era','2']['photo_coverage']='no_interior'
+    from automatic_labels import POLICY
+    eras['document','autolabel-result:3']={'policy':POLICY,'evidence_hash':eras['era','3']['evidence_hash'],
+        'images':[{'image_id':'3:photo','sha256':photos[3]['image_sha256'],'context':'floor_plan'}]}
     images, properties = snapshot(Store(DB(),None))
     assert len(properties)==251 and len(images)==251
     assert properties[0]['split']=='test' and not properties[0]['training_allowed']
@@ -113,7 +116,11 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
     assert readiness(properties)['ready']
     assert next(p for p in properties if p['id']=='2')['known_target']
     assert next(p for p in properties if p['id']=='2')['photo_coverage']=='no_interior'
-    assert next(i for i in images if i['property_id']=='2')['label_exclusion'].startswith('No interior')
+    assert next(i for i in images if i['property_id']=='2')['label_exclusion'] is None
+    assert next(i for i in images if i['property_id']=='2')['include_in_similarity'] is True
+    assert next(i for i in images if i['property_id']=='3')['label_exclusion']
+    assert not next(i for i in images if i['property_id']=='3')['include_in_similarity']
+    assert next(p for p in properties if p['id']=='3')['known_target']
     assert not next(p for p in properties if p['id']=='outside')['known_target']
 
 

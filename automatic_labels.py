@@ -93,6 +93,9 @@ class SiglipLabels:
 
 def active_policy():
     import os
+    if os.environ.get('STUDIO_AUTOLABEL_PROVIDER') == 'hybrid':
+        from openai_labels import hybrid_policy
+        return hybrid_policy()
     if os.environ.get('STUDIO_AUTOLABEL_PROVIDER') == 'openai':
         from openai_labels import policy
         return policy()

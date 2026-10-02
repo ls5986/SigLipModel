@@ -55,7 +55,7 @@ def snapshot(store):
         keys = sorted({r['listing_key'] for r in records})
         legacy = store._legacy(db, [*keys, *[r['listing_key']+':'+str(r['provider_media_key'])
                                                for r in photos if r['listing_key'] in keys]])
-        live = store._reviews(db, [*keys, *[r['listing_key']+':'+str(r['provider_media_key'])
+        live = store._reviews(db, [*keys, *['autolabel-result:'+k for k in keys], *[r['listing_key']+':'+str(r['provider_media_key'])
                                           for r in photos if r['listing_key'] in keys]])
         # Imported base schema did not restore protected_test flags. Recover original test
         # identities from the immutable manifest before joining physical/image aliases.
@@ -131,21 +131,28 @@ def snapshot(store):
             if context in {None,'unknown'}:
                 if any(term in description for term in ('community pool','community room','community exercise','hoa','clubhouse')): context='shared_amenity'
                 elif 'floor plan' in description or 'floorplan' in description: context='floor_plan'
-            no_interior = history['photo_coverage']=='no_interior'
-            excluded = not verified or no_interior or context in {'shared_amenity','floor_plan','unrelated'}
+            automatic = live.get(('document','autolabel-result:'+key),{})
+            from automatic_labels import active_policy
+            if automatic.get('policy') != active_policy() or automatic.get('evidence_hash') != history['evidence_hash']: automatic = {}
+            draft = next((i for i in automatic.get('images',[]) if i.get('image_id')==identifier and i.get('sha256')==p['image_sha256']),{})
+            if context in {None,'unknown'}: context = draft.get('context',context)
+            from photo_selection import selection
+            included = selection(context,review)['included']
+            excluded = not verified or not included
+            condition_excluded = not verified or context in {'shared_amenity','floor_plan','unrelated'}
             examples.append({'id':identifier, 'property_id':key, 'group_id':group, 'split':split,
                 'physical_key':group, 'sha256':p['image_sha256'],
                 'path':None,
                 'storage_bucket':p['storage_bucket'], 'storage_object_key':p['storage_object_key'],
-                'room':review.get('room') if approved and not excluded else None,
+                'room':review.get('room') if approved and not condition_excluded else None,
                 'proposed_room':review.get('room') or 'other',
-                'features':review.get('features',{}) if approved and not excluded else {},
-                'condition_label':review.get('condition_label','unknown') if approved and not excluded else 'unknown',
-                'preference':review.get('preference') if approved and not excluded else None,
+                'features':review.get('features',{}) if approved and not condition_excluded else {},
+                'condition_label':review.get('condition_label','unknown') if approved and not condition_excluded and history['photo_coverage']!='no_interior' else 'unknown',
+                'preference':review.get('preference') if approved and not condition_excluded else None,
                 'preference_room':review.get('preference_room') or review.get('room') or 'other',
                 'photo_context':context, 'human_review_revision':review.get('revision',0),
-                'label_exclusion':('No interior photos: metadata-only reference' if no_interior else
-                                   'Unverified era or non-subject photo') if excluded else None})
+                'include_in_similarity':included,
+                'label_exclusion':'Unverified era or excluded photo' if excluded else None})
     return examples, properties
 
 

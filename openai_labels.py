@@ -17,6 +17,10 @@ def policy():
     return BASE_POLICY + ':' + os.environ.get('STUDIO_OPENAI_MODEL', 'gpt-4.1-mini')
 
 
+def hybrid_policy():
+    return 'siglip-rooms-openai-features-v1:' + os.environ.get('STUDIO_OPENAI_MODEL','gpt-4.1-mini')
+
+
 def object_schema(properties):
     return {'type':'object','properties':properties,'required':list(properties),'additionalProperties':False}
 
@@ -64,13 +68,17 @@ class OpenAILabels:
         if count >= self.limit: raise ValueError('Daily labeling call limit reached')
         self.store.save_document(key, {'calls':count+1,'at':now()},current.get('revision',0))
 
-    def classify(self, paths):
+    def classify(self, paths, room_tags=None):
+        self.last_usage = None
+        hybrid = room_tags is not None
+        if hybrid and len(room_tags)!=len(paths): raise ValueError('SigLIP rooms required')
         cache_keys = []
         cached = []
         for path in paths:
             with open(path,'rb') as source:
                 digest = hashlib.sha256(source.read()).hexdigest()
-            key = 'autolabel-cache:'+hashlib.sha256((self.policy+digest).encode()).hexdigest()
+            tag = room_tags[len(cache_keys)] if hybrid else {}
+            key = 'autolabel-cache:'+hashlib.sha256((self.policy+digest+json.dumps({'room':tag.get('room'),'context':tag.get('context')},sort_keys=True)).encode()).hexdigest()
             cache_keys.append(key)
             cached.append(self.store.document(key))
         if all(cached): return [row['prediction'] for row in cached]
@@ -81,17 +89,23 @@ class OpenAILabels:
                 image = ImageOps.exif_transpose(original).convert('RGB')
                 image.thumbnail((1280,1280))
                 buffer = io.BytesIO(); image.save(buffer,format='JPEG',quality=85)
-            content.extend([{'type':'input_text','text':f'Image {i}'},
+            content.extend([{'type':'input_text','text':f'Image {i}'+(f". SigLIP room: {room_tags[i]['room']}. Preserve this room; do not classify rooms." if hybrid else '')},
                 {'type':'input_image','detail':'high','image_url':'data:image/jpeg;base64,'+base64.b64encode(buffer.getvalue()).decode()}])
+        schema = json.loads(json.dumps(SCHEMA))
+        if hybrid:
+            properties = schema['properties']['images']['items']
+            properties['properties'].pop('room')
+            properties['required'].remove('room')
         self.reserve_call()
         try:
             response = self.client.post('https://api.openai.com/v1/responses',
                 headers={'Authorization':'Bearer '+self.key}, json={
                     'model':self.model,'store':False,'max_output_tokens':4000,
                     'input':[{'role':'system','content':PROMPT},{'role':'user','content':content}],
-                    'text':{'format':{'type':'json_schema','name':'photo_tags','strict':True,'schema':SCHEMA}}})
+                    'text':{'format':{'type':'json_schema','name':'photo_tags','strict':True,'schema':schema}}})
             response.raise_for_status()
             body = response.json()
+            self.last_usage = body.get('usage')
             if body.get('status') != 'completed': raise ValueError('Incomplete response')
             output = ''.join(part['text'] for item in body.get('output',[]) if item.get('type')=='message'
                 for part in item.get('content',[]) if part.get('type')=='output_text')
@@ -100,6 +114,8 @@ class OpenAILabels:
                 raise ValueError('Missing or duplicate image labels')
             predictions = {}
             for row in rows:
+                if hybrid:
+                    row['room'] = room_tags[row['index']]['room']
                 if row['room'] not in ROOMS or row['context'] not in PHOTO_CONTEXTS or row['condition_label'] not in CONDITIONS:
                     raise ValueError('Invalid tags')
                 if set(row['features'])!=set(FEATURES) or any(v is not None and type(v) is not bool for v in row['features'].values()) or type(row['uncertain']) is not bool:
@@ -109,6 +125,7 @@ class OpenAILabels:
                 predictions[row['index']] = {**row,'features':features,
                     'context':'subject' if row['context'] in {'subject_interior','subject_exterior'} else row['context'],
                     'condition_label':row['condition_label'] if row['context'] in {'subject','subject_interior'} and row['room'] in {'kitchen','bathroom','living','bedroom'} else 'unknown',
+                    'room_source':'SigLIP' if hybrid else 'OpenAI','context_source':'OpenAI draft',
                     'policy':self.policy,'model':self.model,'provenance':'OpenAI image-only draft; human approval required'}
         except Exception:
             # Do not leak provider bodies, request data, authorization headers, or retry paid calls.
@@ -124,18 +141,24 @@ def start_hosted_worker(store):
     """Start only on the hosted process; no checkpoint or laptop is required."""
     import threading
     from cloud_autolabel import heartbeat, process
-    os.environ.setdefault('STUDIO_AUTOLABEL_PROVIDER','openai')
-    if os.environ['STUDIO_AUTOLABEL_PROVIDER']!='openai': return None
+    os.environ.setdefault('STUDIO_AUTOLABEL_PROVIDER','hybrid')
+    # Migrate the previous hosted OpenAI-only setting: it must not enable broad paid labeling.
+    if os.environ['STUDIO_AUTOLABEL_PROVIDER']=='openai': os.environ['STUDIO_AUTOLABEL_PROVIDER']='hybrid'
+    if os.environ['STUDIO_AUTOLABEL_PROVIDER']!='hybrid': return None
     stop = threading.Event()
     if not os.environ.get('OPENAI_API_KEY','').strip():
         heartbeat(store,'unconfigured','Add OPENAI_API_KEY in Render and redeploy to enable draft tags.')
         return None
     classifier = OpenAILabels(store)
+    if os.environ['STUDIO_AUTOLABEL_PROVIDER']=='hybrid':
+        classifier.policy = hybrid_policy()
+        classifier.stage = 'features'
+        classifier.paid = True
     def run():
         try:
             while not stop.is_set():
                 heartbeat(store,'ready')
-                for identifier in store.autolabel_pending():
+                for identifier in store.autolabel_pending(stage=getattr(classifier,'stage',None)):
                     if stop.is_set(): break
                     try: process(store,identifier,classifier)
                     except Exception: print('Draft photo labeling failed; review the saved request status.',flush=True)

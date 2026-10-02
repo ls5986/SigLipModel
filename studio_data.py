@@ -111,6 +111,10 @@ def validate_review(payload, source):
             preference is not None or any(value is not None for value in features.values())
         ):
             raise ValueError("Non-subject photos cannot approve subject condition or work preference labels")
+        if "include_in_similarity" in payload:
+            if type(payload["include_in_similarity"]) is not bool:
+                raise ValueError("Photo selection must be true or false")
+            record["include_in_similarity"] = payload["include_in_similarity"]
         condition = payload.get("condition_label", "unknown")
         if condition not in CONDITIONS:
             raise ValueError("Invalid photo condition")

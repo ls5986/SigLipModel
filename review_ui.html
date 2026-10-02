@@ -79,7 +79,7 @@ nav{display:flex;gap:8px;align-items:center}nav button{border:0;background:var(-
 #queue-list{overflow:auto;flex:1;padding:0 8px}.queue-item{display:flex;gap:10px;text-align:left;white-space:normal;width:100%;padding:10px 8px;margin-bottom:5px;border-color:var(--cp-surface)}.queue-item[aria-current="true"]{border-color:var(--cp-accent);background:var(--cp-accent-soft)}.queue-item img{width:62px;height:52px;border-radius:7px;object-fit:cover;flex-shrink:0;background:var(--cp-surface-soft)}.queue-item strong{font-size:12px;display:block}.queue-item small{display:block;font-size:11px}.queue-item .copy{min-width:0;overflow-wrap:anywhere}.pagination{padding:12px 10px;border-top:1px solid var(--cp-border)}
 .viewer{padding:18px;display:flex;flex-direction:column;min-width:0;min-height:0;gap:12px}.property-heading{min-height:48px;min-width:0}.property-heading>div{min-width:0}.property-heading h1,.property-heading p{overflow-wrap:anywhere}.photo-stage{position:relative;flex:1;min-height:260px;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:12px;overflow:hidden;display:grid;place-items:center}.photo-stage img{width:100%;height:100%;object-fit:contain;position:absolute}.photo-stage .image-state{z-index:1;background:var(--cp-panel-strong);padding:16px;border-radius:10px;max-width:90%;text-align:center}.photo-stage .image-state[hidden]{display:none}.photo-step{position:absolute;bottom:12px;right:12px;z-index:2;background:var(--cp-panel-strong);padding:5px;border-radius:10px}.photo-step button{padding:5px 12px}
 .room-tabs{display:flex;gap:6px;overflow:auto;flex-shrink:0}.room-tabs button{font-size:12px;padding:6px 10px}.room-tabs button[aria-pressed="true"]{color:var(--cp-accent);background:var(--cp-accent-soft);border-color:var(--cp-accent)}
-.filmstrip{display:flex;gap:8px;overflow:auto;min-height:96px;padding:2px}.filmstrip button{padding:3px;flex:0 0 106px;border-radius:8px;font-size:11px;background:var(--cp-surface);white-space:normal}.filmstrip img{display:block;width:98px;height:64px;object-fit:cover;border-radius:5px;background:var(--cp-surface-soft)}.filmstrip button[aria-current="true"]{border:2px solid var(--cp-accent);padding:2px}
+.photo-option{flex:0 0 106px}.photo-option label{display:flex;align-items:center;gap:4px}.photo-option input{width:auto}.filmstrip{display:flex;gap:8px;overflow:auto;min-height:96px;padding:2px}.filmstrip button{padding:3px;flex:0 0 106px;border-radius:8px;font-size:11px;background:var(--cp-surface);white-space:normal}.filmstrip img{display:block;width:98px;height:64px;object-fit:cover;border-radius:5px;background:var(--cp-surface-soft)}.filmstrip button[aria-current="true"]{border:2px solid var(--cp-accent);padding:2px}
 .inspector{background:var(--cp-surface);border-left:1px solid var(--cp-border);padding:20px;overflow:auto;display:flex;flex-direction:column;gap:18px;min-width:0}.decision-title{font-size:27px;font-weight:700;line-height:1.2;letter-spacing:-.02em}.section{border-top:1px solid var(--cp-border);padding-top:16px}.kv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:8px 12px;font-size:12px}.kv span,.kv strong{min-width:0;overflow-wrap:anywhere}.kv strong{text-align:right}.context-tags{display:flex;flex-wrap:wrap;gap:6px}.score{font-size:22px;font-variant-numeric:tabular-nums}#model-reason{font-size:13px}#score-button{width:100%}#photo-notes{font-size:12px}#matching{display:none}.matching-mode #matching{display:grid}.matching-mode #assessment{display:none}.listing-remarks{white-space:pre-wrap;max-height:180px;overflow:auto;line-height:1.45}.outcome{border-left:3px solid var(--cp-accent)}.outcome strong{font-size:18px}.field-note{line-height:1.45}
 .matching-mode #economics{display:none}
 .fact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.fact{padding:9px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface-soft);min-width:0}.fact small,.fact strong{display:block}.fact strong{overflow-wrap:anywhere}.choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.choice-grid label{display:flex;align-items:center;gap:7px;padding:8px;border:1px solid var(--cp-border);border-radius:8px}.choice-grid input{min-width:auto}.evidence-picker button[aria-pressed="true"]{border:3px solid var(--cp-accent);padding:0}.evidence-picker button[aria-pressed="true"]::after{content:"Evidence";display:block;color:var(--cp-accent);font-weight:700}.technical summary,.secondary-context summary{cursor:pointer;color:var(--cp-text-muted)}.secondary-context summary{display:grid;gap:2px;list-style:none}.secondary-context summary::-webkit-details-marker{display:none}.secondary-context summary::after{content:"Show details";font-size:11px;color:var(--cp-link)}.secondary-context[open] summary::after{content:"Hide details"}.secondary-context-body{margin-top:14px}
@@ -119,7 +119,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    <div id="image-state" class="image-state">Loading the review queue…</div>
    <div class="photo-step row"><button id="photo-prev" aria-label="Previous photo">←</button><small id="photo-position">0 / 0</small><button id="photo-next" aria-label="Next photo">→</button></div>
   </div>
-  <p id="autolabel-status" class="small muted" hidden></p><button id="retry-autolabel" class="small" hidden>Retry room suggestions</button><div class="row spread"><strong id="photo-caption">Property photos</strong><button id="edit-photo" class="small" disabled>Correct this photo</button></div>
+  <p id="autolabel-status" class="small muted" hidden></p><button id="retry-autolabel" class="small" hidden>Retry SigLIP rooms</button><button id="test-autolabel" class="small" hidden>Test ChatGPT tags on up to 8 photos</button><div class="row spread"><strong id="photo-caption">Property photos</strong><button id="edit-photo" class="small" disabled>Correct this photo</button></div>
   <div id="rooms" class="room-tabs" aria-label="Filter photos by room"></div>
   <div id="filmstrip" class="filmstrip" aria-label="Photo thumbnails"></div>
  </section>
@@ -136,7 +136,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   <section id="matching" class="stack">
    <span class="eyebrow">Historical photo check</span><h2>Is this the right photo set?</h2>
    <p class="small muted">Match the property and acquisition era. This does not approve its investment potential.</p>
-   <label for="photo-coverage">Interior photo coverage<select id="photo-coverage"><option value="unknown">Not recorded / unsure</option><option value="interior_available">Interior photos available</option><option value="no_interior">No interior photos</option></select></label><p class="small muted">Missing interiors does not make the sale wrong. No interior photos keeps a verified target available for metadata learning, with these photos excluded from the training candidate. Saved when you choose a review action below.</p><div id="sale-context" class="stack"></div><p id="era-state" class="notice warning"></p>
+   <label for="photo-coverage">Interior photo coverage<select id="photo-coverage"><option value="unknown">Not recorded / unsure</option><option value="interior_available">Interior photos available</option><option value="no_interior">No interior photos</option></select></label><p class="small muted">Missing interiors does not make the sale wrong. A verified sale remains a known target. Relevant exterior and outdoor photos still teach visual similarity, and listing metadata still contributes. Interior condition stays unknown. Saved when you choose a review action below.</p><div id="sale-context" class="stack"></div><p id="era-state" class="notice warning"></p>
   </section>
   <section class="section stack"><div class="row spread"><h3>Property facts</h3><small>Available at review time</small></div><div id="property-facts" class="fact-grid"></div></section>
   <details id="listing-context" class="section secondary-context">
@@ -258,27 +258,28 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const same=S.detail?.property.id===id,oldPhoto=S.photo;S.detail=detail;S.room='all';
   S.photo=same&&detail.images.some(i=>i.id===oldPhoto)?oldPhoto:(detail.images.find(i=>roomOf(i)==='kitchen')||detail.images[0])?.id;
   document.querySelector('.queue').classList.remove('expanded');drawQueue();draw();
-  $('autolabel-status').hidden=!detail.capabilities?.autolabel;$('retry-autolabel').hidden=true;
+  $('autolabel-status').hidden=!detail.capabilities?.autolabel;$('retry-autolabel').hidden=true;$('test-autolabel').hidden=true;
   if(detail.capabilities?.autolabel&&detail.images.length)startAutolabel(id,ticket);
   else{S.labelTask=null;$('autolabel-status').textContent='No retained photos to classify.';}
  }
  function labelStatus(data){
-  $('autolabel-status').textContent=data.status==='completed'?'Draft photo tags ready. Review and save to approve them.':data.status==='failed'?'Room suggestions failed. You can continue verifying properties.':data.worker_status==='unconfigured'?'Automatic tags need OPENAI_API_KEY in Render. You can keep reviewing.':data.worker_online?'Suggesting draft rooms and visible condition features. You can keep reviewing.':'Draft tags queued. Waiting for the labeling worker.';
-  $('retry-autolabel').hidden=data.status!=='failed';
+  $('autolabel-status').textContent=data.status==='awaiting_test'?'SigLIP rooms ready. Test ChatGPT labels on up to 8 selected photos before labeling more.':data.status==='completed'?'Small labeling test ready ('+(data.test_photos||0)+' photos). Review the draft tags.':data.status==='failed'?'Labeling failed. No automatic paid retry. You can keep verifying targets.':data.stage==='rooms'?(data.worker_online?'SigLIP is classifying rooms.':'Waiting for the SigLIP room worker. No ChatGPT calls yet.'):data.worker_status==='unconfigured'?'Add OPENAI_API_KEY in Render to run the small test.':'Small ChatGPT labeling test queued or running.';
+  $('retry-autolabel').hidden=data.status!=='failed'||data.stage==='features';
+  $('test-autolabel').hidden=!['awaiting_test','completed','failed'].includes(data.status)||data.stage==='rooms';
  }
- async function startAutolabel(id,ticket,retry=false){
+ async function startAutolabel(id,ticket,retry=false,test=false){
   S.labelTask={id,ticket,status:'queued',checked:0};
-  try{const request=await api('autolabel',{property_id:id,retry});if(ticket!==S.request)return;
+  try{const request=await api('autolabel',{property_id:id,retry,test});if(ticket!==S.request)return;
    const data=request.status==='completed'?request:await api('autolabel?'+new URLSearchParams({id}));
    if(ticket!==S.request)return;Object.assign(S.labelTask,data);labelStatus(data);
   }catch(error){if(ticket===S.request){S.labelTask.status='failed';labelStatus({status:'failed'});}}
  }
  async function pollLabels(){
-  const task=S.labelTask;if(!task||task.ticket!==S.request||['completed','failed'].includes(task.status)||Date.now()-task.checked<15000)return;
+  const task=S.labelTask;if(!task||task.ticket!==S.request||['completed','failed','awaiting_test'].includes(task.status)||Date.now()-task.checked<15000)return;
   task.checked=Date.now();
   const data=await api('autolabel?'+new URLSearchParams({id:task.id}));if(task.ticket!==S.request)return;
   Object.assign(task,data);labelStatus(data);
-  if(data.status==='completed'){
+  if(['completed','awaiting_test'].includes(data.status)){
    const fresh=await api('property?'+new URLSearchParams({id:task.id}));
    if(task.ticket!==S.request)return;
    if(editing()||S.busy){task.status='queued';return;}
@@ -287,6 +288,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    S.detail.images=fresh.images;drawPhotos();
   }
  }
+ $('test-autolabel').onclick=()=>{if(S.detail)startAutolabel(S.detail.property.id,S.request,false,true);};
  $('retry-autolabel').onclick=()=>{if(S.detail)startAutolabel(S.detail.property.id,S.request,true);};
  function draw(){
   const d=S.detail,p=d?.property,job=d?.assessment;
@@ -382,13 +384,18 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('rooms').replaceChildren(...['all',...rooms].map(room=>{const b=btn((room==='all'?'All photos':label(room))+' '+(room==='all'?images.length:images.filter(i=>roomOf(i)===room).length),()=>{S.room=room;S.photo=photoList()[0]?.id;drawPhotos();});b.setAttribute('aria-pressed',String(room===S.room));return b;}));
   const photos=photoList();
   $('filmstrip').replaceChildren(...photos.map((i,index)=>{const b=btn('',()=>{S.photo=i.id;drawHero();});b.dataset.imageId=i.id;
-   const image=el('img');image.src=thumbURL(i.id);image.alt=label(roomOf(i))+' photo '+(i.sequence??index+1);image.loading='lazy';b.append(image,el('span',label(roomOf(i))));return b;}));
+   const image=el('img');image.src=thumbURL(i.id);image.alt=label(roomOf(i))+' photo '+(i.sequence??index+1);image.loading='lazy';b.append(image,el('span',label(roomOf(i))));
+   if(!S.detail.capabilities?.autolabel)return b;
+   const wrapper=el('div',null,'photo-option');wrapper.dataset.imageId=i.id;
+   const choice=el('label',null,'small'),check=el('input');check.type='checkbox';check.checked=i.selection?.included!==false;check.title=i.selection?.reason||'Use for target similarity';
+   check.onchange=()=>withName(()=>action(async()=>{const included=check.checked;try{const review=await api('photo-selection',{id:i.id,included,reviewer:S.name,expected_revision:i.review?.revision||0});i.review=review;i.selection={included,source:'human',reason:'Your selection'};drawPhotos();}catch(error){check.checked=!included;throw error;}}));
+   choice.append(check,document.createTextNode('Use photo'));wrapper.append(b,choice);return wrapper;}));
   drawHero();
  }
  function drawHero(){
   const i=current(),photos=photoList(),index=photos.findIndex(p=>p.id===S.photo);
   $('photo-position').textContent=i?`${index+1} / ${photos.length}`:'0 / 0';$('photo-prev').disabled=index<=0;$('photo-next').disabled=index<0||index>=photos.length-1;
-  for(const b of $('filmstrip').children)b.setAttribute('aria-current',String(b.dataset.imageId===S.photo));
+  for(const b of $('filmstrip').querySelectorAll('button'))b.setAttribute('aria-current',String(b.dataset.imageId===S.photo));
   $('hero').hidden=!i;$('original-link').hidden=!i;S.imageLoaded=false;
   $('image-state').hidden=false;$('image-state').textContent=i?'Loading original photo…':'No photos in this selection.';
   if(i){
@@ -481,7 +488,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  $('property-score').onchange=()=>{if($('property-score').value==='insufficient'){$('answer-evidence').value='insufficient';$('answer-confidence').value='low';if(!$('answer-reason').value)$('answer-reason').value='Not enough evidence to judge this property.';}};
  $('photo-form').onsubmit=e=>{e.preventDefault();withName(()=>action(async()=>{
   const i=current(),features={};for(const s of $('photo-features').querySelectorAll('select'))features[s.dataset.feature]=s.value===''?null:s.value==='true';
-  await api('review',{kind:'image',id:i.id,expected_revision:i.review?.revision||0,reviewer:S.name,status:'approved',room:$('photo-edit-room').value,context:$('photo-edit-context').value,condition_label:$('photo-condition').value,preference:$('photo-preference').value||null,features,notes:$('photo-edit-notes').value});
+  await api('review',{kind:'image',id:i.id,expected_revision:i.review?.revision||0,reviewer:S.name,status:'approved',room:$('photo-edit-room').value,context:$('photo-edit-context').value,include_in_similarity:i.selection?.included!==false,condition_label:$('photo-condition').value,preference:$('photo-preference').value||null,features,notes:$('photo-edit-notes').value});
   $('photo-dialog').close();await openProperty(S.detail.property.id);note('Photo labels saved. Property judgment unchanged.');
  }));};
  $('answer-form').onsubmit=e=>{e.preventDefault();withName(()=>saveAnswer($('property-score').value,$('answer-reason').value,$('answer-condition').value));};

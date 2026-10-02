@@ -117,13 +117,13 @@ def test_real_training_worker_builds_and_saves_positive_only_candidate(tmp_path,
     assert len(proposals)==8 and all(p['property']['target_prediction']['score_kind']=='known_target_similarity' for p in proposals)
 
 
-def test_no_interior_photos_cannot_teach_visual_similarity_even_with_cached_vectors():
+def test_no_interior_targets_keep_relevant_visual_similarity_and_metadata():
     properties,vectors=data()
     for prop in properties: prop['photo_coverage']='no_interior'
     index=fit_reference_index(properties,vectors)
-    assert all(ref['images'] is None for ref in index['references'])
+    assert all(ref['images'] is not None for ref in index['references'])
     report=evaluate_reference_index(index,properties,vectors)
-    assert report['components']['images']['n']==0 and report['components']['combined']['n']==0
+    assert report['components']['images']['n']==3 and report['components']['combined']['n']==3
     assert report['components']['metadata']['n']==3
     from model_loop import fingerprint
     before=fingerprint([],properties)

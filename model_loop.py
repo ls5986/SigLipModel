@@ -8,7 +8,8 @@ from pilot import read_json, sha
 
 def fingerprint(rows, properties=None):
     fields = ("id", "property_id", "group_id", "split", "sha256", "physical_key", "room",
-              "features", "preference", "preference_room", "photo_context", "label_exclusion")
+              "features", "preference", "preference_room", "photo_context", "label_exclusion",
+              "condition_label", "include_in_similarity")
     labels = [{key: row.get(key) for key in fields} for row in sorted(rows, key=lambda r: r["id"])]
     for label in labels:
         if label["preference"] is None:
@@ -22,7 +23,7 @@ def fingerprint(rows, properties=None):
         {key: row.get(key) for key in property_fields}
         for row in sorted(properties or [], key=lambda row: row["id"])
     ]
-    value = {"images": labels, "properties": property_labels}
+    value = {"photo_policy":"relevant-photos-v2", "images": labels, "properties": property_labels}
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
 
 

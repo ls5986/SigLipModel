@@ -31,7 +31,7 @@ services:
       - key: STUDIO_CACHE_DIR
         value: /tmp/acq-vision-cache
       - key: STUDIO_AUTOLABEL_PROVIDER
-        value: openai
+        value: hybrid
       - key: OPENAI_API_KEY
         sync: false
       - key: STUDIO_OPENAI_MODEL

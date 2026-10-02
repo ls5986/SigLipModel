@@ -358,8 +358,8 @@ remarks are retained but this initial model does not embed their text.
 
 Photo coverage is saved independently on the versioned Supabase era review as
 `unknown`, `interior_available`, or `no_interior`, and is bound to the photo hash.
-A verified target with no interior photos remains eligible for metadata learning;
-its photos are retained for review but excluded from this training candidate.
+A verified target with no interior photos remains eligible for metadata and visual
+learning from relevant exterior/outdoor photos. Irrelevant images are excluded separately.
 Missing interiors never become a negative condition/target label. Older reviews
 remain coverage-unknown. Changing coverage invalidates the dataset fingerprint.
 
@@ -431,21 +431,37 @@ permissions are needed. Changed/expired photo evidence is checked again before
 results are published. Failed requests can be retried from the review page.
 
 
-### Hosted automatic draft tags
+### SigLIP rooms and a small ChatGPT labeling test
 
-The development Render web service now runs an OpenAI draft-label worker alongside the review app.
-Set `OPENAI_API_KEY` as a secret environment variable on `acq-vision-studio-dev` and save/redeploy.
-The key stays server-side; the Blueprint declares it with `sync: false`. No laptop worker is needed.
-`STUDIO_AUTOLABEL_PROVIDER=openai` selects hosted drafts; `STUDIO_OPENAI_MODEL` defaults to
-`gpt-4.1-mini`, and `STUDIO_OPENAI_MAX_CALLS_PER_DAY` defaults to 100 API calls (up to four photos
-per call). This is a call limit, not a dollar budget. Set a project budget separately in OpenAI.
+The development Blueprint uses `STUDIO_AUTOLABEL_PROVIDER=hybrid`.
+SigLIP supplies rooms and photo-type drafts. ChatGPT supplies visible condition and feature drafts;
+the ChatGPT response schema does not include a room field. Human room corrections take priority.
 
-Opening a property queues its retained photos, with no bulk labeling at startup. The worker sends
-resized photos only: no price, listing metadata, target judgment, or sale verification is sent.
-Room, photo context, condition, and visible feature drafts are cached by photo content and model/policy.
-Drafts never approve a sale or train a head. Review and use **Approve photo tags** to save explicit
-human labels; human corrections take priority. Photo condition labels are recorded for review;
-the current trainer does not yet train a separate overall-condition head.
-Failures do not automatically retry paid calls; an interrupted request requires an explicit retry.
-Changing model/policy regenerates drafts. Missing keys leave property verification available.
-The existing local SigLIP worker remains available with `STUDIO_AUTOLABEL_PROVIDER=siglip`.
+Set `OPENAI_API_KEY` as a secret on `acq-vision-studio-dev` and save/redeploy. The key stays server-side.
+The hosted ChatGPT worker uses `gpt-4.1-mini` and a default limit of 100 calls per UTC day.
+Opening a property only queues SigLIP rooms. It does not start paid calls. After rooms are ready,
+choose **Test ChatGPT tags on up to 8 photos** to label at most eight selected photos, in batches of four.
+No bulk labeling is enabled. Review the resulting tags and actual token usage before expanding.
+Drafts and per-photo caches stay separate from human approvals; cached tags are reused.
+Failures and interrupted paid requests require an explicit retry.
+
+SigLIP still needs the existing model-capable worker with the private Supabase environment:
+
+```bash
+python -B cloud_autolabel.py
+```
+
+Its default provider is hybrid. Install `requirements.txt` for that worker. The 512 MB Render review
+service deliberately installs `requirements-hosted.txt` and does not load Torch or a SigLIP checkpoint.
+Setting an OpenAI key alone does not start the SigLIP worker. The UI reports a missing room worker.
+To keep a legacy room-only setup, set `STUDIO_AUTOLABEL_PROVIDER=siglip` on both runtimes.
+
+Photo thumbnails now have **Use photo** checkboxes. Confident floor plans, documents/maps, unrelated
+images and shared amenities are automatically unchecked; uncertain photos stay selected for review.
+The checkbox is a human override and does not approve any room or condition label.
+
+All workbook properties remain known targets once their acquisition sale/photo association is verified.
+**No interior photos** records coverage only. Relevant exterior/outdoor images still teach visual similarity,
+and metadata still contributes. Interior condition is unknown without visible interior evidence.
+Actual absence of usable images falls back to metadata. Price never enters target similarity inputs.
+Photo condition labels are stored for review; the current trainer does not train a separate overall-condition head.
