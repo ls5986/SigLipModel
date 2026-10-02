@@ -36,14 +36,19 @@ def process(store, identifier, classifier):
     usage = {}
     try:
         detail = store.property(identifier)
+        if detail['historical_source'].get('blocked'):
+            raise ValueError('Wrong property or sale era; rematch before labeling')
         if detail['historical_source']['evidence_hash']!=request['evidence_hash']:
             raise ValueError('Photo set changed; reopen the property to request current labels')
         rows = [r for r in detail['images'] if not r.get('synthetic_evidence',{}).get('excluded')]
         prior = store.document('autolabel-result:'+identifier) or {}
         if stage=='features':
-            if request.get('mode')!='test' or not prior.get('room_labels_complete'):
-                raise ValueError('An explicit small test and SigLIP rooms are required')
-            rows = [row for row in rows if row.get('selection',{}).get('included',True)][:8]
+            if request.get('mode') not in {'test','all'} or not prior.get('room_labels_complete'):
+                raise ValueError('An explicit labeling request and SigLIP rooms are required')
+            if request.get('mode')=='all' and getattr(classifier,'provider',None)!='copilot':
+                raise ValueError('Full batch requires the local Copilot worker')
+            rows = [row for row in rows if row.get('selection',{}).get('included',True)]
+            if request.get('mode')=='test': rows = rows[:8]
             if not rows: raise ValueError('No applicable photos to test')
         for start in range(0,len(rows),4):
             batch = rows[start:start+4]
@@ -57,10 +62,11 @@ def process(store, identifier, classifier):
             images.extend({**(row['suggestions'][0] if stage=='features' else {}),**pred,
                           **({'room_source':'SigLIP'} if stage else {}),'image_id':row['id'],'sha256':row['sha256']}
                           for row,pred in zip(batch,predictions))
-            claimed = store.save_document(key,{**claimed,'at':now()},claimed['revision'])
+            claimed = store.save_document(key,{**claimed,'at':now(),'processed_photos':len(images),'total_photos':len(rows)},claimed['revision'])
+            print(f'{stage or "labels"} · {identifier}: {len(images)}/{len(rows)} photos',flush=True)
             heartbeat(store,'running',{'property_id':identifier,'photos':len(images),'total':len(rows)},stage=stage,provider=getattr(classifier,'provider',None))
         latest = store.property(identifier)
-        if latest['historical_source']['evidence_hash']!=request['evidence_hash']:
+        if latest['historical_source'].get('blocked') or latest['historical_source']['evidence_hash']!=request['evidence_hash']:
             raise ValueError('Photo set changed during labeling; results were not published')
         result_key = 'autolabel-result:'+identifier
         previous = store.document(result_key) or {}
@@ -71,7 +77,7 @@ def process(store, identifier, classifier):
             'evidence_hash':request['evidence_hash'],'at':now(),'images':images,**({'room_labels_complete':True} if stage else {})},previous.get('revision',0))
         current = store.document(key)
         if current['revision']==claimed['revision']:
-            next_status = 'queued' if stage=='rooms' and current.get('mode')=='test' else 'awaiting_test' if stage=='rooms' else 'completed'
+            next_status = 'queued' if stage=='rooms' and current.get('mode') in {'test','all'} else 'awaiting_test' if stage=='rooms' else 'completed'
             store.save_document(key,{**current,'status':next_status,'at':now(),
                 **({'stage':'features'} if stage=='rooms' else {}),
                 **({'test_photos':len(rows),'usage':usage} if stage=='features' else {})},current['revision'])

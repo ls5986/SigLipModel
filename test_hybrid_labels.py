@@ -143,3 +143,56 @@ def test_synthetic_photos_never_reach_room_worker(monkeypatch):
         def classify(self,*args,**kwargs): raise AssertionError('Synthetic photo must not reach SigLIP')
     assert process(store,'p',Rooms())
     assert store.docs['autolabel-result:p']['images']==[]
+
+
+def test_full_copilot_batch_labels_more_than_eight_selected_originals(monkeypatch):
+    monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
+    store=WorkerStore()
+    rows=[{'id':f'p:{i}','sha256':str(i),'selection':{'included':i!=0},
+        'synthetic_evidence':{'excluded':i==1},
+        'suggestions':[{'room':'exterior','context':'subject','image_id':f'p:{i}','sha256':str(i)}]} for i in range(14)]
+    store.detail['images']=rows
+    store.docs['autolabel-result:p']={'revision':1,'room_labels_complete':True,'images':[r['suggestions'][0] for r in rows]}
+    store.docs['autolabel-request:p'].update(policy=hybrid_policy(),stage='features',mode='all',label_provider='copilot')
+    calls=[]
+    class Copilot:
+        policy=hybrid_policy();stage='features';paid=True;provider='copilot'
+        def classify(self,paths,room_tags):
+            calls.extend(paths)
+            return [{**tag,'features':{},'condition_label':'unknown'} for tag in room_tags]
+    assert process(store,'p',Copilot())
+    assert len(calls)==12
+    request=store.docs['autolabel-request:p']
+    assert request['status']=='completed' and request['processed_photos']==12 and request['total_photos']==12
+    assert len(store.docs['autolabel-result:p']['images'])==14
+
+
+def test_full_request_upgrades_queued_rooms_and_completed_tests(monkeypatch):
+    monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
+    store=Store(MemoryDatabase(),None)
+    store.request_autolabel({'property_id':'house'})
+    response=store.request_autolabel({'property_id':'house','label_provider':'copilot','all_photos':True})
+    assert response['mode']=='all' and response['stage']=='rooms'
+    request=store.document('autolabel-request:house')
+    assert request['label_provider']=='copilot' and 'max_photos' not in request
+    store.database.states['document','autolabel-result:house']={'revision':1,'room_labels_complete':True,
+        'policy':request['policy'],'evidence_hash':request['evidence_hash']}
+    store.database.states['document','autolabel-request:house'].update(status='completed',mode='test')
+    response=store.request_autolabel({'property_id':'house','label_provider':'copilot','all_photos':True})
+    assert response['stage']=='features'
+    store.database.states['document','autolabel-request:house'].update(status='completed')
+    revision=store.document('autolabel-request:house')['revision']
+    assert store.request_autolabel({'property_id':'house','label_provider':'copilot','all_photos':True})['status']=='completed'
+    assert store.document('autolabel-request:house')['revision']==revision
+
+
+def test_full_room_work_advances_to_features_without_click(monkeypatch):
+    monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
+    store=WorkerStore()
+    store.docs['autolabel-request:p'].update(policy=hybrid_policy(),stage='rooms',mode='all',label_provider='copilot')
+    class Rooms:
+        policy=hybrid_policy();stage='rooms'
+        def classify(self,paths): return [resolve(logits('exterior'))]
+    assert process(store,'p',Rooms())
+    assert store.docs['autolabel-request:p']['status']=='queued'
+    assert store.docs['autolabel-request:p']['stage']=='features'

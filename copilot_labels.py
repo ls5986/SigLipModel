@@ -91,6 +91,9 @@ class CopilotLabels(OpenAILabels):
         # Outer queue policy stays compatible with SigLIP rooms; cache is provider/model-specific.
         self.policy = hybrid_policy()
         self.cache_policy = 'siglip-rooms-copilot-features-v1:'+self.model
+        self.budget_provider = 'copilot'
+        self.limit = int(os.environ.get('STUDIO_COPILOT_MAX_CALLS_PER_DAY','10000'))
+        if not 1<=self.limit<=10000: raise ValueError('Invalid Copilot daily call limit')
 
     def classify(self, paths, room_tags=None):
         if room_tags is None: raise ValueError('SigLIP room tags required before Copilot labeling')

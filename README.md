@@ -526,3 +526,29 @@ both automatic labeling and visual training, including previously approved
 condition labels. A manual similarity checkbox cannot bypass it. The target
 property and metadata remain eligible once its sale is verified; excluded images
 remain available for inspection. Original MLS text and photos are never deleted.
+
+### Run all applicable photo sets overnight with local Copilot
+
+After connection preflight succeeds, this explicit command queues all retained,
+supported acquisition listings and labels **all selected original photos**, not
+just the eight-photo tests:
+
+```powershell
+.\.venv\Scripts\python.exe local_label_worker.py --check
+.\.venv\Scripts\python.exe -u local_label_worker.py --enqueue-all
+```
+
+Keep the attached terminal open and your laptop awake and plugged in. Room-only
+queued requests are upgraded to full Copilot requests. Completed full requests
+are skipped on another invocation, cached image drafts are reused, and existing
+in-flight requests are not overwritten. Wrong-sale/era records, unavailable
+photos, and MLS AI/virtual-staging disclosures are excluded. Human verification
+and training approval are not performed by this command. The worker prints batch
+progress and continues waiting for further queued work; Ctrl+C stops it.
+
+`STUDIO_COPILOT_MAX_CALLS_PER_DAY` is separate from the hosted OpenAI budget and
+defaults to 10,000 four-photo calls, a finite limit for a full overnight batch.
+Copilot plan credits/model availability still apply. Paid failures are saved and
+are not automatically retried in the worker loop; another explicit enqueue can
+resume failed records using their cache. The full command enqueues supported
+candidate photo sets across the imported workbook, not arbitrary live MLS listings.

@@ -62,7 +62,7 @@ class OpenAILabels:
     def reserve_call(self):
         # Atomic revision check fails closed when another worker reserves the same slot.
         day = datetime.now(timezone.utc).date().isoformat()
-        key = 'autolabel-budget:'+day
+        key = 'autolabel-budget:'+ (getattr(self,'budget_provider')+':' if hasattr(self,'budget_provider') else '')+day
         current = self.store.document(key) or {}
         count = current.get('calls',0)
         if count >= self.limit: raise ValueError('Daily labeling call limit reached')

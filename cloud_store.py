@@ -279,6 +279,8 @@ class SupabaseStore:
         identifier = payload.get('property_id')
         label_provider = payload.get('label_provider','openai')
         if label_provider not in {'openai','copilot'}: raise ValueError('Unknown draft label provider')
+        full = payload.get('all_photos') is True
+        if full and label_provider!='copilot': raise ValueError('Full local batch requires Copilot')
         if not isinstance(identifier,str): raise ValueError('Property ID required')
         if payload.get('decision') not in {'correct_era','wrong_era','unsure'}:
             raise ValueError('Invalid era decision')
@@ -417,6 +419,8 @@ class SupabaseStore:
         identifier = payload.get('property_id')
         label_provider = payload.get('label_provider','openai')
         if label_provider not in {'openai','copilot'}: raise ValueError('Unknown draft label provider')
+        full = payload.get('all_photos') is True
+        if full and label_provider!='copilot': raise ValueError('Full local batch requires Copilot')
         if not isinstance(identifier,str): raise ValueError('Property ID required')
         with self.database.connect() as db:
             self._lock_property(db,identifier)
@@ -427,12 +431,26 @@ class SupabaseStore:
                 raise ValueError('MLS discloses AI imagery or virtual staging. Identify original photos before labeling.')
             if not all(supports_prior(self._selected(r),r['source_snapshot'].get('spreadsheet'),r['source_snapshot'].get('mls_candidates')) for r in sources):
                 raise ValueError('Correct first-sale listing/photos required before labeling')
-            digest = self._history(sources,photos,None)['evidence_hash']
+            history = self._history(sources,photos,self.database.state(db,'era',identifier))
+            if history['blocked']: raise ValueError('Wrong property or acquisition era; rematch before labeling')
+            digest = history['evidence_hash']
             result = self.database.state(db,'document','autolabel-result:'+identifier) or {}
             key = 'autolabel-request:'+identifier
             current = self.database.state(db,'document',key) or {}
             hybrid = POLICY.startswith('siglip-rooms-openai-')
             same = current.get('evidence_hash')==digest and current.get('policy')==POLICY
+            if full:
+                if not hybrid: raise ValueError('Full batch requires the SigLIP hybrid room workflow')
+                if same and (current.get('status')=='running' or current.get('status')=='queued' and current.get('mode')=='all' and current.get('label_provider')=='copilot'):
+                    return {'status':current['status'],'stage':current.get('stage','rooms')}
+                if same and current.get('status')=='completed' and current.get('mode')=='all' and current.get('label_provider')=='copilot':
+                    return {'status':'completed'}
+                valid_rooms = result.get('room_labels_complete') and result.get('evidence_hash')==digest and result.get('policy')==POLICY
+                stage = 'features' if valid_rooms else 'rooms'
+                self.database.save(db,'document',key,current.get('revision',0),{
+                    'property_id':identifier,'evidence_hash':digest,'policy':POLICY,
+                    'label_provider':'copilot','mode':'all','stage':stage,'status':'queued','at':now()})
+                return {'status':'queued','stage':stage,'mode':'all'}
             if hybrid and same:
                 if payload.get('retry') is True and current.get('status')=='failed' and current.get('stage','rooms')=='rooms':
                     self.database.save(db,'document',key,current.get('revision',0),{**current,'status':'queued','at':now()})
