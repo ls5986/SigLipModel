@@ -1,0 +1,56 @@
+{
+  "kind": "release",
+  "schema_version": "actvision-v2",
+  "label_schema_version": "actvision-labels-v2",
+  "release_id": "fixture-shadow-v2",
+  "status": "shadow",
+  "components": {
+    "vision": {
+      "uri": "vision.bin",
+      "sha256": "8505bb1a8872e2a925cecd5bec30a5972147d78551c9fa43123135ee87a781c6",
+      "framework": "synthetic-fixture",
+      "framework_version": "1",
+      "component_version": "fixture-vision-1",
+      "feature_schema_version": "actvision-siglip2-heads-v2",
+      "label_schema_version": "actvision-labels-v2",
+      "calibration_version": "fixture-calibration-1"
+    },
+    "text": {
+      "uri": "text.bin",
+      "sha256": "f933412ba609f35e1faf32dcec16817cf4b28e01a90f7b25bc8449324d94747f",
+      "framework": "synthetic-fixture",
+      "framework_version": "1",
+      "component_version": "fixture-text-1",
+      "feature_schema_version": "actvision-text-tfidf-v2",
+      "label_schema_version": "actvision-labels-v2",
+      "calibration_version": "fixture-calibration-1"
+    },
+    "structured": {
+      "uri": "structured.bin",
+      "sha256": "0610ab477da06d90665f24cba0a7350f83a5e60a525ea54377fccfb8aa86f6b2",
+      "framework": "synthetic-fixture",
+      "framework_version": "1",
+      "component_version": "fixture-structured-1",
+      "feature_schema_version": "actvision-structured-v2",
+      "label_schema_version": "actvision-labels-v2",
+      "calibration_version": "fixture-calibration-1"
+    },
+    "fusion": {
+      "uri": "fusion.bin",
+      "sha256": "a549cb9550fd02805e65ddfe6d0b477447c6c4d5846e61501066f3f609310e6e",
+      "framework": "synthetic-fixture",
+      "framework_version": "1",
+      "component_version": "fixture-fusion-1",
+      "feature_schema_version": "actvision-fusion-v2",
+      "label_schema_version": "actvision-labels-v2",
+      "calibration_version": "fixture-calibration-1"
+    }
+  },
+  "dataset_sha256": "fbf470908cafd856560b0c8bdbb9ca8d3068b475def541b8736a72c1aeb6176e",
+  "evaluation": {
+    "report_sha256": "741eef1cc9946ab861b80421c75d1de098f37b0b412d363e3e64489530482dc4",
+    "protected_slices_passed": true
+  },
+  "approved_by": "fixture-operator",
+  "approved_at": "2026-10-02T00:00:00Z"
+}

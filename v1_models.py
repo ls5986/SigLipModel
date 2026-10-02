@@ -1,4 +1,8 @@
-"""Interpretable V1 metadata, property-vision, and fusion classifiers."""
+"""Legacy V1 classifiers; retain class paths/layout for existing joblib artifacts.
+
+New physical-evidence components live in text_model/structured_model/fusion_model.
+V1 metadata intentionally retains its historical text+structured feature layout.
+"""
 from __future__ import annotations
 
 import math

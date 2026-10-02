@@ -61,6 +61,8 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         assert status==303
         cookie=headers['Set-Cookie'].split(';',1)[0]
         status,_,body=request(port,'GET','/',headers={'Cookie':cookie})
+        assert status==200 and b'<title>ActVision Training Studio</title>' in body
+        status,_,body=request(port,'GET','/mls-validation',headers={'Cookie':cookie})
         assert status==200 and b'Acquisition MLS Validation' in body
         status,_,body=request(port,'GET','/property-review',headers={'Cookie':cookie})
         assert status==200 and b'/status#models' in body and b'Training status' in body

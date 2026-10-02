@@ -1,0 +1,160 @@
+{
+  "kind": "prediction",
+  "schema_version": "actvision-v2",
+  "label_schema_version": "actvision-labels-v2",
+  "prediction_id": "fixture-complete-prediction",
+  "request_id": "fixture-multimodal-request",
+  "evidence_id": "66e54edde141fd8501906a6e8081d3772c97f5027a7da2839bb795b566b605aa",
+  "evidence": {
+    "workspace_id": "fixture-workspace",
+    "property_id": "fixture-property",
+    "listing_id": "fixture-listing",
+    "snapshot_at": "2026-10-02T00:00:00Z",
+    "visual_generation": 0,
+    "photos_change_timestamp": null,
+    "selected_photos": [
+      {
+        "photo_id": "fixture-photo",
+        "sha256": null,
+        "uri_sha256": "ee0841f4f748884f8cefdde48be686a64c254093728aef9b956a485109b97494"
+      }
+    ],
+    "remarks_sha256": "a64b11a0b89d2d5afdc187bb4502a493a47894910e417c5ce604737c7e279e24",
+    "structured_sha256": "941fc7de61e4df9953bd819f7d3e7082989ace8951c4da103b424c8739e9867f",
+    "release_id": "fixture-shadow-v2"
+  },
+  "release_id": "fixture-shadow-v2",
+  "status": "complete",
+  "components": {
+    "vision": {
+      "status": "available",
+      "version": "fixture-vision-1",
+      "calibration_version": "fixture-calibration-1",
+      "result": {
+        "physical_condition": "C3_WELL_MAINTAINED",
+        "modernization": "ORIGINAL",
+        "condition_probabilities": {
+          "C3_WELL_MAINTAINED": 0.75,
+          "C4_AVERAGE_FUNCTIONAL": 0.25
+        },
+        "modernization_probabilities": {
+          "ORIGINAL": 0.8,
+          "PARTIALLY_UPDATED": 0.2
+        },
+        "value_add_score": 0.6,
+        "confidence": 0.7,
+        "text_signals": []
+      },
+      "reason": null
+    },
+    "text": {
+      "status": "available",
+      "version": "fixture-text-1",
+      "calibration_version": "fixture-calibration-1",
+      "result": {
+        "physical_condition": "C3_WELL_MAINTAINED",
+        "modernization": "ORIGINAL",
+        "condition_probabilities": {
+          "C3_WELL_MAINTAINED": 0.75,
+          "C4_AVERAGE_FUNCTIONAL": 0.25
+        },
+        "modernization_probabilities": {
+          "ORIGINAL": 0.8,
+          "PARTIALLY_UPDATED": 0.2
+        },
+        "value_add_score": 0.6,
+        "confidence": 0.7,
+        "text_signals": [
+          {
+            "signal": "clear_slate_or_blank_canvas",
+            "state": "PRESENT",
+            "probability": 0.8,
+            "snippet": "Bring your vision",
+            "start": 0,
+            "end": 17
+          }
+        ]
+      },
+      "reason": null
+    },
+    "structured": {
+      "status": "available",
+      "version": "fixture-structured-1",
+      "calibration_version": "fixture-calibration-1",
+      "result": {
+        "physical_condition": "C3_WELL_MAINTAINED",
+        "modernization": "ORIGINAL",
+        "condition_probabilities": {
+          "C3_WELL_MAINTAINED": 0.75,
+          "C4_AVERAGE_FUNCTIONAL": 0.25
+        },
+        "modernization_probabilities": {
+          "ORIGINAL": 0.8,
+          "PARTIALLY_UPDATED": 0.2
+        },
+        "value_add_score": 0.6,
+        "confidence": 0.7,
+        "text_signals": []
+      },
+      "reason": null
+    },
+    "fusion": {
+      "status": "available",
+      "version": "fixture-fusion-1",
+      "calibration_version": "fixture-calibration-1",
+      "result": {
+        "physical_condition": "C3_WELL_MAINTAINED",
+        "modernization": "ORIGINAL",
+        "condition_probabilities": {
+          "C3_WELL_MAINTAINED": 0.75,
+          "C4_AVERAGE_FUNCTIONAL": 0.25
+        },
+        "modernization_probabilities": {
+          "ORIGINAL": 0.8,
+          "PARTIALLY_UPDATED": 0.2
+        },
+        "value_add_score": 0.6,
+        "confidence": 0.7,
+        "text_signals": []
+      },
+      "reason": null
+    }
+  },
+  "result": {
+    "physical_condition": "C3_WELL_MAINTAINED",
+    "modernization": "ORIGINAL",
+    "condition_probabilities": {
+      "C3_WELL_MAINTAINED": 0.75,
+      "C4_AVERAGE_FUNCTIONAL": 0.25
+    },
+    "modernization_probabilities": {
+      "ORIGINAL": 0.8,
+      "PARTIALLY_UPDATED": 0.2
+    },
+    "value_add_score": 0.6,
+    "confidence": 0.7,
+    "text_signals": []
+  },
+  "modalities_used": [
+    "vision",
+    "text",
+    "structured"
+  ],
+  "coverage": {
+    "selected_photo_count": 1,
+    "usable_photo_count": 1,
+    "text_available": true,
+    "structured_completeness": 0.13333333333333333
+  },
+  "observed_photo_hashes": [
+    {
+      "photo_id": "fixture-photo",
+      "sha256": "9d714b0153c5204b5503770a41d5800ed8ba4e24da1a9429b6654397075031b6"
+    }
+  ],
+  "created_at": "2026-10-02T00:00:01Z",
+  "latency_ms": 0,
+  "warnings": [
+    "Synthetic conformance fixture; not a trained prediction"
+  ]
+}

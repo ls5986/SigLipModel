@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 
 
@@ -15,6 +16,83 @@ PHOTO_CONTEXTS = {
 }
 EXCLUDED_CONTEXTS = {"shared_amenity", "floor_plan", "unrelated"}
 PREDICTION_MODES = {"automatic", "images_only", "metadata_only", "images_and_metadata"}
+V2_MODALITIES = ("vision", "text", "structured", "fusion")
+
+
+@dataclass
+class VisionEvidenceModel:
+    """Physical heads over frozen SigLIP2 bags; legacy target heads stay separate."""
+    heads: Any
+    feature_schema_version: str = "actvision-siglip2-heads-v2"
+    backbone: str = "google/siglip2-base-patch16-224"
+
+    @classmethod
+    def fit(cls, bags, labels):
+        import numpy as np
+        from structured_model import EvidenceHeads
+        if len(bags) != len(labels):
+            raise ValueError("Vision bags and labels must align")
+        vectors = [vision_vector(bag) for bag in bags]
+        present = [i for i, value in enumerate(vectors) if value is not None]
+        if not present:
+            raise ValueError("No usable subject image bags")
+        return cls(EvidenceHeads.fit(np.stack([vectors[i] for i in present]), [labels[i] for i in present]))
+
+    def predict(self, bags):
+        from actvision_contract import unknown_result
+        results = []
+        for bag in bags:
+            vector = vision_vector(bag)
+            results.append(self.heads.predict(vector.reshape(1, -1))[0] if vector is not None else unknown_result())
+        return results
+
+
+@dataclass
+class PhysicalModelAdapter:
+    modality: str
+    model: Any
+    version: str
+    calibration_version: str
+
+    def __post_init__(self):
+        from release_bundle import FEATURE_SCHEMAS
+        if self.modality not in V2_MODALITIES or getattr(self.model, "feature_schema_version", None) not in FEATURE_SCHEMAS[self.modality]:
+            raise ValueError("Only compatible v2 physical models can enter this adapter; legacy targets cannot")
+        if not self.version or not self.calibration_version:
+            raise ValueError("Adapters require model and calibration versions")
+
+    def predict(self, evidence, coverage=None):
+        if self.modality == "fusion":
+            return self.model.predict([evidence], [coverage])[0]
+        return self.model.predict([evidence])[0]
+
+
+def predict_components_v2(adapters, *, vectors, remarks, structured, coverage):
+    """Use only explicitly supplied physical-evidence adapters, never legacy target heads."""
+    from actvision_contract import unavailable_component, _validate_result
+    from structured_model import completeness
+
+    inputs = {"vision": vectors, "text": remarks, "structured": structured}
+    present = {"vision": bool(len(vectors)), "text": bool(remarks.strip()),
+               "structured": completeness(structured) > 0}
+    results = {}
+    for name in V2_MODALITIES:
+        if name != "fusion" and not present[name]:
+            results[name] = unavailable_component("missing", f"No {name} evidence")
+        elif name not in adapters:
+            results[name] = unavailable_component("unavailable", f"No trained v2 {name} artifact")
+        elif name == "fusion" and not any(c["status"] == "available" for c in results.values()):
+            results[name] = unavailable_component("missing", "No available components for fusion")
+        else:
+            adapter = adapters[name]
+            result = adapter.predict(results, coverage) if name == "fusion" else adapter.predict(inputs[name])
+            _validate_result(result)
+            results[name] = {
+                "status": "available", "version": adapter.version,
+                "calibration_version": adapter.calibration_version,
+                "result": result, "reason": None,
+            }
+    return results
 
 METADATA_FIELDS = {
     "year_built": (("YearBuilt", "year_built"), "number"),

@@ -50,6 +50,13 @@ def property_rows(store,scorer,dataset):
             coverage = "selected_mls_media" if blobs else "metadata_only"
         else:
             detail = store.property(item["property_id"])
+            if item.get("origin") == "training-studio-v2":
+                from studio_v2 import label_evidence
+                prop = detail["property"]
+                if item.get("label_evidence_id") != label_evidence(
+                    prop["id"], prop.get("mls_remarks") or "", detail["images"], prop.get("metadata")
+                ):
+                    raise ValueError("Reviewed evidence changed after dataset freeze; training is blocked")
             images = [
                 image for image in detail["images"]
                 if image["id"] not in excluded
@@ -80,6 +87,8 @@ def property_rows(store,scorer,dataset):
 
 
 def labels(rows):
+    if any(row.get("target_label") not in {"TARGET", "NOT_TARGET"} for row in rows):
+        raise ValueError("UNKNOWN acquisition fit cannot become a negative training label")
     return np.asarray([int(row["target_label"]=="TARGET") for row in rows])
 
 

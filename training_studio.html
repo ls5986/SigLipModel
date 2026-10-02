@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ActVision Training Studio</title>
+<script>
+(() => {
+  const param = new URLSearchParams(window.location.search).get("scoutTheme");
+  const theme = param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", theme);
+})();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+*{box-sizing:border-box}body{margin:0;background:var(--cp-bg);color:var(--cp-text);font:15px/1.5 "Segoe UI",Aptos,Calibri,-apple-system,BlinkMacSystemFont,sans-serif}
+header{padding:20px 32px;background:var(--cp-surface);border-bottom:1px solid var(--cp-border);display:flex;justify-content:space-between;gap:20px;align-items:center}header strong{font-size:22px}header small{display:block;color:var(--cp-text-muted)}
+nav{display:flex;gap:8px;padding:16px 32px;flex-wrap:wrap}button,input,select,textarea{font:inherit;border:1px solid var(--cp-border-strong);border-radius:.625rem;padding:8px 12px;background:var(--cp-surface);color:var(--cp-text)}button{cursor:pointer}button:hover:not(:disabled){border-color:var(--cp-accent)}button:disabled{opacity:.5;cursor:not-allowed}button.active,.primary{background:var(--cp-accent);color:var(--cp-accent-fg);border-color:var(--cp-accent)}a{color:var(--cp-link)}main{max-width:1440px;margin:auto;padding:0 32px 40px}h1{font-size:28px;margin:8px 0}h2{font-size:20px;margin:0 0 12px}h3{font-size:17px}.muted{color:var(--cp-text-muted)}.card{background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:20px;margin-bottom:16px;min-width:0}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.metric{font-size:28px;display:block}.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.row>*{min-width:0}.layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px}.evidence{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}.queue{max-height:680px;overflow:auto}.queue button{display:block;width:100%;text-align:left;margin:0 0 8px}.queue small{display:block}.hero{width:100%;height:340px;object-fit:contain;background:var(--cp-surface-soft);border-radius:10px}.thumbs{display:flex;gap:8px;overflow:auto;margin:8px 0}.thumbs img{width:72px;height:54px;object-fit:cover}.thumbs button{padding:4px}.thumbs button[aria-pressed=true]{border:2px solid var(--cp-accent)}.remarks{white-space:pre-wrap;max-height:330px;overflow:auto;user-select:text}.decisions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}label{display:grid;gap:4px;margin-bottom:8px}textarea{width:100%;min-height:70px}select{max-width:100%;width:100%}.warning{border-left:4px solid var(--cp-warning);padding:12px;background:var(--cp-surface-soft)}#message{min-height:24px;margin:0 32px 12px;white-space:pre-wrap;color:var(--cp-danger)}#message.ok{color:var(--cp-success)}pre{font:13px/1.5 Consolas,"Courier New",Courier,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.tag{border:1px solid var(--cp-border);padding:8px;border-radius:10px;margin:8px 0}.tag button{float:right}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:8px;border-bottom:1px solid var(--cp-border);overflow-wrap:anywhere}td{max-width:380px}summary{cursor:pointer}.hidden,[hidden]{display:none!important}:focus-visible{outline:2px solid var(--cp-accent);outline-offset:3px}
+@media(max-width:900px){header,nav{padding:16px}main{padding:0 16px 24px}.layout,.evidence{grid-template-columns:1fr}.queue{max-height:180px}.decisions{grid-template-columns:1fr 1fr}.hero{height:260px}#message{margin:0 16px 12px}}
+</style></head>
+<body>
+<header><div><strong>ActVision</strong><small>Training Studio &middot; Human evidence first</small></div><div id="actor" class="muted"></div></header>
+<nav aria-label="Primary"><button data-page="label" class="active">Label</button><button data-page="review">Review</button><button data-page="train">Train</button><button data-page="releases">Releases</button><button data-page="operations">Operations</button><button data-page="advanced">Advanced</button></nav>
+<div id="message" role="status" aria-live="polite"></div>
+<main>
+<section id="label" data-panel>
+ <h1>What needs human judgment?</h1><p class="muted">Condition describes the home. Modernization describes updates. Acquisition fit is a separate judgment, not a valuation.</p>
+ <div class="cards" id="counts"></div>
+ <div class="row"><label>Queue<select id="queue-filter"><option value="unscored">Unlabeled</option><option value="all">All properties</option><option value="reviewed">Reviewed</option><option value="missing_text">Missing text labels</option><option value="photo_match">Source / photo era needs review</option></select></label><label>Search<input id="search" type="search" placeholder="Address or MLS ID"></label><button id="refresh">Load queue</button><button id="more">Next queue page</button><span id="queue-total" class="muted"></span></div>
+ <div class="layout"><aside class="card queue" id="queue" aria-label="Property inbox"></aside>
+ <div class="card"><div id="empty">Select a property to start labeling.</div><div id="property" hidden>
+  <h2 id="address"></h2><p id="identity" class="muted"></p><div id="era" class="warning"></div>
+  <div class="row"><button data-tab="photos">Photos</button><button data-tab="text">Text signals</button><button data-tab="facts">Structured facts</button></div>
+  <div id="photos-panel" class="evidence">
+   <div><img id="hero" class="hero" alt="Selected property evidence" hidden><p id="no-photos">No photos available. Physical evidence remains unknown unless supported by other reviewed evidence.</p><div id="thumbnails" class="thumbs"></div><p id="photo-status" class="muted"></p>
+    <details><summary>Review this photo</summary><form id="photo-form"><div class="row"><label>Context<select id="photo-context"><option>unknown</option><option>subject</option><option>subject_interior</option><option>subject_exterior</option><option>shared_amenity</option><option>floor_plan</option><option>unrelated</option></select></label><label>Room<select id="photo-room"><option>other</option><option>kitchen</option><option>bathroom</option><option>living</option><option>bedroom</option><option>exterior</option><option>outdoor</option></select></label></div><div class="row"><label>Photo condition<select id="photo-physical"></select></label><label>Photo modernization<select id="photo-modernization"></select></label></div><label>Exclude from evidence<select id="photo-exclusion"><option value="">Keep existing selection</option><option value="amenity">Shared amenity</option><option value="floor_plan">Floor plan</option><option value="virtual_staging">Virtual staging</option><option value="duplicate">Duplicate</option><option value="unrelated">Unrelated</option><option value="unusable">Unusable</option></select></label><p class="muted">Subject-interior condition only. Use Unknown for excluded or insufficient photos. Detailed feature labels remain in Advanced.</p><button type="submit">Save photo review</button></form></details>
+   </div><div><h3>Listing remarks</h3><div id="remarks" class="remarks"></div><p class="muted">No semantic suggestions are fabricated. Human text labels are separate from model predictions.</p></div>
+  </div>
+  <div id="text-panel" hidden><h3>Typed listing-text evidence</h3><p class="muted">Omitted tags are unassessed, not negative. Paste an exact supporting phrase, or leave blank if there is no snippet.</p><div id="text-remarks" class="remarks"></div><label>Signal<select id="signal"></select></label><label>Judgment<select id="signal-state"><option>PRESENT</option><option>ABSENT</option><option>UNKNOWN</option></select></label><label>Exact supporting phrase<input id="snippet" maxlength="10000"></label><button id="add-signal">Add / replace signal</button><div id="signals"></div></div>
+  <div id="facts-panel" hidden><h3>Structured listing facts</h3><p class="muted">Acquisition-time numeric/categorical allowlist only. Remarks and future sale outcomes are excluded.</p><table id="facts"></table></div>
+  <form id="label-form"><h3>Your property judgment</h3><div class="decisions">
+   <label>Physical condition<select id="physical"></select></label><label>Modernization<select id="modernization"></select></label><label>Acquisition fit<select id="fit"></select></label><label>Review confidence<select id="confidence"><option value="">Not assessed</option><option>low</option><option>medium</option><option>high</option></select></label>
+  </div><div class="row"><label>Fit basis<select id="fit-basis"><option value="unknown">Unknown</option><option value="renovation">Physical renovation evidence</option><option value="pricing">Pricing (separate economics)</option><option value="layout_location">Layout / location</option><option value="mixed">Mixed</option></select></label><label>Evidence source<select id="evidence-source"><option value="">Not assessed</option><option value="images">Photos</option><option value="metadata">Remarks / facts</option><option value="both">Both</option><option value="insufficient">Insufficient evidence</option></select></label></div>
+  <label>Reason / insufficient evidence explanation<textarea id="reason" maxlength="2000" required></textarea></label><div class="row"><button class="primary" type="submit" id="save-next">Save &amp; Next</button><small class="muted">Ctrl+Enter to save. This never trains or promotes a model.</small></div></form>
+ </div></div></div>
+</section>
+<section id="review" data-panel hidden><h1>Review evidence and corrections</h1><p class="muted">Production feedback is immutable. Review decisions do not change frozen datasets or canonical MLS intelligence.</p><div class="row"><button id="load-feedback">Load production corrections</button><label>Legacy candidate review queue<select id="error-category"><option value="high_confidence_wrong">Highest confidence wrong</option><option value="disagreement">Target disagreement</option><option value="hard_negative">Hard negatives</option><option value="candidate_regression">Candidate regression</option><option value="limited_visual">Limited visual evidence</option></select></label><button id="load-errors">Load legacy review queue</button></div><p class="warning">Vision-vs-text semantic disagreement requires trained v2 artifacts and is not available yet.</p><div id="review-content"></div></section>
+<section id="train" data-panel hidden><h1>Freeze deliberately. Train explicitly.</h1><p class="warning">The connected pipeline trains legacy acquisition-target candidates. V2 physical/text/fusion orchestration is gated pending reviewed class coverage, grouped out-of-fold calibration and compatible artifacts.</p><div class="card"><div class="row"><button id="preview">Preview Dataset vNext</button><button id="freeze" disabled>Freeze Dataset</button><button id="train-candidate" disabled>Train legacy candidate</button></div><label><span><input id="confirm-training" type="checkbox"> I confirm this explicit freeze / training action.</span></label><div id="training-result"></div></div><div class="card"><h2>Component readiness</h2><p>Vision: existing frozen SigLIP2 target heads retained. Text: isolated supervised baseline available in code; semantic encoder artifacts absent. Structured: typed baseline isolated. Fusion: explicit missing-modality inputs; no calibrated v2 release. Evaluation: protected grouped tests preserved.</p></div></section>
+<section id="releases" data-panel hidden><h1>Versioned releases</h1><p class="warning">No automatic promotion. Shadow, production and rollback require an operator-reviewed bundle and protected-slice acceptance policy.</p><button id="load-releases">Refresh registry</button><div id="release-content"></div><div class="row"><button disabled>Approve for Shadow</button><button disabled>Approve for Production</button><button disabled>Retire / Roll back</button></div><div class="card"><h2>Compare existing legacy candidates</h2><p class="muted">Target-classifier metrics are not physical-condition metrics. Protected slices remain visible in each candidate report.</p><button id="load-candidates">Load saved candidates</button><div id="candidate-controls" class="row" hidden><label>Baseline<select id="candidate-left"></select></label><label>Candidate<select id="candidate-right"></select></label><button id="compare-candidates">Compare protected metrics</button></div><div id="comparison"></div></div></section>
+<section id="operations" data-panel hidden><h1>Operations</h1><div id="operation-content"></div></section>
+<section id="advanced" data-panel hidden><h1>Advanced research tools</h1><p>Existing tools remain available. These are not the primary labeling workflow.</p><div class="cards"><a class="card" href="/workbench">Legacy Model Workbench / challenge batches</a><a class="card" href="/property-review">Detailed property / photo-era review</a><a class="card" href="/mls-validation">Acquisition MLS Validation</a><a class="card" href="/source-rows">Source rows / provenance</a><a class="card" href="/status">Raw training / data status</a><a class="card" href="/research">Prompt lab / dataset tools (local research)</a></div></section>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const state={caps:null,items:[],detail:null,signals:[],offset:0,total:0,photo:0,busy:false,dirty:false,preview:null,frozen:null,load:0};
+const structuredKeys=['YearBuilt','PhotosCount','LivingArea','BedroomsTotal','BathroomsTotalInteger','ListPrice','OriginalListPrice','DaysOnMarket','PriorSaleCount','MonthsSinceMostRecentPriorSale','MostRecentPriorSalePrice','PropertyType','PropertySubType','PostalCode','City'];
+function message(text,ok=false){$('message').textContent=text;$('message').className=ok?'ok':''}
+function node(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}
+function options(id,values){$(id).replaceChildren(...values.map(v=>{const n=node('option',v.replaceAll('_',' '));n.value=v;return n}));$(id).value=values.includes('UNKNOWN')?'UNKNOWN':values[0]}
+async function api(path,payload){
+ const response=await fetch(path,{method:payload===undefined?'GET':'POST',redirect:'error',headers:payload===undefined?{}:{'Content-Type':'application/json','X-Review-Token':state.caps.token},body:payload===undefined?undefined:JSON.stringify(payload)});
+ if(!response.headers.get('content-type')?.includes('application/json'))throw Error('Unexpected server response; sign in again before retrying.');
+ const data=await response.json();if(response.status===401){window.location.assign(data.login||'/login');throw Error('Session expired')}
+ if(!response.ok)throw Error(data.error||'Request failed');return data;
+}
+function guard(fn){return async event=>{try{await fn(event)}catch(error){message(error.message)}}}
+function showPage(name){
+ if(state.busy)throw Error('Wait for the current save to finish.');
+ if(state.dirty&&name!=='label')throw Error('Save your current property before leaving, or reload to discard unsaved changes.');
+ document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.id!==name);
+ document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===name));
+}
+function renderQueue(){
+ $('queue').replaceChildren();for(const item of state.items){const b=node('button');b.append(node('strong',item.address||item.id),node('small',`${item.image_count||0} photos | ${item.status||'unreviewed'}`));b.onclick=guard(()=>loadProperty(item.id));$('queue').append(b)}
+ if(!state.items.length)$('queue').textContent='No properties in this queue.';
+ $('queue-total').textContent=`${state.offset+1 > state.total?0:state.offset+1}-${Math.min(state.offset+state.items.length,state.total)} of ${state.total}`;
+ $('more').disabled=state.offset+state.items.length>=state.total;
+}
+async function loadQueue(){
+ if(state.dirty)throw Error('Save the current property before changing queues.');
+ const data=await api('/api/studio/review-queue?scope=acquisitions&queue='+encodeURIComponent($('queue-filter').value)+'&search='+encodeURIComponent($('search').value)+'&offset='+state.offset+'&limit=20');
+ state.items=data.items;state.total=data.total;renderQueue();$('counts').replaceChildren();
+ for(const [title,value] of [['Unlabeled',data.counts.unscored],['Reviewed',data.counts.reviewed],['Missing text labels',data.counts.missing_text],['Source / photo checks',data.counts.photo_match]]){const card=node('div',undefined,'card');card.append(node('span',value??'Unavailable','metric'),node('span',title));$('counts').append(card)}
+ if(!state.detail&&state.items.length)await loadProperty(state.items[0].id);
+}
+async function loadProperty(id){
+ if(state.dirty)throw Error('Save the current property before selecting another.');
+ const request=++state.load;const detail=await api('/api/studio/v2/property?id='+encodeURIComponent(id));if(request!==state.load)return;
+ state.detail=detail;state.photo=0;state.signals=structuredClone(detail.property.review?.text_signals||[]);state.dirty=false;
+ const p=detail.property,r=p.review||{},history=detail.historical_source||{};
+ $('empty').hidden=true;$('property').hidden=false;$('address').textContent=p.address||p.id;
+ $('identity').textContent=`MLS ${p.metadata?.ListingId||p.id} | ${p.metadata?.ListDate||p.metadata?.ListingContractDate||'Listing date unknown'} | ${p.property_type||'Property type unknown'}`;
+ $('era').replaceChildren(node('span',history.blocked?history.block_reason||'Quarantined acquisition evidence.':history.timing_verified?'Source and photo era verified.':'Source / photo era not yet verified. Labels do not override training eligibility.'));
+ const link=node('a',' Verify source / era');link.href='/property-review?property='+encodeURIComponent(p.id);$('era').append(link);
+ $('save-next').disabled=!!history.blocked;
+ $('remarks').textContent=p.mls_remarks||'No listing remarks available.';$('text-remarks').textContent=p.mls_remarks||'No listing remarks available.';
+ $('physical').value=r.physical_condition||'UNKNOWN';$('modernization').value=r.modernization_state||'UNKNOWN';
+ $('fit').value={target:'TARGET',not_target:'NOT_TARGET',unsure:'UNKNOWN'}[r.target_fit]||'UNKNOWN';
+ $('confidence').value=r.confidence||'';$('reason').value=r.reason||'';$('fit-basis').value=r.fit_basis||'unknown';$('evidence-source').value=r.evidence_source||'';
+ $('facts').replaceChildren(...structuredKeys.filter(k=>p.metadata?.[k]!==undefined).map(k=>{const row=node('tr');row.append(node('th',k),node('td',String(p.metadata[k])));return row}));
+ $('thumbnails').replaceChildren(...detail.images.map((image,index)=>{const b=node('button');b.type='button';b.setAttribute('aria-label',`Photo ${index+1}`);const img=node('img');img.src='/api/studio/image?id='+encodeURIComponent(image.id);img.alt=`Photo ${index+1}`;b.append(img);b.onclick=()=>{state.photo=index;renderPhoto()};return b}));
+ renderPhoto();renderSignals();
+}
+function renderPhoto(){
+ const image=state.detail.images[state.photo];$('hero').hidden=!image;$('no-photos').hidden=!!image;$('photo-form').hidden=!image;
+ if(!image){$('hero').removeAttribute('src');$('photo-status').textContent='';return}
+ $('hero').src='/api/studio/image?id='+encodeURIComponent(image.id);
+ $('photo-status').textContent=`Photo ${state.photo+1} of ${state.detail.images.length} | ${image.selection?.included===false?'Excluded: '+image.selection.reason:'Subject relevance still requires review'} | ${image.split==='test'?'Protected test group':'Review evidence'}`;
+ $('photo-context').value=image.review?.context||image.effective?.context||'unknown';$('photo-room').value=image.review?.room||image.effective?.room||'other';$('photo-exclusion').value='';
+ $('photo-physical').value=image.review?.physical_condition||'UNKNOWN';$('photo-modernization').value=image.review?.modernization_state||'UNKNOWN';
+ [...$('thumbnails').children].forEach((b,i)=>b.setAttribute('aria-pressed',String(i===state.photo)));
+}
+function renderSignals(){
+ $('signals').replaceChildren(...state.signals.map((item,i)=>{const row=node('div',undefined,'tag');const remove=node('button','Remove');remove.type='button';remove.onclick=()=>{state.signals.splice(i,1);state.dirty=true;renderSignals()};row.append(remove,node('strong',item.signal.replaceAll('_',' ')+' - '+item.state),node('p',item.snippet||'No supporting snippet supplied'));return row}));
+}
+async function saveNext(event){
+ event.preventDefault();if(state.busy||!state.detail)return;state.busy=true;$('save-next').disabled=true;
+ try{
+  const p=state.detail.property;const saved=await api('/api/studio/v2/label',{id:p.id,expected_revision:p.review?.revision||0,label_evidence_id:state.detail.label_evidence_id,status:'approved',physical_condition:$('physical').value,modernization_state:$('modernization').value,target_fit:{TARGET:'target',NOT_TARGET:'not_target',UNKNOWN:'unsure'}[$('fit').value],target_score:null,condition_label:'unknown',confidence:$('confidence').value||null,evidence_source:$('evidence-source').value||null,fit_basis:$('fit-basis').value,reason:$('reason').value,text_signals:state.signals,notes:p.review?.notes||''});p.review=saved;
+  state.dirty=false;const index=state.items.findIndex(i=>i.id===p.id),next=state.items[index+1];
+  if(next)await loadProperty(next.id);else{state.detail=null;$('property').hidden=true;$('empty').hidden=false;state.offset=0;await loadQueue()}
+  message('Review saved. No training or promotion was started.',true);
+ }finally{state.busy=false;$('save-next').disabled=!!state.detail?.historical_source?.blocked}
+}
+function renderJson(target,data){$(target).replaceChildren(node('pre',JSON.stringify(data,null,2)))}
+async function loadFeedback(){
+ const data=await api('/api/studio/v2/feedback');$('review-content').replaceChildren(node('p',data.notice||data.unavailable||''));
+ for(const item of data.items){const card=node('article',undefined,'card');const body=item.payload;
+  card.append(node('h2',`${body.evidence.listing_id} - ${item.decision||'Pending'}`),node('p',`Release ${body.release_id} | Reviewer ${body.reviewer.id}`),node('pre',JSON.stringify(body.corrections,null,2)));
+  const note=node('textarea');note.placeholder='Review rationale (required)';note.setAttribute('aria-label','Feedback review rationale');card.append(note);
+  for(const decision of ['reviewed','rejected']){const button=node('button',decision==='reviewed'?'Mark reviewed (not training approval)':'Reject correction');button.onclick=guard(async()=>{await api('/api/studio/v2/feedback/review',{event_id:item.event_id,decision,decision_id:crypto.randomUUID(),note:note.value});await loadFeedback()});card.append(button)}
+  $('review-content').append(card);
+ }if(!data.items.length)$('review-content').append(node('p','No production feedback received.'));
+}
+async function boot(){
+ state.caps=await api('/api/studio/v2/capabilities');$('actor').textContent=state.caps.actor.id+' | '+state.caps.actor.role;
+ options('physical',state.caps.taxonomy.physical_condition);options('modernization',state.caps.taxonomy.modernization);options('fit',state.caps.taxonomy.acquisition_fit);options('signal',state.caps.taxonomy.text_signals);
+ options('photo-physical',state.caps.taxonomy.physical_condition);options('photo-modernization',state.caps.taxonomy.modernization);
+ $('preview').disabled=!state.caps.training;$('load-errors').disabled=!state.caps.cloud;
+ document.querySelectorAll('[data-page]').forEach(b=>b.onclick=guard(async()=>{showPage(b.dataset.page);if(b.dataset.page==='operations'){const status=await api('/api/studio/v2/operations');renderJson('operation-content',{...status,blockers:state.caps.blockers})}}));
+ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{for(const name of ['photos','text','facts'])$(name+'-panel').hidden=name!==b.dataset.tab});
+ $('refresh').onclick=guard(async()=>{state.offset=0;await loadQueue()});$('more').onclick=guard(async()=>{if(state.dirty)throw Error('Save current labels first.');state.offset+=20;await loadQueue()});
+ $('label-form').oninput=()=>{state.dirty=true};$('label-form').onsubmit=guard(saveNext);
+ $('add-signal').onclick=guard(()=>{
+  const snippet=$('snippet').value,remarks=state.detail?.property.mls_remarks||'',index=remarks.indexOf(snippet);
+  if(snippet&&index<0)throw Error('The supporting phrase must exactly match the listing remarks.');
+  const start=snippet?Array.from(remarks.slice(0,index)).length:null;
+  const item={signal:$('signal').value,state:$('signal-state').value,probability:null,snippet:snippet||null,start,end:snippet?start+Array.from(snippet).length:null};
+  state.signals=state.signals.filter(s=>s.signal!==item.signal);state.signals.push(item);state.dirty=true;renderSignals();$('snippet').value='';
+ });
+ $('photo-form').onsubmit=guard(async event=>{
+  event.preventDefault();if(state.dirty)throw Error('Save property labels before saving a photo review.');const image=state.detail.images[state.photo],r=image.review||{},exclude=$('photo-exclusion').value;
+  await api('/api/studio/review',{...r,id:image.id,kind:'image',expected_revision:r.revision||0,reviewer:state.caps.actor.id,status:'draft',context:$('photo-context').value,room:$('photo-room').value,features:exclude?{}:(r.features||{}),preference:exclude?null:(r.preference||null),condition_label:exclude?'unknown':(r.condition_label||'unknown'),physical_condition:$('photo-physical').value,modernization_state:$('photo-modernization').value,...(exclude?{include_in_similarity:false}:{}),notes:exclude?[r.notes,'Excluded: '+exclude].filter(Boolean).join('\n'):(r.notes||'')});
+  await loadProperty(state.detail.property.id);message('Photo review saved as draft. Existing era and protected-test safeguards remain.',true);
+ });
+ $('load-feedback').onclick=guard(loadFeedback);$('load-errors').onclick=guard(async()=>renderJson('review-content',await api('/api/studio/workbench/errors?category='+$('error-category').value)));
+ $('preview').onclick=guard(async()=>{state.preview=await api('/api/studio/v2/dataset/preview',{});state.frozen=null;renderJson('training-result',state.preview);$('freeze').disabled=!state.preview.protected_groups_unchanged;$('train-candidate').disabled=true;$('confirm-training').checked=false});
+ $('freeze').onclick=guard(async()=>{if(!$('confirm-training').checked)throw Error('Confirm the explicit freeze action.');state.frozen=await api('/api/studio/v2/dataset/freeze',{id:state.preview.id,confirmed:true});renderJson('training-result',state.frozen);$('train-candidate').disabled=!state.frozen.trainable;$('freeze').disabled=true;$('confirm-training').checked=false});
+ $('train-candidate').onclick=guard(async()=>{if(!$('confirm-training').checked)throw Error('Confirm the explicit training action.');const job=await api('/api/studio/v2/train',{dataset_fingerprint:state.frozen.fingerprint,confirmed:true});renderJson('training-result',job);$('train-candidate').disabled=true;$('confirm-training').checked=false});
+ $('load-releases').onclick=guard(async()=>renderJson('release-content',await api('/api/studio/v2/releases')));
+ $('load-candidates').disabled=!state.caps.cloud;
+ $('load-candidates').onclick=guard(async()=>{
+  const history=await api('/api/studio/workbench/candidates');
+  for(const id of ['candidate-left','candidate-right'])$(id).replaceChildren(...history.items.map(item=>{const opt=node('option',item.version);opt.value=item.id;return opt}));
+  $('candidate-controls').hidden=history.items.length<2;
+  if(history.items.length>=2)$('candidate-right').selectedIndex=1;
+  renderJson('comparison',history);
+ });
+ $('compare-candidates').onclick=guard(async()=>renderJson('comparison',await api('/api/studio/workbench/compare?left='+encodeURIComponent($('candidate-left').value)+'&right='+encodeURIComponent($('candidate-right').value))));
+ document.addEventListener('keydown',event=>{if(event.ctrlKey&&event.key==='Enter'&&!$('label').hidden&&state.detail&&!$('save-next').disabled){event.preventDefault();$('label-form').requestSubmit()}});
+ window.addEventListener('beforeunload',event=>{if(state.dirty){event.preventDefault();event.returnValue=''}});
+ if(location.pathname==='/advanced'){showPage('advanced');return}
+ await loadQueue();
+}
+guard(boot)();
+</script></body></html>

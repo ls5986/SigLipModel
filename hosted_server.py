@@ -118,8 +118,47 @@ def create_server(port, app, auth):
         def authenticated(self):
             return self.trusted_host() and auth.valid(self.headers.get("Cookie"))
 
+        def service_request(self, path):
+            from actvision_service import UnavailableError, configured_bundle, infer, receive_feedback
+            token = os.environ.get("ACTVISION_SERVICE_TOKEN", "")
+            if not self.trusted_host():
+                return self.data(403, {"error": "Unrecognized host"})
+            if len(token) < 32:
+                return self.data(503, {"error": "ActVision service bridge is disabled", "code": "actvision_unavailable"})
+            if not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token):
+                return self.data(401, {"error": "ActVision service credentials required"})
+            try:
+                if self.command == "GET" and path.startswith("/api/actvision/v2/releases/"):
+                    release = configured_bundle()
+                    if path.removeprefix("/api/actvision/v2/releases/") != release.manifest["release_id"]:
+                        return self.data(404, {"error": "Release not found"})
+                    return self.data(200, release.manifest)
+                if self.command != "POST" or path not in {"/api/actvision/v2/infer", "/api/actvision/v2/feedback"}:
+                    return self.data(404, {"error": "Not found"})
+                payload = json.loads(self.body(2_000_000))
+                if path.endswith("/infer"):
+                    from actvision_contract import validate_contract
+                    validate_contract(payload, "inference_request")
+                    workspace = os.environ.get("ACTVISION_SOURCE_WORKSPACE_ID") or os.environ.get("STUDIO_WORKSPACE_ID")
+                    if not workspace or payload["evidence"]["workspace_id"] != workspace:
+                        raise PermissionError("Inference source workspace is not authorized")
+                    return self.data(200, infer(payload))
+                return self.data(200, receive_feedback(app.get_studio().store, payload))
+            except UnavailableError as exc:
+                return self.data(503, {"error": str(exc), "code": "actvision_unavailable"})
+            except PermissionError as exc:
+                return self.data(403, {"error": str(exc)})
+            except RuntimeError as exc:
+                return self.data(409, {"error": str(exc)})
+            except (ValueError, TypeError, KeyError) as exc:
+                return self.data(400, {"error": str(exc)})
+            except OSError:
+                return self.data(503, {"error": "ActVision storage unavailable", "code": "actvision_unavailable"})
+
         def do_GET(self):
             path=urlparse(self.path).path
+            if path.startswith("/api/actvision/v2/"):
+                return self.service_request(path)
             if path=="/health":
                 return self.data(200,{
                     "status":"ready","storage":"supabase",
@@ -138,7 +177,12 @@ def create_server(port, app, auth):
             if path=="/" and parse_qs(urlparse(self.path).query).get("property"):
                 return self.reply(303,b"",headers=[("Location","/property-review?"+urlparse(self.path).query)])
             if path=="/":
-                return self.reply(200,(CODE_ROOT/"mls_validation_ui.html").read_bytes(),"text/html; charset=utf-8")
+                return self.reply(200,(CODE_ROOT/"training_studio.html").read_bytes(),"text/html; charset=utf-8")
+            if path in {"/advanced", "/mls-validation"}:
+                page = "training_studio.html" if path == "/advanced" else "mls_validation_ui.html"
+                return self.reply(200,(CODE_ROOT/page).read_bytes(),"text/html; charset=utf-8")
+            if path=="/research":
+                return self.reply(503,b"Prompt-lab research tools require the local research backend. No paid/model action was started.")
             if path in {"/property-review","/review"}:
                 page=(CODE_ROOT/"review_ui.html").read_bytes().replace(
                     b"Local preview",b"Cloud development"
@@ -190,6 +234,8 @@ def create_server(port, app, auth):
 
         def do_POST(self):
             path=urlparse(self.path).path
+            if path.startswith("/api/actvision/v2/"):
+                return self.service_request(path)
             if path=="/login":
                 if not self.trusted_host() or not self.trusted_origin():
                     self.log_rejected_request("login_origin_rejected")
@@ -215,7 +261,12 @@ def create_server(port, app, auth):
             try:
                 payload=json.loads(self.body(2_000_000))
                 if not isinstance(payload,dict): raise ValueError("Expected a JSON object")
+                from studio_v2 import TRAINING_ACTIONS, require_operator
+                if path in TRAINING_ACTIONS:
+                    require_operator()
                 return self.data(200,app.get_studio().post(path,payload))
+            except PermissionError as exc:
+                return self.data(403,{"error":str(exc)})
             except RuntimeError as exc:
                 return self.data(409,{"error":str(exc)})
             except (ValueError,TypeError,KeyError) as exc:
