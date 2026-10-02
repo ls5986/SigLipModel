@@ -129,6 +129,42 @@ def test_cloud_property_rating_preserves_evidence_and_rejects_foreign_photos():
         )
 
 
+def test_complete_review_atomically_saves_era_condition_and_opportunity():
+    db=MemoryDatabase();store=Store(db,None)
+    sources,photos=store._examples(db,'house'),store._photos(db,'house')
+    history=store._history(sources,photos,None)
+    result=store.complete_review({
+        'property_id':'house','decision':'correct_era','photo_coverage':'no_interior',
+        'reviewer':'reviewer','reason':'Correct acquisition listing; metadata-only condition review',
+        'evidence_hash':history['evidence_hash'],'expected_era_revision':0,
+        'property_review':{
+            'expected_revision':0,'target_fit':'target','target_score':4,
+            'condition_label':'maintained_original','confidence':'medium',
+            'evidence_source':'metadata','fit_basis':'layout_location',
+            'reason_tags':['Strong metadata fit'],'standout_image_ids':[],
+            'reason':'Description, year built and property characteristics support review.',
+        },
+    })
+    assert result['complete']
+    assert db.state(db,'era','house')['photo_coverage']=='no_interior'
+    saved=db.state(db,'property','house')
+    assert saved['condition_label']=='maintained_original'
+    assert saved['evidence_source']=='metadata'
+
+
+def test_complete_review_wrong_photos_saves_no_property_rating():
+    db=MemoryDatabase();store=Store(db,None)
+    history=store._history(store._examples(db,'house'),store._photos(db,'house'),None)
+    result=store.complete_review({
+        'property_id':'house','decision':'wrong_era','photo_coverage':'unknown',
+        'reviewer':'reviewer','reason':'These are later-renovation photos',
+        'evidence_hash':history['evidence_hash'],'expected_era_revision':0,
+    })
+    assert not result['complete']
+    assert db.state(db,'era','house')['decision']=='wrong_era'
+    assert db.state(db,'property','house') is None
+
+
 def test_era_quarantine_blocks_approvals_and_preserves_labels():
     db=MemoryDatabase();store=Store(db,None)
     saved=store.save_review(payload())

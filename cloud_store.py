@@ -252,6 +252,59 @@ class SupabaseStore:
         self._index = None
         return result
 
+    def complete_review(self, payload):
+        identifier = payload.get('property_id')
+        decision = payload.get('decision')
+        reviewer = payload.get('reviewer')
+        reason = payload.get('reason')
+        if not isinstance(identifier,str) or decision not in {'correct_era','wrong_era','unsure'}:
+            raise ValueError('Known property and listing/photo decision required')
+        if not isinstance(reviewer,str) or not 1<=len(reviewer.strip())<=100:
+            raise ValueError('Reviewer name required')
+        if not isinstance(reason,str) or not 1<=len(reason.strip())<=2000:
+            raise ValueError('Short review reason required')
+        coverage = payload.get('photo_coverage','unknown')
+        if coverage not in {'unknown','interior_available','no_interior'}:
+            raise ValueError('Invalid photo coverage')
+        with self.database.connect() as db:
+            self._lock_property(db,identifier)
+            examples,photos = self._examples(db,identifier),self._photos(db,identifier)
+            current_era = self.database.state(db,'era',identifier)
+            history = self._history(examples,photos,current_era)
+            if payload.get('evidence_hash')!=history['evidence_hash']:
+                raise RuntimeError('Photo evidence changed; reload before saving')
+            if decision=='correct_era' and not all(
+                supports_prior(self._selected(example),example['source_snapshot'].get('spreadsheet'),
+                               example['source_snapshot'].get('mls_candidates'))
+                for example in examples
+            ):
+                raise ValueError('Rematch the prior acquisition before approving its era')
+            era_record = {
+                'property_id':identifier,'decision':decision,'reviewer':reviewer.strip(),
+                'reason':reason.strip(),'photo_coverage':coverage,
+                'evidence_hash':history['evidence_hash'],'at':now(),
+            }
+            era_result = self.database.save(
+                db,'era',identifier,payload.get('expected_era_revision'),era_record
+            )
+            property_result = None
+            if decision=='correct_era':
+                property_payload = payload.get('property_review')
+                if not isinstance(property_payload,dict):
+                    raise ValueError('Condition and opportunity review required for confirmed evidence')
+                effective = {
+                    **property_payload,'kind':'property','id':identifier,
+                    'reviewer':reviewer.strip(),'status':'approved',
+                }
+                record = validate_review(effective,examples[0])
+                if not set(record['standout_image_ids']) <= {photo['image_id'] for photo in photos}:
+                    raise ValueError('Standout photo belongs to another property')
+                property_result = self.database.save(
+                    db,'property',identifier,property_payload.get('expected_revision'),record
+                )
+        self._index = None
+        return {'era':era_result,'property':property_result,'complete':property_result is not None}
+
     def save_photo_selection(self, payload):
         identifier, reviewer = payload.get('id'), payload.get('reviewer')
         if not isinstance(identifier,str) or ':' not in identifier or type(payload.get('included')) is not bool:
@@ -323,7 +376,9 @@ class SupabaseStore:
 
     def queue(self, args):
         scope, queue = args.get('scope','acquisitions'), args.get('queue','all')
-        if scope not in {'acquisitions','quarantine','reference','training'} or queue not in {'all','ready','unscored','reviewed','photo_match','tagged'}:
+        if scope not in {'acquisitions','quarantine','reference','training'} or queue not in {
+            'all','ready','unscored','reviewed','photo_match','tagged','todo','opportunity','complete'
+        }:
             raise ValueError('Unknown review queue')
         offset,limit = max(0,int(args.get('offset',0))),min(40,max(1,int(args.get('limit',20))))
         with self.lock:
@@ -375,12 +430,16 @@ class SupabaseStore:
                     items[key] = {'id':key,'address':row['address'] or key,'city':row['city'],
                         'listing_id':row['listing_id'],'image_count':photo.get('count',0),'hero_image_id':photo.get('hero'),
                         'status':'reviewed' if review.get('status')=='approved' else 'unscored',
-                        'human_target':review.get('target_fit'),'target':None,
+                        'human_target':review.get('target_fit'),
+                        'human_score':review.get('target_score'),'target':None,
                         # Queue is conservative; property detail verifies exact evidence hash.
                         'needs_photo_match':not(photo.get('count') and era.get('decision')=='correct_era' and era.get('evidence_hash')==photo.get('evidence_hash')),'blocked':blocked or era.get('decision')=='wrong_era',
                         'autolabel_status':label_request.get('status','not_requested'),
                         'tagged_photo_count':len(tagged_images),
                         'source_role':'historical candidate','acquisition_status':'prior_acquisition_candidate'}
+                    items[key]['review_complete'] = (
+                        not items[key]['needs_photo_match'] and items[key]['status']=='reviewed'
+                    )
                 for item in items.values():
                     if item['blocked']: item['acquisition_status']='needs_prior_listing'
                 self._index = time.monotonic(),list(items.values())
@@ -392,12 +451,21 @@ class SupabaseStore:
             items = [item for item in items if item['id'] in keys]
         counts = {'all':len(items),'ready':0,'unscored':sum(i['status']=='unscored' for i in items),
                   'reviewed':sum(i['status']=='reviewed' for i in items),'photo_match':sum(i['needs_photo_match'] for i in items)}
+        counts['verified'] = sum(not i['needs_photo_match'] for i in items)
+        counts['opportunity'] = sum(
+            not i['needs_photo_match'] and i['status']!='reviewed' for i in items
+        )
+        counts['complete'] = sum(i['review_complete'] for i in items)
+        counts['todo'] = sum(not i['review_complete'] for i in items)
         counts['tagged'] = sum(
             i['autolabel_status']=='completed' and i['tagged_photo_count'] > 0 for i in items
         )
         photo_count = sum(i['image_count'] for i in items)
         search = args.get('search','').strip().casefold()
-        items = [i for i in items if (queue=='all' or queue=='photo_match' and i['needs_photo_match']
+        items = [i for i in items if (queue=='all' or queue=='todo' and not i['review_complete']
+                  or queue=='opportunity' and not i['needs_photo_match'] and i['status']!='reviewed'
+                  or queue=='complete' and i['review_complete']
+                  or queue=='photo_match' and i['needs_photo_match']
                   or queue=='tagged' and i['autolabel_status']=='completed' and i['tagged_photo_count']
                   or i['status']==queue)
                  and (not search or search in ' '.join(str(i[k] or '') for k in ('id','address','city','listing_id')).casefold())]

@@ -83,6 +83,7 @@ nav{display:flex;gap:8px;align-items:center}nav button{border:0;background:var(-
 .inspector{background:var(--cp-surface);border-left:1px solid var(--cp-border);padding:20px;overflow:auto;display:flex;flex-direction:column;gap:18px;min-width:0}.decision-title{font-size:27px;font-weight:700;line-height:1.2;letter-spacing:-.02em}.section{border-top:1px solid var(--cp-border);padding-top:16px}.kv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:8px 12px;font-size:12px}.kv span,.kv strong{min-width:0;overflow-wrap:anywhere}.kv strong{text-align:right}.context-tags{display:flex;flex-wrap:wrap;gap:6px}.score{font-size:22px;font-variant-numeric:tabular-nums}#model-reason{font-size:13px}#score-button{width:100%}#photo-notes{font-size:12px}#matching{display:none}.matching-mode #matching{display:grid}.matching-mode #assessment{display:none}.listing-remarks{white-space:pre-wrap;max-height:180px;overflow:auto;line-height:1.45}.outcome{border-left:3px solid var(--cp-accent)}.outcome strong{font-size:18px}.field-note{line-height:1.45}
 .matching-mode #economics{display:none}
 .fact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.fact{padding:9px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface-soft);min-width:0}.fact small,.fact strong{display:block}.fact strong{overflow-wrap:anywhere}.choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.choice-grid label{display:flex;align-items:center;gap:7px;padding:8px;border:1px solid var(--cp-border);border-radius:8px}.choice-grid input{min-width:auto}.evidence-picker button[aria-pressed="true"]{border:3px solid var(--cp-accent);padding:0}.evidence-picker button[aria-pressed="true"]::after{content:"Evidence";display:block;color:var(--cp-accent);font-weight:700}.technical summary,.secondary-context summary{cursor:pointer;color:var(--cp-text-muted)}.secondary-context summary{display:grid;gap:2px;list-style:none}.secondary-context summary::-webkit-details-marker{display:none}.secondary-context summary::after{content:"Show details";font-size:11px;color:var(--cp-link)}.secondary-context[open] summary::after{content:"Hide details"}.secondary-context-body{margin-top:14px}
+.review-checklist{display:grid;gap:8px}.check-step{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:10px;border:1px solid var(--cp-border);border-radius:.625rem;background:var(--cp-surface-soft)}.check-number{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--cp-surface);border:1px solid var(--cp-border);font-weight:800}.check-step.done .check-number{background:var(--cp-success);border-color:var(--cp-success);color:var(--cp-accent-fg)}.check-step strong,.check-step small{display:block}.decision-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.decision-grid label{display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid var(--cp-border);border-radius:.625rem;background:var(--cp-surface-soft);white-space:normal}.decision-grid input{flex:none;margin-top:4px}.review-help{padding:12px;border-left:3px solid var(--cp-accent);background:var(--cp-accent-soft);border-radius:.625rem}.review-evidence{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.review-evidence .fact{min-height:64px}.queue-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:100%}.queue-summary span{padding:7px 9px;border:1px solid var(--cp-border);border-radius:.625rem;background:var(--cp-surface);font-size:11px}.queue-summary strong{display:block;font-size:15px}@media(max-width:760px){.decision-grid,.review-evidence,.queue-summary{grid-template-columns:1fr 1fr}}
 footer{min-height:80px;background:var(--cp-surface);border-top:1px solid var(--cp-border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}.footer-copy{max-width:420px}.footer-copy small{display:block}.actions{display:flex;gap:8px}.actions button{padding:11px 18px}label{display:grid;gap:6px}input,select,textarea{padding:10px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface);min-width:0}textarea{resize:vertical;width:100%;min-height:75px}
 dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:24px;max-width:720px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}dialog::backdrop{background:var(--cp-overlay)}dialog form{display:grid;gap:16px;min-width:0}dialog label,dialog fieldset,dialog .filmstrip{min-width:0}dialog input:not([type="checkbox"]),dialog select,dialog textarea{width:100%;max-width:100%}dialog fieldset{margin:0;padding:12px;border:1px solid var(--cp-border);border-radius:10px}dialog legend{padding:0 6px;font-weight:600}dialog .review-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}dialog .choice-grid label{display:flex;align-items:flex-start;white-space:normal}dialog .choice-grid input{flex:none;margin-top:3px}dialog .dialog-actions{position:sticky;bottom:-24px;background:var(--cp-surface);padding:12px 0;margin-bottom:-12px;border-top:1px solid var(--cp-border)}@media(max-width:600px){dialog{padding:16px}dialog .review-columns,dialog .choice-grid{grid-template-columns:1fr}dialog .dialog-actions{bottom:-16px}dialog .dialog-actions button{white-space:normal}}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}.features{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px}dialog img{max-height:170px;max-width:100%;object-fit:contain}ul{padding-left:19px;margin:5px 0}#queue-toggle{display:none}
 @media(min-width:1600px){.workspace{grid-template-columns:250px minmax(560px,1fr) 390px}.viewer{padding:24px}}
@@ -93,11 +94,11 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 <body>
 <header>
  <div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span class="badge">Local preview</span></div>
- <nav aria-label="Workspace"><button id="match-nav">1 · Confirm photos</button><button id="review-nav" aria-current="page">2 · Rate properties</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a><a href="/source-rows" id="source-ledger-link" hidden>All workbook rows</a></nav>
+ <nav aria-label="Workspace"><button id="match-nav">Review properties</button><button id="review-nav" aria-current="page">Property rating</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a><a href="/source-rows" id="source-ledger-link" hidden>All workbook rows</a></nav>
  <button id="reviewer-button" class="small">Your name</button>
 </header>
 <div class="statusbar row spread wrap">
- <div class="row wrap"><button id="queue-toggle">Properties</button><strong id="task-heading">Review properties</strong><span id="progress" class="muted small">Connecting…</span></div>
+ <div class="row wrap" style="flex:1"><button id="queue-toggle">Properties</button><strong id="task-heading">Review properties</strong><span id="progress" class="muted small">Connecting…</span><div id="queue-summary" class="queue-summary" hidden></div></div>
  <div class="row"><button id="ready-button" class="primary small" disabled>Review ready properties</button><button id="refresh" class="small">Reload</button></div>
 </div>
 <div id="message" role="status" hidden class="notice"><span id="message-text"></span><button id="retry" hidden>Retry</button><button id="dismiss" aria-label="Dismiss message">×</button></div>
@@ -107,7 +108,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    <div class="row spread"><strong id="queue-title">Properties</strong><small id="queue-count"></small></div>
    <input id="search" type="search" placeholder="Search address or MLS ID" aria-label="Search properties">
    <select id="dataset-scope" aria-label="Dataset"><option id="training-scope" hidden disabled value="training">250-property training batch</option><option value="acquisitions">Your acquisition candidates</option><option value="quarantine">Wrong era / needs earlier listing</option><option value="reference">Other reference properties</option></select>
-   <select id="queue-filter" aria-label="Review queue"><option value="all">All properties</option><option value="photo_match">Needs sale/photo verification</option><option value="tagged">Tagged photos ready</option><option value="ready">AI property draft available</option><option value="unscored">Not reviewed yet</option><option value="reviewed">Reviewed</option></select>
+   <select id="queue-filter" aria-label="Review queue"><option value="todo">Still needs review</option><option value="photo_match">Needs listing/photo decision</option><option value="opportunity">Photos confirmed; rate opportunity</option><option value="complete">Review complete</option><option value="all">All matched listings</option><option value="tagged">Tagged photos ready</option><option value="ready">AI property draft available</option><option value="unscored">Not reviewed yet</option><option value="reviewed">Reviewed</option></select>
   </form>
   <div id="queue-list"><p class="muted" style="padding:12px">Loading your properties…</p></div>
   <div class="pagination row spread"><button id="queue-prev" aria-label="Previous property page">←</button><small id="page-number">—</small><button id="queue-next" aria-label="Next property page">→</button></div>
@@ -138,9 +139,14 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    <button id="score-button" disabled>Get optional AI second opinion</button><small id="model-version"></small>
   </section>
   <section id="matching" class="stack">
-   <span class="eyebrow">Historical photo check</span><h2>Is this the right photo set?</h2>
-   <p class="small muted">Match the property and acquisition era. This does not approve its investment potential.</p>
-   <label for="photo-coverage">Interior photo coverage<select id="photo-coverage"><option value="unknown">Not recorded / unsure</option><option value="interior_available">Interior photos available</option><option value="no_interior">No interior photos</option></select></label><p class="small muted">Missing interiors does not make the sale wrong. A verified sale remains a known target. Relevant exterior and outdoor photos still teach visual similarity, and listing metadata still contributes. Interior condition stays unknown. Saved when you choose a review action below.</p><div id="sale-context" class="stack"></div><p id="era-state" class="notice warning"></p>
+   <span class="eyebrow">One guided review</span><h2>What do I need to decide?</h2>
+   <div class="review-checklist">
+    <div id="check-evidence" class="check-step"><span class="check-number">1</span><div><strong>Correct listing and acquisition-era photos?</strong><small id="check-evidence-copy">Confirm the sale and whether these are before-renovation photos.</small></div></div>
+    <div id="check-coverage" class="check-step"><span class="check-number">2</span><div><strong>What evidence is available?</strong><small id="check-coverage-copy">Interior photos, exterior only, or metadata and remarks only.</small></div></div>
+    <div id="check-opportunity" class="check-step"><span class="check-number">3</span><div><strong>Condition and opportunity?</strong><small id="check-opportunity-copy">Estimate from photos, metadata, remarks, or both.</small></div></div>
+   </div>
+   <div class="review-help small"><strong>Missing interior photos is okay.</strong> Use the listing remarks, year built, property facts, and exterior evidence. Choose “Unknown” when the evidence is not enough.</div>
+   <div id="sale-context" class="stack"></div><p id="era-state" class="notice warning"></p>
   </section>
   <section class="section stack"><div class="row spread"><h3>Property facts</h3><small>Available at review time</small></div><div id="property-facts" class="fact-grid"></div></section>
   <details id="listing-context" class="section secondary-context">
@@ -162,10 +168,25 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   <p id="saved-answer" class="notice" hidden></p>
  </aside>
 </main>
-<footer><div class="footer-copy"><strong id="next-instruction">Rate this property from the available evidence.</strong><small id="action-note">Your answer is saved separately from every model draft.</small></div>
- <div class="actions"><button id="agree" class="primary" disabled>Rate property</button><button id="correct" disabled hidden>Wrong photos</button><button id="unsure" disabled>Not enough information</button><button id="skip" disabled>Skip →</button></div>
+<footer><div class="footer-copy"><strong id="next-instruction">Complete one guided review.</strong><small id="action-note">Confirm the evidence, condition, and opportunity together.</small></div>
+ <div class="actions"><button id="agree" class="primary" disabled>Complete review</button><button id="correct" disabled hidden>Wrong listing/photos</button><button id="unsure" disabled>Not sure</button><button id="skip" disabled>Skip →</button></div>
 </footer>
 <dialog id="name-dialog"><form id="name-form"><h2>What name should go on your reviews?</h2><p class="muted">Enter it once. Your original answers stay separate from model drafts.</p><input id="name-input" maxlength="100" required autocomplete="name" aria-label="Reviewer name"><div class="dialog-actions"><button type="button" data-close="name-dialog">Cancel</button><button class="primary">Continue</button></div></form></dialog>
+<dialog id="complete-dialog"><form id="complete-form">
+ <div><span class="eyebrow">Complete one property review</span><h2 id="complete-address">Review this property</h2><p class="muted small">You can use photos, listing remarks, property facts, or all of them together.</p></div>
+ <fieldset><legend>1 · Is this the correct acquisition listing and photo set?</legend><div class="decision-grid">
+  <label><input type="radio" name="complete-era" value="correct_era" required><span><strong>Yes</strong><small>Correct listing and photos from around the purchase.</small></span></label>
+  <label><input type="radio" name="complete-era" value="wrong_era"><span><strong>No</strong><small>Wrong listing, wrong property, or after-renovation photos.</small></span></label>
+  <label><input type="radio" name="complete-era" value="unsure"><span><strong>Not sure</strong><small>Dates or photos do not provide enough evidence.</small></span></label>
+ </div></fieldset>
+ <div id="complete-details" class="stack">
+  <fieldset><legend>2 · What evidence is available?</legend><div class="review-columns"><label>Photo coverage<select id="complete-coverage"><option value="interior_available">Interior photos are shown</option><option value="no_interior">No useful interior photos</option><option value="unknown">Not sure</option></select></label><label>What did you use?<select id="complete-evidence"><option value="both">Photos and listing facts/remarks</option><option value="images">Photos</option><option value="metadata">Listing facts and remarks</option><option value="insufficient">Not enough evidence</option></select></label></div>
+  <div id="complete-facts" class="review-evidence"></div><div id="complete-remarks" class="notice small" hidden></div></fieldset>
+  <fieldset><legend>3 · What is the best condition estimate?</legend><label>Condition<select id="complete-condition"><option value="unknown">Unknown — not enough evidence</option><option value="updated">Updated / minimal work</option><option value="maintained_original">Original but well maintained</option><option value="slightly_dated">Slightly dated</option><option value="mixed">Mixed updates</option><option value="dated">Needs updating / cosmetic work</option><option value="rough">Rough / substantial work</option><option value="major">Major rehab</option></select></label><p class="small muted">If interiors are missing, use remarks, age and other property facts only when they support an estimate. Otherwise choose Unknown.</p></fieldset>
+  <fieldset><legend>4 · Is this a good opportunity to investigate?</legend><div class="review-columns"><label>Opportunity<select id="complete-score" required><option value="">Choose one</option><option value="5">Ideal target</option><option value="4">Strong lead / worth pursuing</option><option value="3">Maybe</option><option value="2">Weak match</option><option value="1">Not a target</option><option value="insufficient">Not enough information</option></select></label><label>Confidence<select id="complete-confidence"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></label></div><label>Optional note<textarea id="complete-note" maxlength="2000" placeholder="Example: Exterior only, but the remarks and 1963 build suggest original condition and the property is worth a closer look."></textarea></label></fieldset>
+ </div>
+ <div class="dialog-actions"><button type="button" data-close="complete-dialog">Cancel</button><button class="primary">Save review &amp; next</button></div>
+</form></dialog>
 <dialog id="answer-dialog"><form id="answer-form"><h2 id="answer-heading">Rate this property</h2><p class="muted small">Would you shortlist this property using the listing information available at acquisition? A well-maintained property can be a strong fit. Rate condition separately; past resale success does not establish today’s fit.</p><label>Overall acquisition fit<select id="property-score" required><option value="" disabled>Choose your overall fit rating</option><option value="5">5 — Ideal target</option><option value="4">4 — Strong lead</option><option value="3">3 — Maybe</option><option value="2">2 — Weak match</option><option value="1">1 — Definitely pass</option><option value="insufficient">Not enough information — outside the scale</option></select></label><div class="review-columns"><label>Evidence used<select id="answer-evidence"><option value="both">Photos and metadata</option><option value="images">Photos</option><option value="metadata">Metadata</option><option value="insufficient">Insufficient evidence</option></select></label><label>Your confidence<select id="answer-confidence"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></label></div><label>Visible condition, independent of fit<select id="answer-condition"><option value="unknown">Unknown / not visible</option><option value="mixed">Mixed updates</option><option value="slightly_dated">Slightly dated, well maintained</option><option value="maintained_original">Original condition, well maintained</option><option value="dated">Needs updating / cosmetic work</option><option value="updated">Updated / minimal work</option><option value="rough">Rough / substantial work</option><option value="major">Major rehab</option></select></label><label>What makes it a fit or a pass?<select id="answer-basis"><option value="unknown">Not established</option><option value="renovation">Visible renovation potential</option><option value="pricing">Pricing / comparable value</option><option value="layout_location">Layout, location or property characteristics</option><option value="mixed">Several of these together</option></select></label><p class="small muted">Pricing is your judgment from the evidence reviewed. This model does not verify profit, repair costs or comp quality.</p><fieldset><legend>Reasons, separate from condition</legend><div id="answer-reason-tags" class="choice-grid"></div></fieldset><div><strong>Which photos influenced you?</strong><p class="muted small">Optional. Select only the strongest evidence; irrelevant photos can be excluded separately.</p><div id="answer-evidence-images" class="filmstrip evidence-picker"></div></div><label>Short explanation<textarea id="answer-reason" required maxlength="2000" placeholder="e.g. Well maintained, but original finishes and the price make it worth investigating."></textarea></label><div class="dialog-actions"><button type="button" data-close="answer-dialog">Cancel</button><button class="primary">Save review &amp; next</button></div></form></dialog>
 <dialog id="score-dialog"><form id="score-form"><h2>Generate an AI draft</h2><p id="score-summary"></p><p class="notice warning">One paid GPT-4.1 mini call. Up to 8 selected photos—not the full photo set. Cost estimate unavailable. Nothing runs until you authorize it.</p><div id="score-thumbnails" class="filmstrip"></div><label class="row"><input type="checkbox" id="paid-check"> I authorize this one paid request.</label><p class="small muted">Results are drafts. Missing or uncertain evidence can produce “Can’t tell.”</p><div class="dialog-actions"><button type="button" data-close="score-dialog">Cancel</button><button id="run-score" class="primary" disabled>Generate draft</button></div></form></dialog>
 <dialog id="photo-dialog"><form id="photo-form"><h2>Correct this photo</h2><p class="small muted">Review the suggested tags and correct anything wrong. This is not required to verify a target property.</p><img id="photo-dialog-image" alt="Photo being reviewed"><label>What does this photo show?<select id="photo-edit-context"><option value="unknown">Unsure / needs review</option><option value="subject">The subject property</option><option value="shared_amenity">Shared amenity / HOA</option><option value="floor_plan">Floor plan</option><option value="unrelated">Unrelated image</option></select></label><p class="notice small">Floor plans, amenities, and unrelated photos are excluded from the property training candidate.</p><label>Room (suggested automatically when model results are available)<select id="photo-edit-room"></select></label><p id="photo-room-source" class="small muted"></p><label>Visible interior condition (draft)<select id="photo-condition"><option value="unknown">Unknown / can’t tell</option><option value="updated">Updated</option><option value="mixed">Mixed</option><option value="slightly_dated">Slightly dated</option><option value="maintained_original">Maintained original</option><option value="dated">Dated</option><option value="rough">Rough</option><option value="major">Major visible damage</option></select></label><details class="technical"><summary>Review suggested visible features (optional)</summary><div class="stack"><label>Does this photo show target opportunity?<select id="photo-preference"><option value="">Not judged</option><option value="target">Yes</option><option value="not_target">No</option><option value="unsure">Can’t tell</option></select></label><p class="small muted">Unknown means not established, not absent.</p><div id="photo-features" class="features"></div><label>Notes<textarea id="photo-edit-notes" maxlength="4000"></textarea></label></div></details><p class="notice small">This saves photo-level evidence only. It does not approve the property or verify photo dates.</p><div class="dialog-actions"><button type="button" data-close="photo-dialog">Cancel</button><button class="primary">Approve photo tags</button></div></form></dialog>
@@ -242,34 +263,43 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  function remember(){try{localStorage.setItem('acq-studio-reviewer',S.name);}catch{}$('reviewer-button').textContent=S.name||'Your name';}
  function withName(fn){if(S.name)return fn();S.pending=fn;$('name-input').value='';$('name-dialog').showModal();}
  function drawQueue(){
-  $('queue-count').textContent=S.total;
+  $('queue-count').textContent=S.knownTargets?`${S.total} shown` : S.total;
   $('page-number').textContent=S.total?`${S.offset+1}–${Math.min(S.offset+20,S.total)}`:'0 properties';
   $('queue-list').replaceChildren(...S.items.map(i=>{
    const button=btn('',()=>action(()=>openProperty(i.id)),'queue-item');button.dataset.propertyId=i.id;button.setAttribute('aria-current',String(S.detail?.property.id===i.id));
    if(i.hero_image_id){const img=el('img');img.src=thumbURL(i.hero_image_id);img.alt='';img.loading='lazy';button.append(img);}
    const copy=el('span',null,'copy');
-   const state=S.knownTargets&&i.autolabel_status==='completed'?`${i.tagged_photo_count||0} photos tagged · Ready to check`:S.mode==='matching'?(i.needs_photo_match?'Sale/photos need verification':'Sale/photos verified'):i.human_score?`${i.human_score}/5 · Reviewed`:label(i.status);
+   const state=S.knownTargets?(i.review_complete?'Review complete ✓':i.needs_photo_match?'Step 1 · Confirm listing and photos':'Step 2 · Rate condition and opportunity'):S.mode==='matching'?(i.needs_photo_match?'Sale/photos need verification':'Sale/photos verified'):i.human_score?`${i.human_score}/5 · Reviewed`:label(i.status);
    copy.append(el('strong',i.address),el('small',[i.city,`${i.image_count} photos`].filter(Boolean).join(' · ')),el('small',state));
+   if(S.knownTargets&&i.tagged_photo_count)copy.append(el('small',`${i.tagged_photo_count} draft photo tags available`,'muted'));
    button.append(copy);return button;
   }));
-  if(!S.items.length)$('queue-list').append(el('p','No properties in this queue. Choose All properties or score an unscored property.','notice'));
+  if(!S.items.length)$('queue-list').append(el('p','Nothing remains in this view. Choose All matched listings or another review step.','notice'));
  }
  async function loadQueue(prefer=null){
   $('dataset-scope').value=S.scope;
   const requestedQueue=S.knownTargets?S.filter:S.mode==='matching'?'photo_match':S.filter;
   const data=await api('review-queue?'+new URLSearchParams({queue:requestedQueue,scope:S.scope,search:$('search').value.trim(),offset:S.offset,limit:20}));
   const cloud=data.capabilities?.storage==='supabase';
-  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';S.filter='photo_match';$('queue-filter').value='photo_match';$('review-nav').hidden=true;$('ready-button').hidden=true;return loadQueue(prefer);}$('training-scope').hidden=!cloud;$('training-scope').disabled=!cloud;
+  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';S.filter='todo';$('queue-filter').value='todo';$('review-nav').hidden=true;$('match-nav').textContent='Review properties';$('ready-button').hidden=true;return loadQueue(prefer);}$('training-scope').hidden=!cloud;$('training-scope').disabled=!cloud;
   if(!S.cohortLinkChecked){S.cohortLinkChecked=true;if(cloud&&new URLSearchParams(location.search).get('cohort')==='training'){S.scope='training';S.offset=0;return loadQueue();}}
   S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
   if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
-  $('progress').textContent=S.knownTargets?`${S.counts.tagged||0} tagged properties · ${S.counts.photo_match} sale/photo sets to verify`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
+  $('progress').textContent=S.knownTargets?`${S.counts.todo} incomplete of ${S.counts.all} matched listings`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
+  const queueSummary=$('queue-summary');queueSummary.hidden=!S.knownTargets;
+  if(S.knownTargets)queueSummary.replaceChildren(
+   summaryStat(S.counts.all,'Matched listings'),
+   summaryStat(S.counts.verified,'Photo sets confirmed'),
+   summaryStat(S.counts.reviewed,'Opportunity reviews'),
+   summaryStat(S.counts.todo,'Still incomplete')
+  );
   $('ready-button').textContent=`AI drafts (${S.counts.ready})`;drawQueue();
   const next=S.items.find(i=>i.id===prefer)||S.items.find(i=>i.id===S.detail?.property.id)||S.items[0];
   const requested=new URLSearchParams(location.search).get('property');
   if(requested&&!S.request){await openProperty(requested);return;}
   if(next)await openProperty(next.id);else{S.detail=null;draw();}
  }
+ function summaryStat(value,labelText){const node=el('span');node.append(el('strong',String(value)),document.createTextNode(labelText));return node;}
  async function openProperty(id){
   const ticket=++S.request;const detail=await api('property?'+new URLSearchParams({id}));
   if(ticket!==S.request)return;
@@ -314,15 +344,15 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const m=p?.metadata||{};
   $('property-meta').textContent=p?[p.city,p.year_built?'Built '+p.year_built:null,m.ListingId?'MLS '+m.ListingId:null,m.CloseDate?'Sold '+m.CloseDate:null].filter(Boolean).join(' · '):'Choose another queue.';
   document.body.classList.toggle('matching-mode',S.mode==='matching');
-  $('task-heading').textContent=S.mode==='matching'?'Confirm acquisition sale and photo set':'Step 2 of 2 · Rate target properties';
+  $('task-heading').textContent=S.knownTargets?'Review matched acquisition listings':S.mode==='matching'?'Confirm acquisition sale and photo set':'Step 2 of 2 · Rate target properties';
   $('queue-filter').disabled=S.mode==='matching'&&!S.knownTargets;
   $('review-nav').setAttribute('aria-current',S.mode==='review'?'page':'false');$('match-nav').setAttribute('aria-current',S.mode==='matching'?'page':'false');
-  $('agree').textContent=S.mode==='matching'?'Verify sale/photos & next':'Rate property';
-  $('correct').textContent='Wrong photos & next';
-  $('unsure').textContent=S.mode==='matching'?"Can’t tell & next":"Not enough information";
+  $('agree').textContent=S.knownTargets?'Complete review':S.mode==='matching'?'Verify sale/photos & next':'Rate property';
+  $('correct').textContent=S.knownTargets?'Wrong listing/photos': 'Wrong photos & next';
+  $('unsure').textContent=S.knownTargets?'Not sure':S.mode==='matching'?"Can’t tell & next":"Not enough information";
   const r=p?.review,approved=r?.status==='approved';
   $('decision-title').textContent=S.knownTargets?(d?.historical_source?.timing_verified?'Known target · photos verified':'Known target · verify sale and photos'):d?.historical_source?.blocked?'Wrong / uncertain era':approved?(r.target_score?`${r.target_score} / 5 · ${label(r.target_fit)}`:label(r.target_fit)):job?.status==='running'?'AI draft running…':'Ready for your rating';
-  $('model-reason').textContent=S.knownTargets?'This workbook supplies known targets. Confirm the correct acquisition sale and photos; no target/pass rating is required.':approved?r.reason:S.detail?.capabilities?.assessment===false?'Photos and reviews are saved in Supabase. Rate the property directly; cloud model processing is not enabled for this deployment.':job?.prediction?`Optional AI draft: ${job.prediction.target_reason}`:'Review first from the available photos and property facts. You can request an optional AI second opinion.';
+  $('model-reason').textContent=S.knownTargets?'Confirm the listing/photos, estimate condition from the evidence available, and decide whether this opportunity is worth investigating.':approved?r.reason:S.detail?.capabilities?.assessment===false?'Photos and reviews are saved in Supabase. Rate the property directly; cloud model processing is not enabled for this deployment.':job?.prediction?`Optional AI draft: ${job.prediction.target_reason}`:'Review first from the available photos and property facts. You can request an optional AI second opinion.';
   $('condition').textContent=approved&&r.condition_label?'Your visible condition: '+label(r.condition_label):job?.prediction?'AI condition draft: '+label(condition(job)):'';
   $('model-version').textContent=job?.prediction?`${job.model} · ${job.image_count} selected photos · optional AI draft`:'Human review does not require an AI request. Reviews do not retrain automatically.';
   $('score-button').textContent=job?.prediction?'Refresh optional AI opinion':job?.status==='running'?'Generating AI opinion…':'Get optional AI second opinion';
@@ -332,8 +362,8 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('assessment-warning').hidden=!warnings.length;$('assessment-warning').textContent=warnings.join('. ');
   $('coverage').replaceChildren(...Object.entries(job?.prediction?.coverage||d?.coverage||{}).map(([room,value])=>el('span',label(room)+': '+(value===true?'seen':value===false?'not shown':value),'badge')));
   $('saved-answer').hidden=!approved;$('saved-answer').textContent=approved?`Saved review: ${r.target_score?`${r.target_score}/5 · `:''}${label(r.target_fit)} · ${label(r.confidence||'unknown')} confidence`:'';
-  $('next-instruction').textContent=S.mode==='matching'?'Are these the right acquisition-era photos?':'Rate whether this property is worth investigating.';
-  $('action-note').textContent=S.mode==='matching'?'Confirm the listing and dates, not just how the house looks.':'Use photos, metadata, or both. Missing evidence is not a negative label.';
+  $('next-instruction').textContent=S.knownTargets?'Complete this property review.':S.mode==='matching'?'Are these the right acquisition-era photos?':'Rate whether this property is worth investigating.';
+  $('action-note').textContent=S.knownTargets?'One form covers listing/photos, evidence, condition, and opportunity.':S.mode==='matching'?'Confirm the listing and dates, not just how the house looks.':'Use photos, metadata, or both. Missing evidence is not a negative label.';
   const facts=[
    ['Type',m.PropertySubType||m.PropertyType||p?.property_type],
    ['Built',m.YearBuilt||p?.year_built],
@@ -346,7 +376,6 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   ];
   $('property-facts').replaceChildren(...facts.filter(([,value])=>value!==null&&value!==undefined&&value!=='').map(([name,value])=>{const box=el('div',null,'fact');box.append(el('small',name),el('strong',String(value)));return box;}));
   const h=d?.historical_source;
-  $('photo-coverage').value=h?.photo_coverage||'unknown';
   $('listing-evidence').textContent=h?`MLS ${m.ListingId||p.id} · closes ${String(m.CloseDate||'unknown').slice(0,10)} · prior acquisition ${String(h.source['Prior Sale Date']||'unknown').slice(0,10)}. ${h.blocked?'Quarantined: not valid acquisition evidence.':h.timing_verified?'Photo era confirmed.':'Prior transaction candidate; photo timing still unverified.'}`:'Reference property — not from your acquisition list.';
   if(h?.sale_policy?.target_sale_date)$('listing-evidence').textContent=`First sale to use: ${h.sale_policy.target_sale_date}. Selected listing closes ${h.sale_policy.selected_close_date||'unknown'}. ${h.blocked?'Correct first-sale listing/photos need recovery; later-sale photos are hidden.':'Verify that these photos belong to that sale.'}`;
   if(h?.blocked)$('next-instruction').textContent='First-sale evidence needs recovery. Keep this house as a target; skip this photo set.';
@@ -354,8 +383,16 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   if(h){for(const prefix of ['Prior','Last'])$('sale-context').append(el('p',`${prefix} sale: ${String(h.source[prefix+' Sale Date']||'Unknown').slice(0,10)} · ${h.source[prefix+' Sale Amount']==null?'Unknown price':'$'+Number(h.source[prefix+' Sale Amount']).toLocaleString()}`,'small'));
    $('era-state').textContent=h.blocked?h.block_reason:h.timing_verified?'Photo era confirmed by reviewer. Training checks still separate.':'Candidate listing match—not verified photo timing.';}
   else $('era-state').textContent='No spreadsheet acquisition match is attached to this property.';
+  drawChecklist(d);
   drawListingContext(d,m,h);
   drawPhotos();controls();
+ }
+ function drawChecklist(d){
+  const h=d?.historical_source||{},review=d?.property?.review||{};
+  const evidenceDone=!!h.timing_verified,coverage=h.photo_coverage||'unknown',opportunityDone=review.status==='approved';
+  $('check-evidence').classList.toggle('done',evidenceDone);$('check-evidence-copy').textContent=evidenceDone?'Confirmed acquisition listing and photo timing.':h.blocked?'This listing/photo set needs correction or recovery.':'Still needs your listing/photo decision.';
+  $('check-coverage').classList.toggle('done',evidenceDone&&coverage!=='unknown');$('check-coverage-copy').textContent=coverage==='interior_available'?'Interior photos available.':coverage==='no_interior'?'No useful interiors; use exterior and listing facts/remarks.':'Still needs an evidence coverage choice.';
+  $('check-opportunity').classList.toggle('done',opportunityDone);$('check-opportunity-copy').textContent=opportunityDone?`${label(review.condition_label||'unknown')} condition · ${review.target_score?review.target_score+'/5 opportunity':label(review.target_fit)}`:'Still needs a condition estimate and opportunity decision.';
  }
  function drawListingContext(d,m,h){
   const p=d?.property;
@@ -474,6 +511,73 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('answer-evidence-images').replaceChildren(...d.images.map(image=>{const button=btn('',()=>{if(S.answerImages.has(image.id))S.answerImages.delete(image.id);else S.answerImages.add(image.id);button.setAttribute('aria-pressed',String(S.answerImages.has(image.id)));});button.setAttribute('aria-pressed',String(S.answerImages.has(image.id)));const preview=el('img');preview.src=thumbURL(image.id);preview.alt=label(roomOf(image));button.append(preview,el('span',label(roomOf(image))));return button;}));
   $('answer-dialog').showModal();
  }
+ function draftCondition(images){
+  const values=images.map(image=>image.condition_draft).filter(value=>value&&value!=='unknown');
+  if(!values.length)return'unknown';
+  const unique=new Set(values);
+  if(unique.size>1)return'mixed';
+  return values[0];
+ }
+ function openComplete(){
+  const d=S.detail;if(!d)return;
+  const p=d.property,h=d.historical_source||{},m=p.metadata||{},review=p.review||{};
+  $('complete-address').textContent=p.address;
+  const decision=h.review?.decision||'';
+  for(const radio of document.querySelectorAll('input[name="complete-era"]'))radio.checked=radio.value===decision;
+  $('complete-coverage').value=h.photo_coverage||'unknown';
+  $('complete-evidence').value=review.evidence_source||(h.photo_coverage==='no_interior'?'metadata':'both');
+  $('complete-condition').value=review.condition_label||draftCondition(d.images);
+  $('complete-score').value=review.target_score?String(review.target_score):review.target_fit==='unsure'?'insufficient':'';
+  $('complete-confidence').value=review.confidence||'medium';
+  $('complete-note').value=review.reason||'';
+  const facts=[
+   ['Year built',m.YearBuilt||p.year_built],['Property type',m.PropertySubType||m.PropertyType||p.property_type],
+   ['Beds / baths',[m.BedroomsTotal??m.bedrooms??'—',m.BathroomsTotalInteger??m.BathroomsTotalDecimal??m.bathrooms??'—'].join(' / ')],
+   ['Living area',m.LivingArea?Number(m.LivingArea).toLocaleString()+' sq ft':null],
+   ['List price',m.ListPrice?'$'+Number(m.ListPrice).toLocaleString():null],
+   ['Days on market',m.DaysOnMarket],
+  ];
+  $('complete-facts').replaceChildren(...facts.filter(([,value])=>present(value)).map(([name,value])=>{const box=el('div',null,'fact');box.append(el('small',name),el('strong',String(value)));return box;}));
+  const remarks=p.mls_remarks;$('complete-remarks').hidden=!remarks;$('complete-remarks').textContent=remarks?'Listing remarks: '+remarks:'';
+  completeDecisionControls();
+  $('complete-dialog').showModal();
+ }
+ function completeDecisionControls(){
+  const decision=document.querySelector('input[name="complete-era"]:checked')?.value;
+  $('complete-details').hidden=decision!=='correct_era';
+ }
+ async function saveCompleteReview(){
+  const d=S.detail,p=d.property,h=d.historical_source||{};
+  const decision=document.querySelector('input[name="complete-era"]:checked')?.value;
+  if(!decision)throw Error('Choose whether this is the correct acquisition listing and photo set.');
+  const payload={
+   property_id:p.id,decision,photo_coverage:decision==='correct_era'?$('complete-coverage').value:'unknown',
+   reviewer:S.name,evidence_hash:h.evidence_hash,expected_era_revision:h.review?.revision||0,
+   reason:decision==='correct_era'?'Confirmed listing/photo evidence and completed condition/opportunity review.':ERA_REASONS[decision],
+  };
+  if(decision==='correct_era'){
+   const rawScore=$('complete-score').value;
+   if(!rawScore)throw Error('Choose whether this is a good opportunity to investigate.');
+   const insufficient=rawScore==='insufficient',targetScore=insufficient?null:Number(rawScore);
+   const target=insufficient||targetScore===3?'unsure':targetScore>=4?'target':'not_target';
+   const conditionValue=$('complete-condition').value,evidence=$('complete-evidence').value;
+   const tags=[];
+   if($('complete-coverage').value==='no_interior')tags.push('Missing interior photos');
+   if(evidence==='metadata')tags.push('Strong metadata fit');
+   if(['dated','slightly_dated','maintained_original'].includes(conditionValue))tags.push('Original finishes');
+   const note=$('complete-note').value.trim()||`${label(conditionValue)} condition from ${label(evidence)} evidence; ${targetScore?targetScore+'/5 opportunity':'not enough information'}.`;
+   payload.property_review={
+    expected_revision:p.review?.revision||0,target_fit:target,target_score:targetScore,
+    condition_label:conditionValue,confidence:$('complete-confidence').value,
+    evidence_source:insufficient?'insufficient':evidence,fit_basis:'mixed',
+    reason_tags:tags,standout_image_ids:[],reason:note,notes:'guided_cloud_review_v1',
+   };
+  }
+  await api('complete-review',payload);
+  $('complete-dialog').close();
+  note(decision==='correct_era'?'Review complete. Moving to the next unfinished property.':'Evidence decision saved. Moving to the next property.');
+  await nextAfterSave(p.id);
+ }
  const ERA_REASONS={
   correct_era:'One-click review: correct property and acquisition-era photos.',
   wrong_era:'One-click review: wrong property or later-era photos.',
@@ -483,7 +587,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const d=S.detail,h=d?.historical_source;if(!h){note('No historical acquisition match is attached to this property.',true);return;}
   action(async()=>{
    const id=d.property.id;
-   await api('era-review',{property_id:id,decision,photo_coverage:$('photo-coverage').value,reason:ERA_REASONS[decision],reviewer:S.name,evidence_hash:h.evidence_hash,expected_revision:h.review?.revision||0});
+   await api('era-review',{property_id:id,decision,photo_coverage:h.photo_coverage||'unknown',reason:ERA_REASONS[decision],reviewer:S.name,evidence_hash:h.evidence_hash,expected_revision:h.review?.revision||0});
    note('Photo-era judgment saved. Moving to the next property.');await nextAfterSave(id);
   });
  }
@@ -518,6 +622,9 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('photo-dialog').close();await openProperty(S.detail.property.id);note('Photo labels saved. Property judgment unchanged.');
  }));};
  $('answer-form').onsubmit=e=>{e.preventDefault();withName(()=>saveAnswer($('property-score').value,$('answer-reason').value,$('answer-condition').value));};
+ $('complete-form').onsubmit=e=>{e.preventDefault();withName(()=>action(saveCompleteReview));};
+ for(const radio of document.querySelectorAll('input[name="complete-era"]'))radio.onchange=completeDecisionControls;
+ $('complete-coverage').onchange=()=>{if($('complete-coverage').value==='no_interior'&&$('complete-evidence').value==='images')$('complete-evidence').value='metadata';};
  $('score-form').onsubmit=e=>{e.preventDefault();if(!$('paid-check').checked||!S.preview)return;const id=S.preview.id;$('paid-check').checked=false;$('run-score').disabled=true;
   action(async()=>{try{S.detail.assessment=await api('assessment/run',{id,approved:true});$('score-dialog').close();draw();note('AI scoring started. Results will appear here automatically.');}
    catch(error){$('score-dialog').close();try{S.detail.assessment=await api('assessment?'+new URLSearchParams({id}));draw();}catch{}throw error;}
@@ -526,7 +633,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  $('paid-check').onchange=()=>$('run-score').disabled=!$('paid-check').checked;
  $('name-form').onsubmit=e=>{e.preventDefault();S.name=$('name-input').value.trim();if(!S.name)return;remember();$('name-dialog').close();const fn=S.pending;S.pending=null;if(fn)fn();};
  $('reviewer-button').onclick=()=>{S.pending=null;$('name-input').value=S.name;$('name-dialog').showModal();};
- $('agree').onclick=()=>withName(()=>S.mode==='matching'?saveEra('correct_era'):openAnswer());
+ $('agree').onclick=()=>withName(()=>S.knownTargets?openComplete():S.mode==='matching'?saveEra('correct_era'):openAnswer());
  $('correct').onclick=()=>withName(()=>saveEra('wrong_era'));
  $('unsure').onclick=()=>withName(()=>S.mode==='matching'?saveEra('unsure'):openAnswer('insufficient'));
  $('skip').onclick=()=>action(()=>nextAfterSave(S.detail.property.id));

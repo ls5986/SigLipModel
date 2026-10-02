@@ -53,6 +53,7 @@ class CloudStudio:
         if path=='/api/studio/autolabel': return self.store.request_autolabel(payload)
         if path=='/api/studio/source-row-note': return self.store.source_row_note(payload)
         if path=='/api/studio/photo-selection': return self.store.save_photo_selection(payload)
+        if path=='/api/studio/complete-review': return self.store.complete_review(payload)
         if path=='/api/studio/review': return self.store.save_review(payload)
         if path=='/api/studio/era-review': return self.store.review_era(payload)
         if self.jobs:
