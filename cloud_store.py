@@ -841,7 +841,16 @@ class SupabaseStore:
              'transaction_match','best_sale_context')
         }
         result['photos'] = []
-        if validation_photos:
+        if result['listing_key']:
+            try:
+                detail = self.property(result['listing_key'])
+                result['photos'] = [{
+                    'id':image['id'],'room':image.get('effective',{}).get('room','interior'),
+                    'sequence':image.get('sequence'),
+                } for image in validation_photo_gallery(detail)]
+            except (ValueError,OSError):
+                pass
+        if not result['photos'] and validation_photos:
             rows = [{
                 'id':'validation:'+str(example['id'])+':'+str(row['provider_media_key']),
                 'room':validation_room(row['context_evidence'].get('provider_metadata',{})),
@@ -855,15 +864,6 @@ class SupabaseStore:
                 if len(preferred)>=8: break
                 if row not in preferred: preferred.append(row)
             result['photos'] = preferred[:8]
-        elif result['listing_key']:
-            try:
-                detail = self.property(result['listing_key'])
-                result['photos'] = [{
-                    'id':image['id'],'room':image.get('effective',{}).get('room','interior'),
-                    'sequence':image.get('sequence'),
-                } for image in validation_photo_gallery(detail)]
-            except (ValueError,OSError):
-                pass
         return result
 
     def save_mls_validation(self, payload):

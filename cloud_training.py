@@ -90,6 +90,10 @@ def snapshot(store):
             AND (p.retention_until IS NULL OR p.retention_until>now()) ORDER BY p.id''',
             (store.workspace,)).fetchall()
         photos = [dict(photo) for photo in photos]
+        existing_photo_examples = {str(photo['example_id']) for photo in photos}
+        existing_photo_listings = {
+            str(photo['listing_key']) for photo in photos if photo.get('listing_key')
+        }
         for photo in photos:
             validation = validations.get(str(photo['example_id']))
             if validation and not photo.get('listing_key'):
@@ -98,7 +102,8 @@ def snapshot(store):
         for example_id,media in validation_media.items():
             validation = validations.get(example_id)
             record = records_by_id.get(example_id)
-            if not validation or not record:
+            if (not validation or not record or example_id in existing_photo_examples
+                    or str(validation.get('selected_listing_key')) in existing_photo_listings):
                 continue
             for image in media.get('images',[]):
                 photos.append({
@@ -179,6 +184,8 @@ def snapshot(store):
             ]
             media_complete = all(
                 int(store._selected(source).get('listing',{}).get('PhotosCount') or 0)==0
+                or str(source['id']) in existing_photo_examples
+                or str(validation.get('selected_listing_key')) in existing_photo_listings
                 or media.get('status') in {'complete','sampled'}
                 and int(media.get('provider_media_count') or 0)>0
                 and len(media.get('images',[]))==int(media.get('provider_media_count') or 0)
