@@ -125,6 +125,27 @@ def test_property_rating_must_match_derived_target_and_own_its_evidence(tmp_path
             "reviewer": "Reviewer", "status": "approved", "target_fit": "target",
             "target_score": 1, "condition_label": "updated", "reason": "Mismatch",
         })
+
+
+def test_condition_and_modernization_are_independent_and_unknown_is_allowed(tmp_path):
+    store = imported_store(tmp_path)
+    saved = store.save_review({
+        "kind":"property","id":"p1","expected_revision":0,"reviewer":"Reviewer",
+        "status":"approved","target_fit":"target","target_score":4,
+        "condition_label":"maintained_original",
+        "physical_condition":"C3_WELL_MAINTAINED",
+        "modernization_state":"ORIGINAL",
+        "reason":"Well maintained but original finishes.",
+    })
+    assert saved["physical_condition"] == "C3_WELL_MAINTAINED"
+    assert saved["modernization_state"] == "ORIGINAL"
+    with pytest.raises(ValueError, match="physical condition"):
+        store.save_review({
+            "kind":"property","id":"p1","expected_revision":1,"reviewer":"Reviewer",
+            "status":"approved","target_fit":"target","target_score":4,
+            "physical_condition":"C7_UNKNOWN","modernization_state":"UNKNOWN",
+            "reason":"Invalid condition.",
+        })
     with pytest.raises(ValueError, match="Standout"):
         store.save_review({
             "kind": "property", "id": "p1", "expected_revision": 0,

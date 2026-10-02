@@ -19,9 +19,11 @@ const assert=require('node:assert/strict');
   await page.locator('#name-form button.primary').click();
   await page.locator('#answer-dialog').waitFor({state:'visible'});
   assert.equal(await page.locator('#property-score').inputValue(),'');
-  assert.equal(await page.locator('#answer-condition').inputValue(),'unknown');
+  assert.equal(await page.locator('#answer-physical').inputValue(),'UNKNOWN');
+  assert.equal(await page.locator('#answer-modernization').inputValue(),'UNKNOWN');
   await page.locator('#property-score').selectOption('4');
-  await page.locator('#answer-condition').selectOption('maintained_original');
+  await page.locator('#answer-physical').selectOption('C3_WELL_MAINTAINED');
+  await page.locator('#answer-modernization').selectOption('ORIGINAL');
   await page.locator('#answer-basis').selectOption('pricing');
   for (const viewport of [{width:1440,height:1000},{width:390,height:844}]) {
     await page.setViewportSize(viewport);

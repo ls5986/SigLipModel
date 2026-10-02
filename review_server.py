@@ -343,6 +343,8 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                 self.send(200, (CODE_ROOT / "source_rows.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/status" and os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
                 self.send(200, (CODE_ROOT / "hosted_status.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/workbench" and os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
+                self.send(200, (CODE_ROOT / "workbench_ui.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/connect":
                 self.send(200, (CODE_ROOT / "connect_ui.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/legacy":
@@ -504,4 +506,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

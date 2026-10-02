@@ -107,6 +107,7 @@ class StudioJobs:
                 "review": {
                     key: review.get(key) for key in (
                         "status", "target_fit", "target_score", "condition_label",
+                        "physical_condition", "modernization_state",
                         "confidence", "evidence_source", "reason_tags",
                         "standout_image_ids", "reason", "reviewer", "updated_at",
                     )

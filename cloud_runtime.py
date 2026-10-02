@@ -24,6 +24,20 @@ class CloudStudio:
     def get(self, path):
         parsed = urlparse(path)
         args = {k:v[0] for k,v in parse_qs(parsed.query).items()}
+        if parsed.path.startswith('/api/studio/workbench'):
+            from model_workbench import (
+                error_queue,list_properties,property_detail,run_status,summary,
+            )
+            if parsed.path=='/api/studio/workbench/summary':
+                return {**summary(self.store),'token':self.app.token}
+            if parsed.path=='/api/studio/workbench/properties':
+                return {**list_properties(self.store,args),'token':self.app.token}
+            if parsed.path=='/api/studio/workbench/property':
+                return property_detail(self.store,args.get('id'))
+            if parsed.path=='/api/studio/workbench/run':
+                return run_status(self.store,args.get('id'))
+            if parsed.path=='/api/studio/workbench/errors':
+                return error_queue(self.store,args)
         if parsed.path=='/api/studio/source-rows': return self.store.source_rows(args)
         if parsed.path=='/api/studio/mls-validation-queue':
             return {**self.store.mls_validation_queue(args),'token':self.app.token}
@@ -53,6 +67,15 @@ class CloudStudio:
         raise ValueError('This action is not available in cloud review mode yet')
 
     def post(self, path, payload):
+        if path.startswith('/api/studio/workbench'):
+            from model_workbench import (
+                dataset_preview,freeze_dataset,queue_run,queue_training,save_feedback,
+            )
+            if path=='/api/studio/workbench/run': return queue_run(self.store,payload)
+            if path=='/api/studio/workbench/feedback': return save_feedback(self.store,payload)
+            if path=='/api/studio/workbench/dataset/preview': return dataset_preview(self.store)
+            if path=='/api/studio/workbench/dataset/freeze': return freeze_dataset(self.store,payload)
+            if path=='/api/studio/workbench/train': return queue_training(self.store,payload)
         if path=='/api/studio/mls-validation': return self.store.save_mls_validation(payload)
         if path=='/api/studio/autolabel': return self.store.request_autolabel(payload)
         if path=='/api/studio/source-row-note': return self.store.source_row_note(payload)

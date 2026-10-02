@@ -18,6 +18,7 @@ from uuid import uuid4
 
 from PIL import Image
 
+from condition_schema import validate_labels
 from pilot import FEATURE_ROOMS, FEATURES, ROOT, SOURCE, UnionFind, read_json
 
 ROOMS = ["kitchen", "bathroom", "living", "bedroom", "exterior", "outdoor", "other"]
@@ -122,6 +123,20 @@ def validate_review(payload, source):
             raise ValueError("Photo condition requires a subject interior")
         if "condition_label" in payload:
             record["condition_label"] = condition
+        if "physical_condition" in payload or "modernization_state" in payload:
+            physical, modernization = validate_labels(
+                payload.get("physical_condition", "UNKNOWN"),
+                payload.get("modernization_state", "UNKNOWN"),
+            )
+            if (physical != "UNKNOWN" or modernization != "UNKNOWN") and (
+                context not in {"subject","subject_interior"}
+                or room not in {"kitchen","bathroom","living","bedroom"}
+            ):
+                raise ValueError("Condition and modernization require a subject interior")
+            record.update(
+                physical_condition=physical,
+                modernization_state=modernization,
+            )
         record.update(room=room, features=features, preference=preference,
                       training_allowed=source["split"] != "test",
                       property_target_inferred=False)
@@ -152,6 +167,15 @@ def validate_review(payload, source):
         fit_basis = payload.get("fit_basis", "unknown")
         if fit_basis not in {"unknown", "renovation", "pricing", "layout_location", "mixed"}:
             raise ValueError("Invalid acquisition fit basis")
+        if "physical_condition" in payload or "modernization_state" in payload:
+            physical, modernization = validate_labels(
+                payload.get("physical_condition", "UNKNOWN"),
+                payload.get("modernization_state", "UNKNOWN"),
+            )
+            record.update(
+                physical_condition=physical,
+                modernization_state=modernization,
+            )
         reason_tags = payload.get("reason_tags", [])
         if not isinstance(reason_tags, list) or len(reason_tags) > 12 or any(
             not isinstance(value, str) or not value.strip() or len(value) > 80

@@ -49,6 +49,9 @@ def main():
         from automatic_labels import SiglipLabels, active_policy
         heartbeat(store,'loading','Loading local SigLIP checkpoint',stage='rooms')
         rooms = SiglipLabels(); rooms.policy = active_policy(); rooms.stage = 'rooms'
+        from workbench_worker import WorkbenchScorer, process_pending_runs
+        from workbench_training import process_training_request
+        workbench = WorkbenchScorer(store,rooms)
         print('SigLIP ready. Processing queued rooms and Copilot drafts; Ctrl+C stops cleanly.',flush=True)
         while True:
             for classifier in (rooms,draft):
@@ -57,6 +60,11 @@ def main():
                     try:
                         if process(store,identifier,classifier): print(f'Completed {classifier.stage}: {identifier}',flush=True)
                     except Exception: print('Request failed; inspect its saved status before explicitly retrying.',flush=True)
+            processed = process_pending_runs(store,workbench)
+            if processed:
+                print(f'Completed {processed} workbench model run(s).',flush=True)
+            if process_training_request(store,workbench):
+                print('Processed a workbench training request.',flush=True)
             if args.once: break
             time.sleep(5)
     finally:

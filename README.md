@@ -117,6 +117,88 @@ resale is not an acquisition-positive label.
 
 ## Model and implementation status
 
+### Post-V0 architecture
+
+V0 is preserved as **V0 POSITIVE SIMILARITY BASELINE**. Its immutable identity,
+artifact hash, review fingerprint and protected positive-only metrics are stored in
+the local baseline registry and revisioned Supabase state. V0 remains a known-target
+reference index, not a target/not-target classifier.
+
+The V1 workbench extends, rather than replaces, existing architecture:
+
+- `studio_state` documents retain challenge runs, feedback, error queues, dataset
+  previews/freezes, training jobs and candidate summaries with revision history.
+- Existing physical-property groups and protected tests remain authoritative.
+- The existing local worker executes queued model runs and V1 training; the hosted
+  review service never loads Torch or model artifacts.
+- Frozen dataset documents are immutable by fingerprint. New feedback requires a new
+  preview and dataset version.
+- Existing candidate/artifact pointers remain reproducible; V1 artifacts use a
+  separate `workbench_candidates` path and never overwrite V0.
+
+### Condition and modernization labels
+
+Physical condition and modernization are independent:
+
+- Physical: `C1_NEW`, `C2_LIKE_NEW`, `C3_WELL_MAINTAINED`,
+  `C4_AVERAGE_FUNCTIONAL`, `C5_REHAB_NEEDED`, `C6_SEVERE_DISTRESS`, `UNKNOWN`
+- Modernization: `ORIGINAL`, `PARTIALLY_UPDATED`, `UPDATED`,
+  `FULLY_REMODELED`, `UNKNOWN`
+
+These are acquisition-oriented internal training labels informed by UAD concepts,
+not licensed appraisal determinations. UNKNOWN stays masked and is never converted
+to a negative.
+
+### Model Workbench
+
+The hosted development workbench at `/workbench` supports:
+
+1. Search an existing Supabase MLS property.
+2. Queue V0 metadata/image/combined scoring on the local worker.
+3. Optionally decide TARGET/NOT_TARGET/UNKNOWN before revealing predictions.
+4. Inspect component scores, evidence mode, nearest known targets and influential
+   photos.
+5. Save explicit target feedback, hard negatives, condition/modernization corrections
+   and photo exclusions without retraining.
+6. Review false-positive, false-negative, disagreement, metadata-only,
+   limited-visual and hard-negative queues.
+7. Preview Dataset Vnext with added/removed/changed examples and split counts.
+8. Explicitly freeze the next dataset version.
+9. Queue one local metadata/vision/fusion training job.
+10. Compare the immutable V0 baseline with the latest V1 candidate.
+
+V1 metadata uses a versioned pre-decision feature policy plus deterministic TF-IDF
+remarks. V1 vision compares mean, max and mean+max frozen SigLIP property aggregation
+using validation data only. Fusion records metadata/vision availability and image
+coverage, falls back to metadata when images are absent, and never penalizes a
+property merely because it has only one or two usable photos.
+
+The initial metadata classifier is regularized logistic regression over sparse
+structured/TF-IDF features. This intentionally reuses the pinned scikit-learn
+environment, remains inspectable with the current small labeled-negative set, and
+avoids adding a large CatBoost runtime before class coverage exists. Compare CatBoost
+as a later candidate after enough explicit negatives/hard negatives are collected;
+do not replace this baseline without protected and challenge-set evidence.
+
+#### Workbench clicks
+
+1. Open **Model Workbench → Test a property**.
+2. Search an existing MLS record, optionally enable **Blind review**, and choose
+   **RUN CURRENT MODEL**.
+3. Review Metadata, Vision and Combined scores, mode used, condition/modernization,
+   nearest known targets and top visual evidence.
+4. Save **YES / NO / UNSURE**, optional **Hard negative**, condition/modernization,
+   explanation and excluded photos. For room/context/wrong-era corrections choose
+   **Correct rooms, photos or era**.
+5. Open **Review errors** to filter false positives, false negatives, disagreements,
+   metadata-only, limited-visual and hard-negative cases.
+6. Open **Dataset versions → Preview Dataset Vnext**. Review counts and added,
+   removed and changed examples. Freeze explicitly.
+7. Open **Train → TRAIN NEW CANDIDATE**. The button remains disabled until train,
+   validation and protected-test class coverage is sufficient.
+8. Open **Compare** to inspect immutable V0 metrics beside the latest V1 protected
+   metrics. Return to **Test a property** to rerun challenge cases.
+
 The image backbone is `google/siglip2-base-patch16-224`; it stays frozen while
 lightweight classifiers learn photo context, room, visible-feature and
 photo-preference labels. Reviewed property targets can additionally fit:

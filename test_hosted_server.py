@@ -59,6 +59,8 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         assert status==200 and b'Acquisition MLS Validation' in body
         status,_,body=request(port,'GET','/property-review',headers={'Cookie':cookie})
         assert status==200 and b'/status#models' in body and b'Training status' in body
+        status,_,body=request(port,'GET','/workbench',headers={'Cookie':cookie})
+        assert status==200 and b'Model Workbench' in body and b'TRAIN NEW CANDIDATE' in body
         status,headers,_=request(port,'GET','/?property=listing',headers={'Cookie':cookie})
         assert status==303 and headers['Location']=='/property-review?property=listing'
         status,_,body=request(port,'GET','/source-rows',headers={'Cookie':cookie})
