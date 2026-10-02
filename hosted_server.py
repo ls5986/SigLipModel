@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import io
 import json
+import logging
 import mimetypes
 import os
 import secrets
@@ -14,13 +15,17 @@ from functools import lru_cache
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
+
+from psycopg import OperationalError
+from psycopg.errors import UndefinedColumn, UndefinedTable
 
 from cloud_runtime import from_env
 from config import CODE_ROOT
 from PIL import Image, ImageOps
 
 COOKIE = "acq_studio_session"
+STORAGE_UNAVAILABLE_ERRORS = (OSError, OperationalError, UndefinedTable, UndefinedColumn)
 LOGIN = b'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ACQ Vision sign in</title><style>body{margin:0;background:#071521;color:#eaf4ff;font:16px/1.5 Segoe UI,sans-serif;min-height:100vh;display:grid;place-items:center}.card{width:min(380px,calc(100% - 40px));background:#10283a;border:1px solid #31506a;border-radius:18px;padding:28px;box-shadow:0 24px 70px #0008}h1{margin:0 0 8px}p{color:#9fb4c7;margin:0 0 22px}label{display:grid;gap:6px;margin:14px 0}input,button{font:inherit;padding:12px;border-radius:9px;border:1px solid #49667d}input{background:#071521;color:#fff}button{width:100%;margin-top:12px;background:#4c80ff;color:#fff;font-weight:700}.error{color:#ff9c9c}</style></head><body><form class="card" method="post" action="/login"><h1>ACQ Vision Studio</h1><p>Private development workspace</p>__ERROR__<label>Email<input name="username" type="email" autocomplete="username" required autofocus></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button>Sign in</button></form></body></html>'''
 
 
@@ -118,6 +123,15 @@ def create_server(port, app, auth):
         def authenticated(self):
             return self.trusted_host() and auth.valid(self.headers.get("Cookie"))
 
+        def storage_unavailable(self, error, *, service=False):
+            logging.warning("storage_unavailable surface=%s method=%s error_type=%s",
+                            "actvision" if service else "studio", self.command, type(error).__name__)
+            return self.data(503, {
+                "error": "Storage is temporarily unavailable. Ask an operator to verify database connectivity "
+                         "and the required Studio/ActVision migrations before retrying.",
+                "code": "actvision_unavailable" if service else "studio_unavailable",
+            })
+
         def service_request(self, path):
             from actvision_service import UnavailableError, configured_bundle, infer, receive_feedback
             token = os.environ.get("ACTVISION_SERVICE_TOKEN", "")
@@ -130,7 +144,7 @@ def create_server(port, app, auth):
             try:
                 if self.command == "GET" and path.startswith("/api/actvision/v2/releases/"):
                     release = configured_bundle()
-                    if path.removeprefix("/api/actvision/v2/releases/") != release.manifest["release_id"]:
+                    if unquote(path.removeprefix("/api/actvision/v2/releases/"), errors="strict") != release.manifest["release_id"]:
                         return self.data(404, {"error": "Release not found"})
                     return self.data(200, release.manifest)
                 if self.command != "POST" or path not in {"/api/actvision/v2/infer", "/api/actvision/v2/feedback"}:
@@ -152,8 +166,8 @@ def create_server(port, app, auth):
                 return self.data(409, {"error": str(exc)})
             except (ValueError, TypeError, KeyError) as exc:
                 return self.data(400, {"error": str(exc)})
-            except OSError:
-                return self.data(503, {"error": "ActVision storage unavailable", "code": "actvision_unavailable"})
+            except STORAGE_UNAVAILABLE_ERRORS as exc:
+                return self.storage_unavailable(exc, service=True)
 
         def do_GET(self):
             path=urlparse(self.path).path
@@ -228,8 +242,8 @@ def create_server(port, app, auth):
                     return self.data(200,app.get_studio().get(self.path))
                 except (ValueError,TypeError) as exc:
                     return self.data(400,{"error":str(exc)})
-                except OSError:
-                    return self.data(503,{"error":"Studio data is temporarily unavailable"})
+                except STORAGE_UNAVAILABLE_ERRORS as exc:
+                    return self.storage_unavailable(exc)
             return self.data(404,{"error":"Not found"})
 
         def do_POST(self):
@@ -271,8 +285,8 @@ def create_server(port, app, auth):
                 return self.data(409,{"error":str(exc)})
             except (ValueError,TypeError,KeyError) as exc:
                 return self.data(400,{"error":str(exc)})
-            except OSError:
-                return self.data(503,{"error":"Save could not be completed; retry after the database recovers"})
+            except STORAGE_UNAVAILABLE_ERRORS as exc:
+                return self.storage_unavailable(exc)
 
     return ThreadingHTTPServer(("0.0.0.0",port),Handler)
 

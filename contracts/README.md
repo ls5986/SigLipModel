@@ -48,11 +48,17 @@ UNKNOWN never becomes a negative training label.
   using the same bearer token. Missing/incompatible bundle returns 503; a
   different configured release ID returns 404. Consumers pin and compare this
   manifest to their independently approved local copy before accepting outputs.
+  Percent-encode the complete release ID as one suffix; the producer decodes it
+  once, preserving valid spaces, slashes, Unicode and literal percent escapes.
 * Both require `Authorization: Bearer <ACTVISION_SERVICE_TOKEN>` (32+ characters),
   configured independently from browser login. No cookie or review token needed.
   HTTPS is mandatory outside local test. Existing host restrictions remain.
 * Missing/invalid bearer: 401; bad schema/identity: 400; conflict: 409;
   unavailable database/model/service: 503. Retry boundedly on 503, not on 400.
+  Connection failures and missing migration tables/columns return sanitized
+  JSON 503 responses, with error-class-only server logs. Studio v2 cloud routes
+  likewise report `studio_unavailable` and instruct the operator to verify
+  database connectivity and required migrations; no SQL or credentials are sent.
 
 Feedback identifies the source prediction, full original evidence, release and
 reviewer; it cannot replace historical predictions or mutate frozen datasets.

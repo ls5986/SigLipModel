@@ -16,13 +16,14 @@ const path=require('node:path');
    physical_condition:schema.$defs.condition.enum,modernization:schema.$defs.modernization.enum,acquisition_fit:schema.$defs.acquisition_fit.enum,text_signals:schema.$defs.text_signal.enum
   }};
   const details={
-   first:{label_evidence_id:'a'.repeat(64),property:{id:'first',address:'<script>unsafe()</script> Example',mls_remarks:'Bring your vision to this home.',metadata:{YearBuilt:1963,ClosePrice:999999,PublicRemarks:'Do not treat me as structured'},review:{revision:0}},images:[],historical_source:{blocked:false,timing_verified:true}},
+   first:{label_evidence_id:'a'.repeat(64),property:{id:'first',address:'<script>unsafe()</script> Example',mls_remarks:'Bring your vision to this home.',metadata:{YearBuilt:1963,ClosePrice:999999,PublicRemarks:'Do not treat me as structured'},review:{revision:2,target_fit:'target',target_score:5,reason_tags:['Advanced: kitchen opportunity'],standout_image_ids:['first:photo']}},images:[{id:'first:photo',sha256:'a'.repeat(64),review:{revision:0},effective:{context:'subject_interior',room:'kitchen'},selection:{included:true}}],historical_source:{blocked:false,timing_verified:true}},
    second:{label_evidence_id:'b'.repeat(64),property:{id:'second',address:'Next property',mls_remarks:'',metadata:{},review:{revision:0}},images:[],historical_source:{blocked:false,timing_verified:false}}
   };
   await page.route('http://studio.test/**',async route=>{
    const request=route.request(),url=new URL(request.url());calls.push({method:request.method(),path:url.pathname});
    if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:html});
    if(url.pathname==='/api/studio/v2/capabilities')return route.fulfill({json:caps});
+   if(url.pathname==='/api/studio/image')return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=','base64')});
    if(url.pathname==='/api/studio/review-queue')return route.fulfill({json:{items:[{id:'first',address:'Example',status:'unscored'},{id:'second',address:'Next property',status:'unscored'}],total:2,counts:{unscored:2,reviewed:0,photo_match:1,missing_text:2}}});
    if(url.pathname==='/api/studio/v2/property')return route.fulfill({json:details[url.searchParams.get('id')]});
    if(url.pathname==='/api/studio/v2/label'){
@@ -47,10 +48,10 @@ const path=require('node:path');
   await page.goto('http://studio.test/',{waitUntil:'networkidle'});
   assert.equal(await page.title(),'ActVision Training Studio');
   assert.equal(await page.locator('#physical').inputValue(),'UNKNOWN');
-  assert.equal(await page.locator('#fit').inputValue(),'UNKNOWN');
+  assert.equal(await page.locator('#fit').inputValue(),'TARGET');
   assert.equal(await page.locator('#address script').count(),0);
   assert.match(await page.locator('#address').innerText(),/<script>/);
-  assert.equal(await page.locator('#no-photos').isVisible(),true);
+  assert.equal(await page.locator('#no-photos').isVisible(),false);
   await page.locator('[data-tab="facts"]').click();
   assert.match(await page.locator('#facts').innerText(),/1963/);
   assert.doesNotMatch(await page.locator('#facts').innerText(),/ClosePrice|PublicRemarks/);
@@ -78,6 +79,12 @@ const path=require('node:path');
   assert.equal(saved[0].text_signals[0].end,17);
   assert.equal(saved[0].text_signals[0].probability,null);
   assert.equal(saved[0].evidence_source,'metadata');
+  assert.deepEqual(saved[0].reason_tags,['Advanced: kitchen opportunity']);
+  assert.deepEqual(saved[0].standout_image_ids,['first:photo']);
+  assert.equal(saved[0].target_score,null);
+  await page.locator('[data-tab="photos"]').click();
+  assert.equal(await page.locator('#no-photos').isVisible(),true);
+  assert.equal(await page.locator('#fit').inputValue(),'UNKNOWN');
   assert.equal(calls.filter(c=>c.method==='POST').length,1);
   await page.locator('[data-page="train"]').click();
   assert.equal(await page.locator('#preview').isDisabled(),true);

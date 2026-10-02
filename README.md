@@ -24,6 +24,10 @@ not a negative. Typed reviews retain revision history; the cloud backend also
 appends linked canonical `review_events` in the same transaction. Removing a
 previous text tag appends UNKNOWN, not ABSENT. Changed photos, photo exclusions,
 remarks or facts invalidate the labeling evidence fingerprint.
+The simplified labeler preserves Advanced reason tags and standout-photo
+annotations. Physical evaluation slices use explicit v2 condition (C1-C3
+maintained; C5-C6 rough), with the existing legacy-label fallback only for older
+reviews without a physical axis. C4 and UNKNOWN are not forced into either slice.
 
 The [shared v2 contract](contracts/README.md) defines request/prediction/feedback/
 release schemas, complete evidence identity, explicit missing modality states,
@@ -57,6 +61,9 @@ joblib artifacts.
 3. Preview/freeze use the existing grouped/protected dataset machinery. Verified
    v2 acquisition judgments enter that preview; UNKNOWN and changed/quarantined
    evidence are excluded. Text/physical labels are retained in the manifest.
+   Freeze always rebuilds and compares the current label/evidence snapshot
+   without saving another preview, including the first v2 review after a legacy
+   preview. A new UNKNOWN judgment or changed target invalidates the old preview.
    **Train Candidate still queues the existing legacy target classifier worker.**
    The UI calls it out as legacy; it cannot produce a v2 physical release.
 4. Production corrections enter a separate append-only inbox through the

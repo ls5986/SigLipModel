@@ -500,7 +500,7 @@ def feedback_snapshot(store):
     return latest
 
 
-def dataset_preview(store):
+def dataset_preview(store, *, persist=True):
     from cloud_training import snapshot
     _, properties = snapshot(store)
     def dataset_split(prop):
@@ -649,7 +649,8 @@ def dataset_preview(store):
     if not protected_unchanged:
         reasons.append("Protected test changed; freeze is blocked")
     preview.update(class_counts=class_counts,trainable=not reasons,reasons=reasons)
-    store.save_document("workbench-dataset-preview:"+preview["id"],preview,0)
+    if persist:
+        store.save_document("workbench-dataset-preview:"+preview["id"],preview,0)
     return preview
 
 
@@ -664,10 +665,14 @@ def freeze_dataset(store, payload):
         raise ValueError("Dataset preview fingerprint changed")
     if preview.get("protected_groups_unchanged") is not True:
         raise ValueError("Protected test changed; dataset freeze is blocked")
-    if any(row.get("origin") == "training-studio-v2" for row in preview["examples"]) or preview.get("excluded_typed_reviews"):
-        current_preview = dataset_preview(store)
-        if current_preview["fingerprint"] != preview["fingerprint"]:
-            raise ValueError("Labels or evidence changed; create a new dataset preview")
+    current_preview = dataset_preview(store, persist=False)
+    if (
+        current_preview["fingerprint"] != preview["fingerprint"]
+        or current_preview["excluded_typed_reviews"] != preview.get("excluded_typed_reviews", [])
+    ):
+        raise ValueError("Labels or evidence changed; create a new dataset preview")
+    if current_preview["protected_groups_unchanged"] is not True:
+        raise ValueError("Protected test changed; dataset freeze is blocked")
     current_feedback = feedback_snapshot(store)
     current_reviewed = sorted(
         key for key,value in current_feedback.items()

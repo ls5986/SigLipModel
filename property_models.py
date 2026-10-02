@@ -273,17 +273,29 @@ def evaluation_slices(properties: list[dict]) -> dict[str, list[dict]]:
     """Human condition and fit are separate evaluation axes, never input features."""
     decisive = [p for p in properties if p.get("split") == "test"
                 and target_class(p.get("review")) is not None]
-    maintained = {"updated", "slightly_dated", "maintained_original"}
-    rehab = {"rough", "major"}
+    def condition_group(review):
+        if "physical_condition" in review or review.get("label_schema_version") == "actvision-labels-v2":
+            physical = review.get("physical_condition", "UNKNOWN")
+            if physical in {"C1_NEW", "C2_LIKE_NEW", "C3_WELL_MAINTAINED"}:
+                return "maintained"
+            if physical in {"C5_REHAB_NEEDED", "C6_SEVERE_DISTRESS"}:
+                return "rough"
+            return None
+        if review.get("condition_label") in {"updated", "slightly_dated", "maintained_original"}:
+            return "maintained"
+        if review.get("condition_label") in {"rough", "major"}:
+            return "rough"
+        return None
+
     return {
         "maintained_targets": [p for p in decisive if target_class(p["review"]) == 1
-                               and p["review"].get("condition_label") in maintained],
+                               and condition_group(p["review"]) == "maintained"],
         "rough_targets": [p for p in decisive if target_class(p["review"]) == 1
-                          and p["review"].get("condition_label") in rehab],
+                          and condition_group(p["review"]) == "rough"],
         "rough_non_targets": [p for p in decisive if target_class(p["review"]) == 0
-                              and p["review"].get("condition_label") in rehab],
+                              and condition_group(p["review"]) == "rough"],
         "maintained_non_targets": [p for p in decisive if target_class(p["review"]) == 0
-                                   and p["review"].get("condition_label") in maintained],
+                                   and condition_group(p["review"]) == "maintained"],
         "pricing_or_characteristics": [p for p in decisive
                                        if p["review"].get("fit_basis") in {"pricing", "layout_location"}],
     }

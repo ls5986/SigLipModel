@@ -460,3 +460,182 @@ def test_migration_does_not_grant_feedback_mutation_or_release_promotion():
     assert "before update or delete on acq_training.actvision_feedback_events" in sql
     assert "grant update" not in sql
     assert "alter table acq_training.dataset_items" not in sql
+
+
+@pytest.mark.parametrize("target_fit", ["unsure", "not_target"])
+def test_freeze_rejects_first_typed_review_after_legacy_preview(monkeypatch, target_fit):
+    import model_workbench
+    from test_model_workbench import Store, property_row
+    from studio_v2 import label_evidence
+
+    store = Store()
+    detail = {"property": {"id": "cohort-target", "mls_remarks": "original", "metadata": {}}, "images": []}
+    store.property = lambda identifier: detail
+    props = [property_row("cohort-target", "g1")]
+    monkeypatch.setattr("cloud_training.snapshot", lambda store: ([], props))
+    monkeypatch.setattr(model_workbench, "feedback_snapshot", lambda store: {})
+    preview = model_workbench.dataset_preview(store)
+    assert preview["examples"][0]["target_label"] == "TARGET"
+    assert not preview["excluded_typed_reviews"]
+    assert all(row["origin"] != "training-studio-v2" for row in preview["examples"])
+    original_documents = copy.deepcopy(store.docs)
+
+    props[0]["review"] = {
+        "status": "approved", "label_schema_version": "actvision-labels-v2",
+        "target_fit": target_fit, "physical_condition": "C3_WELL_MAINTAINED",
+        "modernization_state": "ORIGINAL", "text_signals": [],
+        "label_evidence_id": label_evidence("cohort-target", "original", [], {}), "revision": 1,
+    }
+    with pytest.raises(ValueError, match="Labels or evidence changed"):
+        model_workbench.freeze_dataset(store, {"id": preview["id"], "confirmed": True})
+    assert store.docs == original_documents
+
+
+@pytest.mark.parametrize("release_id", [
+    "release with spaces", "release/with/slashes", "release-\u00e9-\u5b9a",
+    "release?#%+reserved", "literal%2Fnot-a-slash",
+])
+def test_hosted_release_lookup_decodes_id_exactly_once(monkeypatch, release_id):
+    from types import SimpleNamespace
+    from urllib.parse import quote
+    from hosted_server import create_server
+    from test_hosted_server import App, auth, request
+
+    manifest = fixtures()["release-shadow"]
+    manifest["release_id"] = release_id
+    validate_contract(manifest, "release")
+    monkeypatch.setattr("actvision_service.configured_bundle", lambda: SimpleNamespace(manifest=manifest))
+    monkeypatch.setenv("ACTVISION_SERVICE_TOKEN", "x" * 32)
+    server = create_server(0, App(), auth(monkeypatch))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer " + "x" * 32}
+        prefix = "/api/actvision/v2/releases/"
+        status, _, body = request(server.server_address[1], "GET", prefix + quote(release_id, safe=""), headers=headers)
+        assert status == 200
+        assert json.loads(body) == manifest
+        assert request(server.server_address[1], "GET", prefix + quote(release_id + "other", safe=""), headers=headers)[0] == 404
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+@pytest.mark.parametrize("error_name", ["OperationalError", "UndefinedTable", "UndefinedColumn", "OSError"])
+@pytest.mark.parametrize("method,path", [
+    ("POST", "/api/actvision/v2/feedback"),
+    ("GET", "/api/studio/v2/feedback"),
+    ("GET", "/api/studio/v2/releases"),
+    ("POST", "/api/studio/v2/feedback/review"),
+    ("POST", "/api/studio/v2/label"),
+])
+def test_hosted_expected_database_failures_are_sanitized_503(monkeypatch, caplog, error_name, method, path):
+    from uuid import uuid4
+    import psycopg
+    from cloud_runtime import CloudApp
+    from cloud_store import SupabaseStore
+    from hosted_server import COOKIE, create_server
+    from test_hosted_server import auth, request
+
+    exception_type = OSError if error_name == "OSError" else getattr(psycopg.errors, error_name)
+    sensitive = "postgresql://secret-password@private-db; SELECT private_data FROM internal_table"
+
+    class UnavailableDB:
+        workspace = "fixture-workspace"
+
+        @contextmanager
+        def connect(self):
+            yield self
+
+        def execute(self, *args):
+            raise exception_type(sensitive)
+
+    monkeypatch.setenv("ACTVISION_SERVICE_TOKEN", "x" * 32)
+    monkeypatch.setenv("ACTVISION_SOURCE_WORKSPACE_ID", "fixture-workspace")
+    app = CloudApp(SupabaseStore(UnavailableDB(), None))
+    configured_auth = auth(monkeypatch)
+    server = create_server(0, app, configured_auth)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {
+            "Authorization": "Bearer " + "x" * 32,
+            "Cookie": COOKIE + "=" + configured_auth.issue(),
+            "Origin": configured_auth.origin, "X-Review-Token": app.token,
+        }
+        payload = fixtures()["feedback"] if path == "/api/actvision/v2/feedback" else {
+            "id": "listing", "event_id": "feedback-id", "decision": "reviewed",
+            "decision_id": str(uuid4()), "note": "Checked evidence",
+        }
+        status, _, body = request(server.server_address[1], method, path,
+                                  json.dumps(payload) if method == "POST" else None, headers)
+        assert status == 503
+        response = json.loads(body)
+        assert response["code"] == ("actvision_unavailable" if path.startswith("/api/actvision/") else "studio_unavailable")
+        assert "migration" in response["error"].lower()
+        assert "storage_unavailable" in caplog.text
+        assert error_name in caplog.text
+        assert "secret-password" not in caplog.text + body.decode()
+        assert "private_data" not in caplog.text + body.decode()
+        assert request(server.server_address[1], "GET", "/health")[0] == 200
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_freeze_rechecks_without_persisting_a_second_preview(monkeypatch):
+    import model_workbench
+    from test_model_workbench import Store, property_row
+
+    store = Store()
+    snapshots = []
+    def snapshot(store):
+        snapshots.append(True)
+        return [], [property_row("cohort-target", "g1")]
+    monkeypatch.setattr("cloud_training.snapshot", snapshot)
+    monkeypatch.setattr(model_workbench, "feedback_snapshot", lambda store: {})
+    preview = model_workbench.dataset_preview(store)
+    frozen = model_workbench.freeze_dataset(store, {"id": preview["id"], "confirmed": True})
+    assert len(snapshots) == 2
+    assert frozen["fingerprint"] == preview["fingerprint"]
+    assert [key for key in store.docs if key.startswith("workbench-dataset-preview:")] == [
+        "workbench-dataset-preview:" + preview["id"]
+    ]
+
+
+@pytest.mark.parametrize("physical,expected", [
+    ("C1_NEW", "maintained"), ("C2_LIKE_NEW", "maintained"), ("C3_WELL_MAINTAINED", "maintained"),
+    ("C4_AVERAGE_FUNCTIONAL", None), ("C5_REHAB_NEEDED", "rough"), ("C6_SEVERE_DISTRESS", "rough"),
+    ("UNKNOWN", None),
+])
+@pytest.mark.parametrize("target_fit,suffix", [("target", "targets"), ("not_target", "non_targets")])
+def test_v2_physical_reviews_enter_protected_condition_slices(physical, expected, target_fit, suffix):
+    from property_models import evaluation_slices
+
+    review = {
+        "status": "approved", "label_schema_version": "actvision-labels-v2",
+        "target_fit": target_fit, "target_score": None,
+        "physical_condition": physical, "modernization_state": "ORIGINAL", "condition_label": "unknown",
+    }
+    prop = {"id": "protected", "split": "test", "review": review}
+    excluded = [
+        {"id": "train", "split": "train", "review": review},
+        {"id": "draft", "split": "test", "review": {**review, "status": "draft"}},
+        {"id": "undecided", "split": "test", "review": {**review, "target_fit": "unsure"}},
+    ]
+    slices = evaluation_slices([prop, *excluded])
+    for name, values in slices.items():
+        assert values == ([prop] if expected and name == expected + "_" + suffix else [])
+    # Stale/conflicting legacy condition cannot override an explicit v2 physical axis.
+    review["condition_label"] = "rough" if expected == "maintained" else "maintained_original"
+    assert evaluation_slices([prop, *excluded]) == slices
+
+
+def test_unavailable_error_tuple_does_not_hide_programming_failures():
+    import psycopg
+    from hosted_server import STORAGE_UNAVAILABLE_ERRORS
+
+    assert not isinstance(psycopg.errors.SyntaxError("invalid SQL"), STORAGE_UNAVAILABLE_ERRORS)
+    assert not isinstance(AttributeError("programming defect"), STORAGE_UNAVAILABLE_ERRORS)
