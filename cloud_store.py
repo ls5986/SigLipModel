@@ -323,7 +323,7 @@ class SupabaseStore:
 
     def queue(self, args):
         scope, queue = args.get('scope','acquisitions'), args.get('queue','all')
-        if scope not in {'acquisitions','quarantine','reference','training'} or queue not in {'all','ready','unscored','reviewed','photo_match'}:
+        if scope not in {'acquisitions','quarantine','reference','training'} or queue not in {'all','ready','unscored','reviewed','photo_match','tagged'}:
             raise ValueError('Unknown review queue')
         offset,limit = max(0,int(args.get('offset',0))),min(40,max(1,int(args.get('limit',20))))
         with self.lock:
@@ -351,7 +351,11 @@ class SupabaseStore:
                        encode(sha256(convert_to(jsonb_agg(image_sha256 ORDER BY image_sha256)::text,'UTF8')),'hex') AS evidence_hash
                        FROM unique_photos GROUP BY listing_key''',(self.workspace,))}
                     states = {(r['kind'],r['item_id']):r['payload'] for r in db.execute('''SELECT kind,item_id,payload
-                       FROM acq_training.studio_state WHERE workspace_id=%s AND kind IN ('property','era')''',(self.workspace,))}
+                       FROM acq_training.studio_state WHERE workspace_id=%s AND (
+                         kind IN ('property','era') OR kind='document' AND (
+                           item_id LIKE 'autolabel-request:%%' OR item_id LIKE 'autolabel-result:%%'
+                         )
+                       )''',(self.workspace,))}
                     legacy = self._legacy(db,sorted({r['listing_key'] for r in rows}), ['properties'])
                 annotate_first_sales(rows)
                 items = {}
@@ -363,6 +367,10 @@ class SupabaseStore:
                         continue
                     review = states.get(('property',key),legacy.get('properties',{}).get(key,{}))
                     era = states.get(('era',key),{})
+                    label_request = states.get(('document','autolabel-request:'+key),{})
+                    label_result = states.get(('document','autolabel-result:'+key),{})
+                    tagged_images = [image for image in label_result.get('images', [])
+                                     if isinstance(image, dict) and image.get('image_id')]
                     photo = photos.get(key,{})
                     items[key] = {'id':key,'address':row['address'] or key,'city':row['city'],
                         'listing_id':row['listing_id'],'image_count':photo.get('count',0),'hero_image_id':photo.get('hero'),
@@ -370,6 +378,8 @@ class SupabaseStore:
                         'human_target':review.get('target_fit'),'target':None,
                         # Queue is conservative; property detail verifies exact evidence hash.
                         'needs_photo_match':not(photo.get('count') and era.get('decision')=='correct_era' and era.get('evidence_hash')==photo.get('evidence_hash')),'blocked':blocked or era.get('decision')=='wrong_era',
+                        'autolabel_status':label_request.get('status','not_requested'),
+                        'tagged_photo_count':len(tagged_images),
                         'source_role':'historical candidate','acquisition_status':'prior_acquisition_candidate'}
                 for item in items.values():
                     if item['blocked']: item['acquisition_status']='needs_prior_listing'
@@ -382,9 +392,14 @@ class SupabaseStore:
             items = [item for item in items if item['id'] in keys]
         counts = {'all':len(items),'ready':0,'unscored':sum(i['status']=='unscored' for i in items),
                   'reviewed':sum(i['status']=='reviewed' for i in items),'photo_match':sum(i['needs_photo_match'] for i in items)}
+        counts['tagged'] = sum(
+            i['autolabel_status']=='completed' and i['tagged_photo_count'] > 0 for i in items
+        )
         photo_count = sum(i['image_count'] for i in items)
         search = args.get('search','').strip().casefold()
-        items = [i for i in items if (queue=='all' or queue=='photo_match' and i['needs_photo_match'] or i['status']==queue)
+        items = [i for i in items if (queue=='all' or queue=='photo_match' and i['needs_photo_match']
+                  or queue=='tagged' and i['autolabel_status']=='completed' and i['tagged_photo_count']
+                  or i['status']==queue)
                  and (not search or search in ' '.join(str(i[k] or '') for k in ('id','address','city','listing_id')).casefold())]
         items.sort(key=lambda i:(not i['image_count'],i['status']=='reviewed',i['address']))
         return {'items':items[offset:offset+limit],'counts':counts,'total':len(items),'offset':offset,'limit':limit,

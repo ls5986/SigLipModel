@@ -72,6 +72,15 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         server.shutdown();server.server_close();thread.join()
 
 
+def test_review_ui_handles_html_api_responses_and_exposes_tagged_queue():
+    page = open('review_ui.html', encoding='utf-8').read()
+    assert 'value="tagged">Tagged photos ready' in page
+    assert "contentType.includes('application/json')" in page
+    assert "window.location.assign('/login')" in page
+    assert 'response.json();' in page
+    assert page.index("contentType.includes('application/json')") < page.index('response.json();')
+
+
 def test_authenticated_thumbnail_is_generated_without_studio_api_dispatch(monkeypatch,tmp_path):
     photo=tmp_path/'original.png'
     Image.new('RGB',(800,600),'navy').save(photo)

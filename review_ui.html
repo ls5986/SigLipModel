@@ -107,7 +107,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    <div class="row spread"><strong id="queue-title">Properties</strong><small id="queue-count"></small></div>
    <input id="search" type="search" placeholder="Search address or MLS ID" aria-label="Search properties">
    <select id="dataset-scope" aria-label="Dataset"><option id="training-scope" hidden disabled value="training">250-property training batch</option><option value="acquisitions">Your acquisition candidates</option><option value="quarantine">Wrong era / needs earlier listing</option><option value="reference">Other reference properties</option></select>
-   <select id="queue-filter" aria-label="Review queue"><option value="all">All properties</option><option value="ready">AI draft available</option><option value="unscored">Not reviewed yet</option><option value="reviewed">Reviewed</option></select>
+   <select id="queue-filter" aria-label="Review queue"><option value="all">All properties</option><option value="photo_match">Needs sale/photo verification</option><option value="tagged">Tagged photos ready</option><option value="ready">AI property draft available</option><option value="unscored">Not reviewed yet</option><option value="reviewed">Reviewed</option></select>
   </form>
   <div id="queue-list"><p class="muted" style="padding:12px">Loading your properties…</p></div>
   <div class="pagination row spread"><button id="queue-prev" aria-label="Previous property page">←</button><small id="page-number">—</small><button id="queue-next" aria-label="Next property page">→</button></div>
@@ -203,7 +203,18 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   try{
    const options={signal:controller.signal,cache:'no-store',redirect:'error',credentials:'same-origin'};
    if(body!==undefined){if(!S.token)throw Error('Reload to reconnect before saving.');options.method='POST';options.headers={'Content-Type':'application/json','X-Review-Token':S.token};options.body=JSON.stringify(body);}
-   const response=await fetch('/api/studio/'+path,options);const data=await response.json();
+   let response;
+   try{response=await fetch('/api/studio/'+path,options);}catch(error){
+    if(error instanceof TypeError&&String(error.message).toLowerCase().includes('redirect')){window.location.assign('/login');throw Error('Your session expired. Returning to sign in…');}
+    throw error;
+   }
+   const contentType=(response.headers.get('content-type')||'').toLowerCase();
+   if(!contentType.includes('application/json')){
+    const destination=new URL(response.url,window.location.href);
+    if(destination.pathname==='/login'||response.redirected){window.location.assign('/login');throw Error('Your session expired. Returning to sign in…');}
+    throw Error(`The app returned a web page instead of data (HTTP ${response.status}). Reload after the deployment finishes.`);
+   }
+   const data=await response.json();
    if(!response.ok){const error=Error(data.error||'Request failed');error.status=response.status;throw error;}
    return data;
   }catch(error){if(controller.signal.aborted)throw Error(body===undefined?'Loading timed out. Use Reload to reconnect.':'Request timed out. Check saved data or job status before resubmitting.');throw error;}finally{clearTimeout(timer);}
@@ -236,20 +247,23 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('queue-list').replaceChildren(...S.items.map(i=>{
    const button=btn('',()=>action(()=>openProperty(i.id)),'queue-item');button.dataset.propertyId=i.id;button.setAttribute('aria-current',String(S.detail?.property.id===i.id));
    if(i.hero_image_id){const img=el('img');img.src=thumbURL(i.hero_image_id);img.alt='';img.loading='lazy';button.append(img);}
-   const copy=el('span',null,'copy');copy.append(el('strong',i.address),el('small',[i.city,`${i.image_count} photos`].filter(Boolean).join(' · ')),el('small',S.mode==='matching'?(i.needs_photo_match?'Sale/photos need verification':'Sale/photos verified'):i.human_score?`${i.human_score}/5 · Reviewed`:label(i.status)));
+   const copy=el('span',null,'copy');
+   const state=S.knownTargets&&i.autolabel_status==='completed'?`${i.tagged_photo_count||0} photos tagged · Ready to check`:S.mode==='matching'?(i.needs_photo_match?'Sale/photos need verification':'Sale/photos verified'):i.human_score?`${i.human_score}/5 · Reviewed`:label(i.status);
+   copy.append(el('strong',i.address),el('small',[i.city,`${i.image_count} photos`].filter(Boolean).join(' · ')),el('small',state));
    button.append(copy);return button;
   }));
   if(!S.items.length)$('queue-list').append(el('p','No properties in this queue. Choose All properties or score an unscored property.','notice'));
  }
  async function loadQueue(prefer=null){
   $('dataset-scope').value=S.scope;
-  const data=await api('review-queue?'+new URLSearchParams({queue:S.mode==='matching'?'photo_match':S.filter,scope:S.scope,search:$('search').value.trim(),offset:S.offset,limit:20}));
+  const requestedQueue=S.knownTargets?S.filter:S.mode==='matching'?'photo_match':S.filter;
+  const data=await api('review-queue?'+new URLSearchParams({queue:requestedQueue,scope:S.scope,search:$('search').value.trim(),offset:S.offset,limit:20}));
   const cloud=data.capabilities?.storage==='supabase';
-  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';$('review-nav').hidden=true;$('ready-button').hidden=true;return loadQueue(prefer);}$('training-scope').hidden=!cloud;$('training-scope').disabled=!cloud;
+  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';S.filter='photo_match';$('queue-filter').value='photo_match';$('review-nav').hidden=true;$('ready-button').hidden=true;return loadQueue(prefer);}$('training-scope').hidden=!cloud;$('training-scope').disabled=!cloud;
   if(!S.cohortLinkChecked){S.cohortLinkChecked=true;if(cloud&&new URLSearchParams(location.search).get('cohort')==='training'){S.scope='training';S.offset=0;return loadQueue();}}
   S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
   if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
-  $('progress').textContent=S.knownTargets?`${S.counts.all-S.counts.photo_match} photo sets verified · ${S.counts.photo_match} to verify`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
+  $('progress').textContent=S.knownTargets?`${S.counts.tagged||0} tagged properties · ${S.counts.photo_match} sale/photo sets to verify`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
   $('ready-button').textContent=`AI drafts (${S.counts.ready})`;drawQueue();
   const next=S.items.find(i=>i.id===prefer)||S.items.find(i=>i.id===S.detail?.property.id)||S.items[0];
   const requested=new URLSearchParams(location.search).get('property');
@@ -301,7 +315,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('property-meta').textContent=p?[p.city,p.year_built?'Built '+p.year_built:null,m.ListingId?'MLS '+m.ListingId:null,m.CloseDate?'Sold '+m.CloseDate:null].filter(Boolean).join(' · '):'Choose another queue.';
   document.body.classList.toggle('matching-mode',S.mode==='matching');
   $('task-heading').textContent=S.mode==='matching'?'Confirm acquisition sale and photo set':'Step 2 of 2 · Rate target properties';
-  $('queue-filter').disabled=S.mode==='matching';
+  $('queue-filter').disabled=S.mode==='matching'&&!S.knownTargets;
   $('review-nav').setAttribute('aria-current',S.mode==='review'?'page':'false');$('match-nav').setAttribute('aria-current',S.mode==='matching'?'page':'false');
   $('agree').textContent=S.mode==='matching'?'Verify sale/photos & next':'Rate property';
   $('correct').textContent='Wrong photos & next';
