@@ -114,12 +114,16 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  </aside>
  <section class="viewer" aria-label="Property photos">
   <div class="property-heading row spread"><div><h1 id="address">Your photos belong here</h1><p id="property-meta" class="muted small">Choose a property to get started.</p></div><a id="original-link" class="button small" target="_blank" rel="noopener" hidden>Original ↗</a></div>
+  <div id="label-tools" class="stack" hidden>
+   <div class="row wrap"><select id="label-provider" aria-label="Draft label provider" hidden><option value="copilot">Local Copilot</option><option value="openai">Hosted OpenAI</option></select><button id="test-autolabel" class="small" disabled>Tag rooms + condition</button><button id="retry-autolabel" class="small" hidden>Retry SigLIP rooms</button></div>
+   <p id="autolabel-status" class="small muted" role="status"></p>
+  </div>
   <div class="photo-stage">
    <img id="hero" alt="" hidden>
    <div id="image-state" class="image-state">Loading the review queue…</div>
    <div class="photo-step row"><button id="photo-prev" aria-label="Previous photo">←</button><small id="photo-position">0 / 0</small><button id="photo-next" aria-label="Next photo">→</button></div>
   </div>
-  <p id="autolabel-status" class="small muted" hidden></p><button id="retry-autolabel" class="small" hidden>Retry SigLIP rooms</button><select id="label-provider" aria-label="Draft label provider"><option value="copilot">Local Copilot</option><option value="openai">Hosted OpenAI</option></select><button id="test-autolabel" class="small" hidden>Test draft tags on up to 8 photos</button><div class="row spread"><strong id="photo-caption">Property photos</strong><button id="edit-photo" class="small" disabled>Correct this photo</button></div>
+<div class="row spread"><strong id="photo-caption">Property photos</strong><button id="edit-photo" class="small" disabled>Correct this photo</button></div>
   <div id="rooms" class="room-tabs" aria-label="Filter photos by room"></div>
   <div id="filmstrip" class="filmstrip" aria-label="Photo thumbnails"></div>
  </section>
@@ -258,19 +262,18 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const same=S.detail?.property.id===id,oldPhoto=S.photo;S.detail=detail;S.room='all';
   S.photo=same&&detail.images.some(i=>i.id===oldPhoto)?oldPhoto:(detail.images.find(i=>roomOf(i)==='kitchen')||detail.images[0])?.id;
   document.querySelector('.queue').classList.remove('expanded');drawQueue();draw();
-  $('autolabel-status').hidden=!detail.capabilities?.autolabel;$('retry-autolabel').hidden=true;$('test-autolabel').hidden=true;$('label-provider').hidden=true;
+  $('autolabel-status').hidden=!detail.capabilities?.autolabel;$('retry-autolabel').hidden=true;$('test-autolabel').disabled=true;$('label-tools').hidden=!detail.capabilities?.autolabel||!detail.images.length;
   if(detail.capabilities?.autolabel&&detail.images.length)startAutolabel(id,ticket);
   else{S.labelTask=null;$('autolabel-status').textContent='No valid first-sale photos to classify.';}
  }
  function labelStatus(data){
-  $('autolabel-status').textContent=data.status==='awaiting_test'?'SigLIP rooms ready. Choose Copilot or OpenAI and test up to 8 selected photos.':data.status==='completed'?'Small labeling test ready ('+(data.test_photos||0)+' photos). Review the draft tags.':data.status==='failed'?'Labeling failed. No automatic paid retry. You can keep verifying targets.':data.stage==='rooms'?(data.worker_online?'SigLIP is classifying rooms.':'Waiting for the SigLIP room worker. No ChatGPT calls yet.'):data.label_provider==='copilot'?'Waiting for your local Copilot worker.':data.worker_status==='unconfigured'?'Add OPENAI_API_KEY in Render to run the small test.':'Small OpenAI labeling test queued or running.';
+  $('autolabel-status').textContent=data.status==='awaiting_test'?'Rooms ready. Tag conditions automatically, then correct any mistakes.':data.status==='completed'?'Rooms and condition tags ready ('+(data.test_photos||0)+' photos). Correct any mistakes.':data.status==='failed'?'Labeling failed. No automatic paid retry. You can keep verifying targets.':data.stage==='rooms'?(data.worker_online?'SigLIP is classifying rooms.':'Waiting for the SigLIP room worker. No ChatGPT calls yet.'):data.label_provider==='copilot'?'Your local worker is tagging condition and features.':data.worker_status==='unconfigured'?'Add OPENAI_API_KEY in Render to run the small test.':'Small OpenAI labeling test queued or running.';
   $('retry-autolabel').hidden=data.status!=='failed'||data.stage==='features';
-  $('test-autolabel').hidden=!['awaiting_test','completed','failed'].includes(data.status)||data.stage==='rooms';
-  $('label-provider').hidden=$('test-autolabel').hidden;
+  $('test-autolabel').disabled=!['awaiting_test','completed','failed'].includes(data.status)||data.stage==='rooms';
  }
  async function startAutolabel(id,ticket,retry=false,test=false){
   S.labelTask={id,ticket,status:'queued',checked:0};
-  try{const request=await api('autolabel',{property_id:id,retry,test,label_provider:$('label-provider').value});if(ticket!==S.request)return;
+  try{const request=await api('autolabel',{property_id:id,retry,test,all_photos:test,label_provider:'copilot'});if(ticket!==S.request)return;
    const data=request.status==='completed'?request:await api('autolabel?'+new URLSearchParams({id}));
    if(ticket!==S.request)return;Object.assign(S.labelTask,data);labelStatus(data);
   }catch(error){if(ticket===S.request){S.labelTask.status='failed';labelStatus({status:'failed'});}}
@@ -341,6 +344,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   drawPhotos();controls();
  }
  function drawListingContext(d,m,h){
+  const p=d?.property;
   const s=h?.source||{},facts=[];
   const add=(name,value)=>{if(present(value))facts.push([name,String(value)]);};
   const propertyType=m.PropertySubType||m.PropertyType||s['Property Type'];
