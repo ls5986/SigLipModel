@@ -15,6 +15,7 @@ from model_workbench import pending_training
 from studio_data import now
 from v1_models import (
     FEATURE_POLICY, FusionClassifier, MetadataClassifier, VisionClassifier,
+    acquisition_time_metadata,
     classification_metrics, require_class_diversity,
 )
 
@@ -44,6 +45,7 @@ def property_rows(store,scorer,dataset):
                 blobs.append(blob)
             vectors = scorer.embedding_blobs(blobs) if blobs else []
             metadata = challenge.get("metadata",{})
+            metadata = acquisition_time_metadata(metadata)
             remarks = metadata.get("PublicRemarks") or ""
             coverage = "selected_mls_media" if blobs else "metadata_only"
         else:
@@ -59,6 +61,9 @@ def property_rows(store,scorer,dataset):
                 store.image_path(image["id"]) for image in images
             ])
             metadata = detail["property"].get("metadata",{})
+            metadata = acquisition_time_metadata(
+                metadata,(detail.get("historical_source") or {}).get("source"),
+            )
             remarks = detail["property"].get("mls_remarks") or ""
             coverage = detail.get(
                 "historical_source",{},

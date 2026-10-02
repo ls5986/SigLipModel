@@ -238,7 +238,9 @@ class ExistingMLSSupabaseSource(MLSPropertySource):
     @staticmethod
     def _listing_select():
         return """SELECT p.listing_key,p.normalized,
+            p.raw_payload->>'PhotosCount' AS photos_count,
             intelligence.selected_media,intelligence.facts,
+            history.prior_sales,
             opportunity.opportunity_score,opportunity.rank AS opportunity_rank,
             opportunity.upside_dollars,opportunity.upside_percent,
             opportunity.explanation AS opportunity_explanation
@@ -248,6 +250,29 @@ class ExistingMLSSupabaseSource(MLSPropertySource):
             WHERE i.listing_key=p.listing_key
             ORDER BY i.updated_at DESC,i.id DESC LIMIT 1
           ) intelligence ON true
+          LEFT JOIN LATERAL (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+              'date',prior.sold_at,'price',prior.sold_price
+            ) ORDER BY prior.sold_at DESC),'[]'::jsonb) AS prior_sales
+            FROM (
+              SELECT substring(h.normalized->>'close_date',1,10) AS sold_at,
+                h.normalized->>'close_price' AS sold_price
+              FROM public.mls_properties h
+              WHERE h.listing_key<>p.listing_key
+                AND lower(trim(coalesce(h.normalized->>'address','')))=
+                    lower(trim(coalesce(p.normalized->>'address','')))
+                AND coalesce(h.normalized->>'postal_code','')=
+                    coalesce(p.normalized->>'postal_code','')
+                AND coalesce(h.normalized->>'close_date','') ~
+                    '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                AND coalesce(p.normalized->>'listed_at','') ~
+                    '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                AND substring(h.normalized->>'close_date',1,10)<
+                    substring(p.normalized->>'listed_at',1,10)
+              ORDER BY sold_at DESC,h.listing_key
+              LIMIT 20
+            ) prior
+          ) history ON true
           LEFT JOIN LATERAL (
             SELECT o.opportunity_score,o.rank,o.upside_dollars,o.upside_percent,o.explanation
             FROM public.mls_opportunities o
@@ -264,6 +289,37 @@ class ExistingMLSSupabaseSource(MLSPropertySource):
             for source, target in METADATA_FIELDS.items()
             if normalized.get(source) is not None
         }
+        selected_media = row.get("selected_media")
+        try:
+            photo_count = int(float(
+                row.get("photos_count") or len(selected_media or [])
+            ))
+        except (TypeError,ValueError):
+            photo_count = len(selected_media or [])
+        metadata["PhotosCount"] = photo_count
+        prior_sales = []
+        for sale in row.get("prior_sales") or []:
+            if not isinstance(sale,dict) or not _text(sale.get("date")):
+                continue
+            try:
+                price = float(sale["price"]) if sale.get("price") not in {None,""} else None
+            except (TypeError,ValueError):
+                price = None
+            prior_sales.append({"date":sale["date"],"price":price})
+        metadata["PriorSales"] = prior_sales
+        metadata["PriorSaleCount"] = len(prior_sales)
+        listed_at = _text(normalized.get("listed_at"))
+        if prior_sales and listed_at:
+            try:
+                listed_date = datetime.fromisoformat(listed_at[:10])
+                prior_date = datetime.fromisoformat(prior_sales[0]["date"][:10])
+                metadata["MonthsSinceMostRecentPriorSale"] = (
+                    listed_date-prior_date
+                ).days/30.4375
+            except ValueError:
+                pass
+            if prior_sales[0]["price"] is not None:
+                metadata["MostRecentPriorSalePrice"] = prior_sales[0]["price"]
         metadata["ListingKey"] = str(row["listing_key"])
         opportunity = None
         if row.get("opportunity_score") is not None:
@@ -283,7 +339,8 @@ class ExistingMLSSupabaseSource(MLSPropertySource):
             "postal_code": metadata.get("PostalCode"),
             "metadata": metadata,
             "metadata_sha256": canonical_digest(metadata),
-            "media": select_representative_media(row.get("selected_media")),
+            "media": select_representative_media(selected_media),
+            "transaction_history":prior_sales,
             "opportunity": opportunity,
             "source": "existing-mls-supabase-read-only",
         }

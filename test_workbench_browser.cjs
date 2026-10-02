@@ -24,7 +24,7 @@ const fs=require('node:fs');
    if(url.pathname.endsWith('/challenge/batch')&&method==='POST'){fixedBatch={id:'c'.repeat(32),name:'Browser random five',fingerprint:'d'.repeat(64),counts:{properties:1,photos:1,metadata_only:0},items:[{...challenge,address:'Fixed Example',id:'challenge:'+'c'.repeat(32)+':mls-1',batch_id:'c'.repeat(32),fixed_challenge:true}]};return route.fulfill({json:fixedBatch});}
    if(url.pathname.endsWith('/challenge/batch'))return route.fulfill({json:fixedBatch});
    if(url.pathname.endsWith('/properties'))return route.fulfill({json:{token:'token',total:2,items:[{id:'p1',address:'Example',city:'San Diego',year_built:1960,photo_count:1},{id:'p2',address:'Example 2',city:'La Mesa',year_built:1970,photo_count:1}]}});
-   if(url.pathname.endsWith('/property')){const id=url.searchParams.get('id')||'p1';return route.fulfill({json:{property:{id,address:id==='p1'?'Example':'Example 2',city:id==='p1'?'San Diego':'La Mesa',metadata:{ListPrice:id==='p1'?500000:600000,BedroomsTotal:3,BathroomsTotalInteger:2,LivingArea:1400},mls_remarks:id==='p1'?'Original kitchen and deferred maintenance.':'Second property remarks.'},images:[{id:id+':1',room:'kitchen'}]}});}
+   if(url.pathname.endsWith('/property')){const id=url.searchParams.get('id')||'p1',price=id==='p1'?500000:600000,remarks=id==='p1'?'Original kitchen and deferred maintenance.':'Second property remarks.';return route.fulfill({json:{property:{id,address:id==='p1'?'Example':'Example 2',city:id==='p1'?'San Diego':'La Mesa',metadata:{ListPrice:price,OriginalListPrice:price+25000,PhotosCount:24,DaysOnMarket:18,BedroomsTotal:3,BathroomsTotalInteger:2,LivingArea:1400,PublicRemarks:remarks},mls_remarks:remarks},v1_metadata:{ListPrice:price,OriginalListPrice:price+25000,PhotosCount:24,DaysOnMarket:18,PriorSaleCount:1,MonthsSinceMostRecentPriorSale:72,MostRecentPriorSalePrice:350000},transaction_history:[{label:'Prior sale',date:'2020-01-15',price:350000,model_use:'before listing snapshot'}],images:[{id:id+':1',room:'kitchen'}]}});}
    if(url.pathname.endsWith('/run')&&method==='POST'){const request=JSON.parse(route.request().postData());requests.push(request);currentRunProperty=request.property_id;return route.fulfill({json:{id:'a'.repeat(32),status:'queued'}});}
    if(url.pathname.endsWith('/run'))return route.fulfill({json:{request:{id:'a'.repeat(32),property_id:currentRunProperty,status:'completed'},result:{...result,property_id:currentRunProperty}}});
    if(url.pathname.endsWith('/feedback')){feedback.push(JSON.parse(route.request().postData()));return route.fulfill({json:{revision:1}});}
@@ -38,6 +38,10 @@ const fs=require('node:fs');
    return route.fulfill({status:404,json:{error:'Unexpected '+url.pathname}});
   });
   await page.goto('http://workbench.test/',{waitUntil:'networkidle'});
+  assert.equal(await page.locator('#blind').isChecked(),true);
+  assert.match(await page.locator('#v1-remarks').innerText(),/Original kitchen/);
+  assert.match(await page.locator('#transaction-history').innerText(),/2020-01-15.*\$350,000.*before listing snapshot/);
+  assert.match((await page.locator('#v1-metadata').innerText()),/MLS photo count\s+24.*Days on market\s+18.*Prior sales before listing\s+1/s);
   await page.locator('#blind').check();
   await page.locator('#run').click();
   await page.waitForFunction(()=>!document.querySelector('#feedback').classList.contains('hidden'));
@@ -59,7 +63,8 @@ const fs=require('node:fs');
   assert.equal(feedback[0].target_label,'NOT_TARGET');
   assert.equal(feedback[0].hard_negative,true);
   assert.match(await page.locator('#result-label').innerText(),/Previous reviewed result · Example/i);
-  assert.match(await page.locator('#metadata-method').innerText(),/not a probability.*3 shared field similarities.*known-1/i);
+  assert.match(await page.locator('#metadata-method').innerText(),/not a probability.*3 structural field similarities.*known-1/i);
+  assert.equal(await page.locator('#metadata-score-label').innerText(),'V0 structural metadata similarity');
   assert.deepEqual(await page.locator('#metadata-input .fact strong').allInnerTexts(),['1960','$500,000','3']);
   assert.equal(await page.locator('#metadata-remarks').innerText(),'Original kitchen and deferred maintenance.');
   assert.equal(await page.locator('#feedback').isHidden(),true);

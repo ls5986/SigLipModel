@@ -176,7 +176,11 @@ The hosted development workbench at `/workbench` supports:
     positive-similarity baseline, not a classifier accuracy result.
 
 V1 metadata uses a versioned pre-decision feature policy plus deterministic TF-IDF
-remarks. V1 vision compares mean, max and mean+max frozen SigLIP property aggregation
+remarks. Structured evidence includes DOM, MLS photo count, list/original-price
+reduction, property facts, coarse geography, and transaction-history count/recency/
+price only for sales strictly before the frozen listing snapshot. Current acquisition
+closes and later resales are excluded as outcome leakage. V1 vision compares mean,
+max and mean+max frozen SigLIP property aggregation
 using validation data only. Fusion is fit from deterministic grouped out-of-fold
 metadata and vision predictions from training groups; validation selects the visual
 aggregation, and the protected test is read only after selection. Fusion records

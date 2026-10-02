@@ -4,7 +4,8 @@ import pytest
 from condition_schema import legacy_labels, validate_labels
 from v1_models import (
     FusionClassifier, MetadataClassifier, VisionClassifier,
-    classification_metrics, require_class_diversity,
+    acquisition_time_metadata,classification_metrics,metadata_row,
+    require_class_diversity,
 )
 from workbench_training import grouped_folds, train_candidate
 
@@ -47,6 +48,20 @@ def test_v1_models_fit_and_degrade_to_metadata():
 def test_v1_class_diversity_is_explicit():
     with pytest.raises(ValueError,match='TARGET and NOT_TARGET'):
         require_class_diversity([1]*8,[str(i) for i in range(8)])
+
+
+def test_v1_sale_history_uses_only_events_before_listing_snapshot():
+    enriched=acquisition_time_metadata(
+        {'ListDate':'2026-06-01','YearBuilt':1970},
+        {'Prior Sale Date':'2020-01-15','Prior Sale Amount':350000,
+         'Last Sale Date':'2026-07-01','Last Sale Amount':600000},
+    )
+    assert enriched['PriorSaleCount']==1
+    assert enriched['MostRecentPriorSalePrice']==350000
+    assert enriched['MonthsSinceMostRecentPriorSale']>70
+    row=metadata_row(enriched)
+    assert row['PriorSaleCount']==1
+    assert row['MostRecentPriorSalePrice']==350000
 
 
 def test_condition_and_modernization_mapping_is_separate():

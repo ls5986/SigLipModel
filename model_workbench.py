@@ -231,6 +231,7 @@ def challenge_batch(store, identifier):
             } for photo in snapshot.get("photos",[])],
             "photo_count":len(snapshot.get("photos",[])),
             "opportunity":snapshot.get("opportunity"),
+            "transaction_history":metadata.get("PriorSales",[]),
             "fixed_challenge":True,
         })
     return {
@@ -256,7 +257,21 @@ def challenge_item(store, identifier):
 
 
 def property_detail(store, identifier):
+    from v1_models import acquisition_time_metadata
     detail = store.property(identifier)
+    source = (detail.get("historical_source") or {}).get("source") or {}
+    v1_metadata = acquisition_time_metadata(
+        detail["property"].get("metadata",{}),source,
+    )
+    transaction_history = []
+    for prefix,label in (("Prior","Source prior sale"),("Last","Source last sale")):
+        date = source.get(prefix+" Sale Date")
+        amount = source.get(prefix+" Sale Amount")
+        if date or amount:
+            transaction_history.append({
+                "label":label,"date":date,"price":amount,
+                "model_use":"review evidence only; V1 uses only events before the listing snapshot",
+            })
     with store.database.connect() as db:
         result = db.execute('''SELECT item_id,payload,revision FROM acq_training.studio_state
             WHERE workspace_id=%s AND kind='document'
@@ -270,6 +285,7 @@ def property_detail(store, identifier):
             (store.workspace,identifier)).fetchone()
     return {
         "property":detail["property"],
+        "v1_metadata":v1_metadata,
         "images":[{
             "id":image["id"],"room":image.get("effective",{}).get("room"),
             "context":image.get("effective",{}).get("context"),
@@ -278,6 +294,7 @@ def property_detail(store, identifier):
             "sequence":image.get("sequence"),
         } for image in detail["images"][:12]],
         "coverage":detail.get("historical_source",{}).get("photo_coverage","unknown"),
+        "transaction_history":transaction_history,
         "result":({**result["payload"],"revision":result["revision"]}
                   if result else None),
         "feedback":({**feedback["payload"],"revision":feedback["revision"]}

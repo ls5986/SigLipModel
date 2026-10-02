@@ -15,12 +15,15 @@ from condition_schema import legacy_labels
 from model_loop import candidate
 from property_models import predict_property
 from studio_data import now
+from v1_models import acquisition_time_metadata
 
 METADATA_INPUT_FIELDS = (
     "YearBuilt","PhotosCount","LivingArea","BedroomsTotal",
     "BathroomsTotalInteger","BathroomsTotalDecimal","ListPrice",
     "OriginalListPrice","DaysOnMarket","PropertyType","PropertySubType",
     "PostalCode","City","StateOrProvince","LotSizeArea","LotSizeSquareFeet",
+    "PriorSaleCount","MonthsSinceMostRecentPriorSale",
+    "MostRecentPriorSalePrice",
 )
 
 
@@ -134,10 +137,14 @@ class WorkbenchScorer:
             ][:12]
             paths = [self.store.image_path(image["id"]) for image in eligible]
             vectors = self.embeddings(paths) if paths else []
+        source_metadata = detail["property"].get("metadata",{})
+        model_metadata = acquisition_time_metadata(
+            source_metadata,(detail.get("historical_source") or {}).get("source"),
+        )
+        remarks = detail["property"].get("mls_remarks") or ""
         if self.bundle.get("metadata_model") and self.bundle.get("vision_model"):
             metadata_score = float(self.bundle["metadata_model"].predict(
-                [detail["property"].get("metadata",{})],
-                [detail["property"].get("mls_remarks") or ""],
+                [model_metadata],[remarks],
             )[0])
             vision_values = self.bundle["vision_model"].predict([vectors])
             vision_score = (
@@ -167,8 +174,7 @@ class WorkbenchScorer:
                 "score_kind":"target_probability_v1",
                 "evidence_confidence":"low","usable_photos":len(vectors),
                 "metadata_explanation":self.bundle["metadata_model"].explain(
-                    detail["property"].get("metadata",{}),
-                    detail["property"].get("mls_remarks") or "",
+                    model_metadata,remarks,
                 ),
                 "warnings":["Candidate output requires human review; no production promotion."],
                 "decision":"NEEDS_REVIEW",
@@ -178,7 +184,7 @@ class WorkbenchScorer:
             from target_similarity import predict_similarity
             prediction = predict_similarity(
                 self.bundle["target_similarity"],vectors,
-                detail["property"].get("metadata"),requested_mode,
+                model_metadata,requested_mode,
                 exclude_group=str(group["group_id"]) if group else None,
             )
             influences = [
@@ -190,16 +196,15 @@ class WorkbenchScorer:
             ]
         else:
             prediction = predict_property(
-                self.bundle,vectors,detail["property"].get("metadata"),requested_mode
+                self.bundle,vectors,model_metadata,requested_mode
             )
             influences = [None]*len(vectors)
-        source_metadata = detail["property"].get("metadata",{})
         prediction["metadata_input"] = {
-            key:source_metadata[key] for key in METADATA_INPUT_FIELDS
-            if source_metadata.get(key) is not None
-            and source_metadata.get(key)!=""
+            key:model_metadata[key] for key in METADATA_INPUT_FIELDS
+            if model_metadata.get(key) is not None
+            and model_metadata.get(key)!=""
         }
-        prediction["public_remarks"] = detail["property"].get("mls_remarks") or ""
+        prediction["public_remarks"] = remarks
         photos = []
         for image,influence in zip(eligible,influences):
             photos.append({

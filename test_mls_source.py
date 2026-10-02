@@ -50,3 +50,24 @@ def test_bearer_token_can_only_be_sent_to_approved_cotality_media_url():
         ExistingMLSSupabaseSource._validate_source_url(
             "https://example.com/trestle/Media/Property/example",
         )
+
+
+def test_source_snapshot_retains_photo_count_and_only_prelisting_sales():
+    item=ExistingMLSSupabaseSource._clean_row({
+        "listing_key":"listing",
+        "normalized":{
+            "address":"1 Main St","listed_at":"2026-06-01",
+            "days_on_market":12,"remarks":"Original kitchen",
+        },
+        "photos_count":"24","selected_media":[],
+        "prior_sales":[{"date":"2020-01-15","price":"350000"}],
+        "opportunity_score":None,
+    })
+    metadata=item["metadata"]
+    assert metadata["PhotosCount"]==24
+    assert metadata["PriorSaleCount"]==1
+    assert metadata["MostRecentPriorSalePrice"]==350000
+    assert metadata["MonthsSinceMostRecentPriorSale"]>70
+    assert item["transaction_history"]==[
+        {"date":"2020-01-15","price":350000.0},
+    ]
