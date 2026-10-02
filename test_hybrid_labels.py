@@ -30,6 +30,34 @@ def test_hybrid_room_phase_never_starts_paid_labels_without_test(monkeypatch):
     assert not process(store,'p',Paid())
 
 
+def test_retry_clears_prior_failure_diagnostic(monkeypatch):
+    monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
+    store=WorkerStore()
+    store.docs['autolabel-result:p']={'revision':1,'room_labels_complete':True,'images':[
+        {'image_id':'p:1','sha256':'a','room':'kitchen','context':'subject'}
+    ]}
+    store.docs['autolabel-request:p'].update(
+        policy=hybrid_policy(),stage='features',mode='test',status='queued',
+        label_provider='copilot',
+        error='Old failure',error_details={'code':'image_attachment'}
+    )
+    store.detail['images'][0].update(
+        selection={'included':True},
+        suggestions=[{'room':'kitchen','context':'subject'}],
+        effective={'room':'kitchen'},
+    )
+    store.docs['autolabel-result:p']['images'][0]['image_id']='p:photo'
+    class Paid:
+        policy=hybrid_policy();stage='features';paid=True;provider='copilot'
+        last_usage={}
+        def classify(self,paths,room_tags):
+            return [{**room_tags[0],'features':{},'condition_label':'maintained_original'}]
+    assert process(store,'p',Paid())
+    request=store.docs['autolabel-request:p']
+    assert request['status']=='completed'
+    assert 'error' not in request and 'error_details' not in request
+
+
 def test_small_feature_test_preserves_rooms_and_all_unselected_photos(monkeypatch):
     monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
     store=WorkerStore()

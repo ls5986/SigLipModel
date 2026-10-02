@@ -36,6 +36,7 @@ class Client:
 
 def test_sdk_uses_schema_images_no_tools_and_no_openai_key(tmp_path,monkeypatch):
     monkeypatch.delenv('OPENAI_API_KEY',raising=False)
+    monkeypatch.delenv('STUDIO_COPILOT_MODEL',raising=False)
     path=tmp_path/'photo.jpg'; Image.new('RGB',(20,20)).save(path)
     client=Client(); transport=CopilotTransport(client); labels=CopilotLabels(Store(),transport)
     try:
@@ -46,7 +47,9 @@ def test_sdk_uses_schema_images_no_tools_and_no_openai_key(tmp_path,monkeypatch)
         assert client.options[0]['available_tools']==[]
         assert client.options[0]['on_permission_request'](None).kind=='reject'
         sent=client.sessions[0].sent[0][1]
-        assert sent['attachments'][0].mime_type=='image/jpeg'
+        assert sent['attachments'][0]['mimeType']=='image/jpeg'
+        assert sent['attachments'][0]['type']=='blob'
+        json.dumps(sent['attachments'])  # SDK sends these directly over JSON-RPC.
         assert 'room' not in sent['response_schema']['properties']['images']['items']['properties']
         assert client.sessions[0].disconnected
         labels.classify([path],[{'room':'kitchen','context':'subject'}])

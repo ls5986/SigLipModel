@@ -31,7 +31,8 @@ def process(store, identifier, classifier):
             'error':'Worker interrupted. Retry explicitly to resume cached draft tags.'},request['revision'])
         return False
     # Optimistic revision prevents two workers claiming the same request.
-    claimed = store.save_document(key,{**request,'status':'running','at':now()},request['revision'])
+    active = {k:v for k,v in request.items() if k not in {'error','error_details'}}
+    claimed = store.save_document(key,{**active,'status':'running','at':now()},request['revision'])
     images = []
     usage = {}
     try:

@@ -51,8 +51,10 @@ class CopilotTransport:
                 import base64
                 if self.max_bytes and len(base64.b64decode(data))>self.max_bytes:
                     raise ValueError('Photo exceeds selected model image limit')
-                attachments.append(AttachmentBlob(mime_type='image/jpeg',data=data,
-                                                  display_name='photo-'+str(len(attachments))+'.jpg'))
+                attachments.append(AttachmentBlob(
+                    mime_type='image/jpeg',data=data,
+                    display_name='photo-'+str(len(attachments))+'.jpg'
+                ).to_dict())
         session = await self.client.create_session(model=self.model, available_tools=[], working_directory=self.workspace.name,
             on_permission_request=lambda *args: PermissionDecisionReject(feedback='Image tagging only; no tools permitted'))
         try:
