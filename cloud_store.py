@@ -12,6 +12,49 @@ from photo_view import effective_photo
 from studio_data import FEATURES, StudioStore, now, trim_metadata, validate_review
 
 
+def validation_candidate(example):
+    candidates = example.get('source_snapshot',{}).get('mls_candidates',[])
+    selected = str(example.get('listing_key') or '')
+    if selected:
+        match = next((c for c in candidates if str(c.get('listing',{}).get('ListingKey'))==selected),None)
+        if match: return match
+    def rank(candidate):
+        listing,match = candidate.get('listing',{}),candidate.get('match',{})
+        agreements = match.get('sale_agreements',[])
+        prior = next((a for a in agreements if a.get('source_sale')=='prior'),{})
+        gap = prior.get('minimum_date_gap_days')
+        price_gap = prior.get('price_gap_dollars')
+        return (
+            int(match.get('rank_score') or 0),
+            int(bool(match.get('exact_apn'))),
+            int(bool(match.get('street_number_matches'))),
+            int(not bool(match.get('unit_conflict'))),
+            int(listing.get('CloseDate') is not None),
+            -(gap if type(gap) in {int,float} else 10**9),
+            -(price_gap if type(price_gap) in {int,float} else 10**12),
+            str(listing.get('ListingKey') or ''),
+        )
+    return max(candidates,key=rank,default={})
+
+
+def validation_photo_pair(detail):
+    images = [
+        image for image in detail.get('images',[])
+        if image.get('selection',{}).get('included',True)
+        and image.get('effective',{}).get('context') in {'subject','subject_interior'}
+        and image.get('effective',{}).get('room') in {'kitchen','bathroom','living','bedroom','other'}
+    ]
+    selected = []
+    for room in ('kitchen','bathroom'):
+        match = next((image for image in images
+                      if image.get('effective',{}).get('room')==room and image not in selected),None)
+        if match: selected.append(match)
+    for image in images:
+        if len(selected)>=2: break
+        if image not in selected: selected.append(image)
+    return selected[:2]
+
+
 class Database:
     def __init__(self, dsn, workspace):
         self.dsn, self.workspace = dsn, str(UUID(workspace))
@@ -667,6 +710,117 @@ class SupabaseStore:
             if not exists: raise ValueError('Unknown workbook row')
             return self.database.save(db,'document','source-row:'+str(source_row),payload.get('expected_revision'),
                                       {'source_row':source_row,'reviewer':reviewer.strip(),'note':note.strip(),'at':now()})
+
+    def _validation_example(self, db, identifier):
+        try: example_id = UUID(str(identifier))
+        except ValueError: raise ValueError('Unknown validation record') from None
+        row = db.execute('''SELECT e.id,e.listing_key,e.listing_id,e.match_status,e.source_rows,
+            e.target_transaction,e.source_snapshot,e.group_id
+            FROM acq_training.examples e WHERE e.workspace_id=%s AND e.id=%s
+            AND e.match_status IN ('candidate','unresolved')''',(self.workspace,example_id)).fetchone()
+        if not row: raise ValueError('Unknown validation record')
+        return row
+
+    @staticmethod
+    def _validation_summary(example, review=None):
+        source = example.get('source_snapshot',{}).get('spreadsheet',{})
+        candidate = validation_candidate(example)
+        listing = candidate.get('listing',{})
+        return {
+            'id':str(example['id']),'match_status':example['match_status'],
+            'source_rows':example.get('source_rows',[]),
+            'source_address':source.get('Address') or source.get('UnparsedAddress') or 'Address unavailable',
+            'apn':source.get('APN') or source.get('ParcelNumber') or 'APN unavailable',
+            'prior_sale_date':source.get('Prior Sale Date') or example.get('target_transaction',{}).get('Prior Sale Date'),
+            'prior_sale_amount':source.get('Prior Sale Amount') or example.get('target_transaction',{}).get('Prior Sale Amount'),
+            'last_sale_date':source.get('Last Sale Date') or example.get('target_transaction',{}).get('Last Sale Date'),
+            'last_sale_amount':source.get('Last Sale Amount') or example.get('target_transaction',{}).get('Last Sale Amount'),
+            'listing_key':str(listing.get('ListingKey') or ''),
+            'listing_id':listing.get('ListingId'),
+            'listing_address':listing.get('UnparsedAddress'),
+            'close_date':listing.get('CloseDate'),'close_price':listing.get('ClosePrice'),
+            'decision':(review or {}).get('decision'),'revision':(review or {}).get('revision',0),
+        }
+
+    def mls_validation_queue(self, args):
+        state_filter = args.get('status','pending')
+        if state_filter not in {'pending','reviewed','all'}: raise ValueError('Unknown validation queue')
+        offset,limit = max(0,int(args.get('offset',0))),min(40,max(1,int(args.get('limit',20))))
+        search = args.get('search','').strip().casefold()
+        with self.database.connect() as db:
+            rows = db.execute('''SELECT e.id,e.listing_key,e.listing_id,e.match_status,e.source_rows,
+                e.target_transaction,e.source_snapshot,e.group_id
+                FROM acq_training.examples e WHERE e.workspace_id=%s
+                AND e.match_status IN ('candidate','unresolved')
+                ORDER BY CASE e.match_status WHEN 'candidate' THEN 0 ELSE 1 END,e.id''',
+                (self.workspace,)).fetchall()
+            states = {
+                row['item_id']:{**row['payload'],'revision':row['revision']}
+                for row in db.execute('''SELECT item_id,payload,revision FROM acq_training.studio_state
+                    WHERE workspace_id=%s AND kind='document'
+                    AND item_id LIKE 'mls-validation:%%' ''',(self.workspace,)).fetchall()
+            }
+        items = [
+            self._validation_summary(row,states.get('mls-validation:'+str(row['id'])))
+            for row in rows
+        ]
+        reviewed = sum(bool(item['decision']) for item in items)
+        counts = {
+            'total':len(items),'reviewed':reviewed,'remaining':len(items)-reviewed,
+            'candidate':sum(item['match_status']=='candidate' for item in items),
+            'unresolved':sum(item['match_status']=='unresolved' for item in items),
+        }
+        items = [item for item in items
+                 if (state_filter=='all' or (state_filter=='reviewed')==bool(item['decision']))
+                 and (not search or search in ' '.join(str(item.get(key) or '')
+                     for key in ('source_address','apn','listing_id','listing_address')).casefold())]
+        return {'items':items[offset:offset+limit],'total':len(items),'offset':offset,'limit':limit,
+                'counts':counts}
+
+    def mls_validation_detail(self, identifier):
+        with self.database.connect() as db:
+            example = self._validation_example(db,identifier)
+            review = self.database.state(db,'document','mls-validation:'+str(example['id']))
+        result = self._validation_summary(example,review)
+        result['photos'] = []
+        if result['listing_key']:
+            try:
+                detail = self.property(result['listing_key'])
+                result['photos'] = [{
+                    'id':image['id'],'room':image.get('effective',{}).get('room','interior'),
+                    'sequence':image.get('sequence'),
+                } for image in validation_photo_pair(detail)]
+            except (ValueError,OSError):
+                pass
+        return result
+
+    def save_mls_validation(self, payload):
+        decision = payload.get('decision')
+        if decision not in {'confirmed','wrong_listing','wrong_era','unsure'}:
+            raise ValueError('Choose a validation decision')
+        reviewer = payload.get('reviewer')
+        if not isinstance(reviewer,str) or not 1<=len(reviewer.strip())<=100:
+            raise ValueError('Reviewer name required')
+        with self.database.connect() as db:
+            example = self._validation_example(db,payload.get('id'))
+            key = 'mls-validation:'+str(example['id'])
+            self._lock_property(db,key)
+            current = self.database.state(db,'document',key)
+            candidate = validation_candidate(example)
+            listing = candidate.get('listing',{})
+            record = {
+                'example_id':str(example['id']),'decision':decision,'reviewer':reviewer.strip(),
+                'reviewed_at':now(),'source_rows':example.get('source_rows',[]),
+                'original_match_status':example['match_status'],
+                'selected_listing_key':str(listing.get('ListingKey') or ''),
+                'selected_listing_id':listing.get('ListingId'),
+                'certified_for_training':decision=='confirmed',
+                'policy':'human-acquisition-mls-validation-v1',
+            }
+            result = self.database.save(
+                db,'document',key,payload.get('expected_revision'),record
+            )
+        return result
 
     def apply_proposals(self, output):
         # Editable machine suggestions never overwrite reviewed labels.

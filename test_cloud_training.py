@@ -83,6 +83,17 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
         eras['era',key] = {'decision':'correct_era','evidence_hash':hashlib.sha256(json.dumps([digest]).encode()).hexdigest()}
     records.append({**records[0],'listing_key':'outside','group_id':'outside','identity_key':'outside'})
     photos.append({**photos[0],'listing_key':'outside','group_id':'outside'})
+    from uuid import UUID
+    validated_id=UUID('11111111-1111-1111-1111-111111111111')
+    validated_candidate={'listing':{'ListingKey':'validated-listing','StandardStatus':'Closed',
+        'YearBuilt':1955},'match':{'exact_apn':True,'street_number_matches':True}}
+    validated_record=dict(id=validated_id,group_id='validated-group',source_rows=[999],
+        identity_key='validated-group',identity_verified=True,protected_test=False,
+        source_snapshot={'spreadsheet':{'Address':'Validated house'},
+                         'mls_candidates':[validated_candidate]})
+    validation_state=[{'item_id':'mls-validation:'+str(validated_id),'payload':{
+        'decision':'confirmed','certified_for_training':True,
+        'selected_listing_key':'validated-listing'}}]
     class Query:
         def __init__(self,rows): self.rows=rows
         def fetchall(self): return self.rows
@@ -95,6 +106,8 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
             return {'listing_keys':keys}
         def execute(self,sql,args=None):
             if sql.startswith('SET '): return None
+            if "item_id LIKE 'mls-validation:" in sql: return Query(validation_state)
+            if 'e.id=ANY' in sql: return Query([validated_record])
             if 'SELECT e.id' in sql: return Query(records)
             if 'SELECT p.*' in sql: return Query(photos)
             if "i->>'listing_key'" in sql: return Query([{'listing_key':'outside','sha256':photos[0]['image_sha256']}])
@@ -107,7 +120,7 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
     eras['document','autolabel-result:3']={'policy':POLICY,'evidence_hash':eras['era','3']['evidence_hash'],
         'images':[{'image_id':'3:photo','sha256':photos[3]['image_sha256'],'context':'floor_plan'}]}
     images, properties = snapshot(Store(DB(),None))
-    assert len(properties)==251 and len(images)==251
+    assert len(properties)==252 and len(images)==251
     assert properties[0]['split']=='test' and not properties[0]['training_allowed']
     assert 50 <= sum(p['split']=='test' for p in properties) <= 125
     assert 'ClosePrice' not in properties[0]['metadata']
@@ -122,6 +135,10 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
     assert not next(i for i in images if i['property_id']=='3')['include_in_similarity']
     assert next(p for p in properties if p['id']=='3')['known_target']
     assert not next(p for p in properties if p['id']=='outside')['known_target']
+    certified=next(p for p in properties if p['id']=='validated-listing')
+    assert certified['known_target'] and certified['training_allowed']
+    assert certified['target_origin']=='human-certified-mls-validation'
+    assert certified['photo_coverage']=='no_interior'
 
 
 def test_subjective_target_ratings_do_not_override_workbook_provenance():

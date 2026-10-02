@@ -39,6 +39,13 @@ def snapshot(store):
         cohort = store.database.state(db, 'document', COHORT_KEY)
         cohort = cohort or {'listing_keys':[]}
         keys = cohort['listing_keys']
+        validation_rows = db.execute('''SELECT item_id,payload FROM acq_training.studio_state
+            WHERE workspace_id=%s AND kind='document' AND item_id LIKE 'mls-validation:%%'
+            AND payload->>'decision'='confirmed' AND payload->>'certified_for_training'='true' ''',
+            (store.workspace,)).fetchall()
+        validations = {
+            row['item_id'].split(':',1)[1]:row['payload'] for row in validation_rows
+        }
         records = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,
                 jsonb_build_object('spreadsheet',jsonb_build_object('Prior Sale Date',e.source_snapshot->'spreadsheet'->>'Prior Sale Date','Last Sale Date',e.source_snapshot->'spreadsheet'->>'Last Sale Date'),'mls_candidates',jsonb_build_array(jsonb_build_object(
                     'listing', c.item->'listing', 'match', c.item->'match'))) AS source_snapshot,
@@ -48,6 +55,28 @@ def snapshot(store):
             LEFT JOIN LATERAL (SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
               WHERE item->'listing'->>'ListingKey'=e.listing_key LIMIT 1) c ON true
             WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL AND cardinality(e.source_rows)>0 ORDER BY e.id''', (store.workspace,)).fetchall()
+        if validations:
+            extra = db.execute('''SELECT e.id,e.group_id,e.source_rows,e.source_snapshot,
+                  g.identity_key,g.identity_verified,g.protected_test
+              FROM acq_training.examples e JOIN acq_training.property_groups g
+              ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
+              WHERE e.workspace_id=%s AND e.id=ANY(%s::uuid[])''',
+              (store.workspace,list(validations))).fetchall()
+            existing = {str(row['id']) for row in records}
+            for row in extra:
+              if str(row['id']) in existing: continue
+              validation = validations[str(row['id'])]
+              listing_key = validation.get('selected_listing_key')
+              selected = next((candidate for candidate in row['source_snapshot'].get('mls_candidates',[])
+                  if str(candidate.get('listing',{}).get('ListingKey'))==str(listing_key)),None)
+              if not selected: continue
+              records.append({
+                  **row,'listing_key':str(listing_key),
+                  'source_snapshot':{
+                      'spreadsheet':row['source_snapshot'].get('spreadsheet',{}),
+                      'mls_candidates':[selected],
+                  },
+              })
         photos = db.execute('''SELECT p.*,e.listing_key,e.group_id FROM acq_training.photos p
             JOIN acq_training.examples e ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
             WHERE p.workspace_id=%s AND p.revoked_at IS NULL
@@ -112,7 +141,17 @@ def snapshot(store):
         # _history expects source_rows as well as source_snapshot.
         historical_sources = sources
         history = store._history(historical_sources, photo_rows, era)
-        verified = history['timing_verified'] and all(supports_prior(store._selected(r),r['source_snapshot'].get('spreadsheet'),r['source_snapshot'].get('mls_candidates')) for r in sources)
+        manually_certified = any(
+            validations.get(str(source['id']),{}).get('certified_for_training') is True
+            for source in sources
+        )
+        verified = manually_certified or (
+            history['timing_verified'] and all(
+                supports_prior(store._selected(r),r['source_snapshot'].get('spreadsheet'),
+                               r['source_snapshot'].get('mls_candidates'))
+                for r in sources
+            )
+        )
         metadata = store._selected(sources[0]).get('listing', {})
         review = store._review('property', key, legacy, live)
         properties.append({'id':key, 'physical_key':group, 'group_id':group, 'split':split,
@@ -121,8 +160,9 @@ def snapshot(store):
             'mls_remarks':__import__('listing_text').remarks(metadata),
             'synthetic_evidence':__import__('listing_text').image_evidence(metadata),
             'human_review_revision':review.get('revision',0), 'timing_verified':verified,
-            'photo_coverage':history['photo_coverage'],
-            'known_target':verified, 'target_origin':'user-confirmed-workbook-cohort',
+            'photo_coverage':'no_interior' if manually_certified and not photo_rows else history['photo_coverage'],
+            'known_target':verified, 'target_origin':'human-certified-mls-validation'
+                if manually_certified else 'user-confirmed-workbook-cohort',
             'source_rows':sorted({n for r in sources for n in r['source_rows']}),
             'training_allowed':verified and split != 'test',
             'label_exclusion':None if verified else 'Acquisition era is not verified'})

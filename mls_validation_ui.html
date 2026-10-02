@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ACQ Vision · Acquisition MLS Validation</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+*{box-sizing:border-box}body{margin:0;background:var(--cp-bg);color:var(--cp-text);font:15px/1.45 "Segoe UI",Aptos,Calibri,-apple-system,BlinkMacSystemFont,sans-serif;height:100dvh;display:flex;flex-direction:column}button,input{font:inherit;color:inherit}button,.button{border:1px solid var(--cp-border);background:var(--cp-surface);border-radius:.625rem;padding:10px 14px;cursor:pointer;text-decoration:none}button:hover,.button:hover{border-color:var(--cp-accent);background:var(--cp-accent-soft)}button:disabled{opacity:.45;cursor:not-allowed}.primary{background:var(--cp-accent);border-color:var(--cp-accent);color:var(--cp-accent-fg);font-weight:800}.primary:hover{background:var(--cp-accent-hover);color:var(--cp-accent-fg)}a{color:var(--cp-link)}header{height:64px;padding:0 22px;background:var(--cp-surface);border-bottom:1px solid var(--cp-border);display:flex;align-items:center;justify-content:space-between;gap:16px}.brand,.row{display:flex;align-items:center;gap:10px}.logo{display:grid;place-items:center;width:32px;height:32px;border-radius:.625rem;background:var(--cp-accent);color:var(--cp-accent-fg);font-weight:800}.header-links{display:flex;align-items:center;gap:14px}.header-links a{text-decoration:none}.muted{color:var(--cp-text-muted)}.small{font-size:12px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--cp-text-soft)}.progressbar{height:8px;background:var(--cp-surface-soft);border-radius:999px;overflow:hidden}.progressbar span{display:block;height:100%;background:var(--cp-accent);width:0}.status{padding:10px 22px;background:var(--cp-bg-elevated);border-bottom:1px solid var(--cp-border);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center}.status strong{font-size:17px}.workspace{display:grid;grid-template-columns:280px minmax(0,1fr);flex:1;min-height:0}.queue{background:var(--cp-surface);border-right:1px solid var(--cp-border);display:flex;flex-direction:column;min-height:0}.queue-head{padding:16px;display:grid;gap:10px}.queue-head input{width:100%;padding:10px;border:1px solid var(--cp-border);border-radius:.625rem;background:var(--cp-surface)}.queue-tabs{display:flex;gap:6px}.queue-tabs button{flex:1;padding:7px;font-size:12px}.queue-tabs button[aria-pressed="true"]{background:var(--cp-accent-soft);border-color:var(--cp-accent);color:var(--cp-accent);font-weight:700}#queue-list{overflow:auto;padding:0 8px 12px}.queue-item{width:100%;text-align:left;white-space:normal;padding:11px 10px;margin-bottom:6px;border-color:var(--cp-surface);display:grid;gap:3px}.queue-item[aria-current="true"]{border-color:var(--cp-accent);background:var(--cp-accent-soft)}.queue-item strong,.queue-item small{display:block}.queue-item .badge{justify-self:start}.badge{display:inline-block;padding:3px 7px;border:1px solid var(--cp-border);border-radius:999px;background:var(--cp-surface-soft);font-size:10px;color:var(--cp-text-muted)}main{min-width:0;overflow:auto;padding:28px clamp(20px,4vw,56px) 130px}.hero{max-width:1180px;margin:auto;display:grid;gap:20px}.property-title h1{margin:0;font-size:32px;line-height:1.15}.property-title p{margin:5px 0 0}.transaction-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:18px;box-shadow:0 0 2px var(--cp-border),0 1px 2px var(--cp-border)}.card h2{margin:3px 0 12px;font-size:15px}.facts{display:grid;grid-template-columns:1fr auto;gap:8px 14px}.facts strong{text-align:right}.photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.photo{min-height:300px;background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;overflow:hidden;display:grid;grid-template-rows:minmax(250px,1fr) auto}.photo img{width:100%;height:100%;object-fit:contain;background:var(--cp-surface-soft)}.photo figcaption{padding:12px 14px;font-weight:700;text-transform:capitalize}.placeholder{display:grid;place-items:center;text-align:center;padding:28px;background:var(--cp-surface-soft);color:var(--cp-text-muted)}.placeholder strong{display:block;color:var(--cp-text);font-size:18px}.actions{position:fixed;left:280px;right:0;bottom:0;background:var(--cp-panel-strong);border-top:1px solid var(--cp-border);padding:14px clamp(20px,4vw,56px);display:grid;gap:10px;z-index:5}.actions .primary{font-size:18px;padding:15px}.secondary-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.secondary-actions button{font-weight:700}.notice{padding:12px;border:1px solid var(--cp-border);border-left:3px solid var(--cp-warning);border-radius:.625rem;background:var(--cp-surface-soft)}#empty{padding:40px;text-align:center}.pagination{padding:10px 14px;border-top:1px solid var(--cp-border);display:flex;justify-content:space-between;align-items:center}.key{font:12px Consolas,"Courier New",Courier,monospace;border:1px solid var(--cp-border-strong);border-radius:5px;padding:1px 5px;background:var(--cp-surface-soft)}dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:24px;width:min(420px,calc(100% - 32px))}dialog::backdrop{background:var(--cp-overlay)}dialog form{display:grid;gap:14px}dialog input{padding:11px;border:1px solid var(--cp-border);border-radius:.625rem;background:var(--cp-surface)}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}@media(max-width:850px){body{height:auto;min-height:100dvh}header{height:auto;min-height:60px;padding:12px;flex-wrap:wrap}.header-links{width:100%;overflow:auto}.status{grid-template-columns:1fr}.workspace{display:block}.queue{border-right:0;border-bottom:1px solid var(--cp-border);max-height:320px}.transaction-grid,.photos{grid-template-columns:1fr}.photo{min-height:240px}.actions{left:0}.secondary-actions{grid-template-columns:1fr}main{padding-bottom:260px}.property-title h1{font-size:26px}}
+</style>
+</head>
+<body>
+<header><div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span class="badge">Development</span></div><div class="header-links"><a href="/property-review">Detailed property review</a><a href="/source-rows">All workbook rows</a><button id="reviewer">Your name</button></div></header>
+<section class="status"><div><span class="eyebrow">Acquisition MLS Validation</span><strong id="progress">Connecting…</strong><div class="progressbar"><span id="progress-fill"></span></div></div><div class="small muted"><span class="key">Y</span> confirm · <span class="key">W</span> wrong MLS · <span class="key">E</span> wrong era · <span class="key">U</span> unsure</div></section>
+<div id="message" class="notice" hidden></div>
+<div class="workspace">
+ <aside class="queue"><div class="queue-head"><input id="search" type="search" placeholder="Search address, APN or MLS ID"><div class="queue-tabs"><button data-status="pending" aria-pressed="true">Pending</button><button data-status="reviewed" aria-pressed="false">Reviewed</button></div></div><div id="queue-list"></div><div class="pagination"><button id="prev">←</button><small id="page">—</small><button id="next">→</button></div></aside>
+ <main><div id="empty" hidden><h2>No records in this view</h2><p class="muted">Choose Pending or Reviewed.</p></div><article id="detail" class="hero" hidden>
+  <div class="property-title"><span id="match-status" class="badge"></span><h1 id="address"></h1><p id="apn" class="muted"></p></div>
+  <div class="transaction-grid"><section class="card"><span class="eyebrow">Source transaction</span><h2>Workbook record</h2><div class="facts"><span>Prior sale</span><strong id="prior"></strong><span>Last sale</span><strong id="last"></strong></div></section><section class="card"><span class="eyebrow">Proposed MLS</span><h2 id="mls-id"></h2><div class="facts"><span>Listing address</span><strong id="mls-address"></strong><span>Closed</span><strong id="mls-close"></strong></div></section></div>
+  <div id="photo-grid" class="photos"></div>
+ </article></main>
+</div>
+<section class="actions"><button id="confirm" class="primary">YES, CONFIRM ACQUISITION LISTING</button><div class="secondary-actions"><button id="wrong-listing">WRONG MLS LISTING</button><button id="wrong-era">RIGHT PROPERTY, WRONG ERA</button><button id="unsure">UNSURE</button></div></section>
+<dialog id="name-dialog"><form id="name-form"><h2>Who is reviewing?</h2><p class="muted">Enter your name or initials once. Every decision keeps its revision history.</p><input id="name-input" required maxlength="100" autocomplete="name"><div class="dialog-actions"><button type="button" id="name-cancel">Cancel</button><button class="primary">Continue</button></div></form></dialog>
+<script>
+(()=>{
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const S={token:null,items:[],counts:{total:0,reviewed:0,remaining:0},offset:0,limit:20,status:'pending',detail:null,busy:false,name:'',pendingDecision:null};
+ const money=value=>value==null?'—':'$'+Math.round(Number(value)).toLocaleString();
+ const date=value=>value?String(value).slice(0,10):'—';
+ function message(text,error=false){$('message').hidden=false;$('message').textContent=text;$('message').style.borderLeftColor=error?'var(--cp-danger)':'var(--cp-success)';}
+ async function api(path,body){
+  const options={cache:'no-store',credentials:'same-origin',redirect:'error'};
+  if(body!==undefined){options.method='POST';options.headers={'Content-Type':'application/json','X-Review-Token':S.token};options.body=JSON.stringify(body);}
+  const response=await fetch('/api/studio/'+path,options);const data=await response.json();
+  if(!response.ok)throw Error(data.error||'Request failed');return data;
+ }
+ function setBusy(value){S.busy=value;for(const button of document.querySelectorAll('button'))button.disabled=value;$('reviewer').disabled=false;drawControls();}
+ function drawControls(){const disabled=S.busy||!S.detail;for(const id of ['confirm','wrong-listing','wrong-era','unsure'])$(id).disabled=disabled;$('prev').disabled=S.busy||S.offset===0;$('next').disabled=S.busy||S.offset+S.limit>=S.total;}
+ function remember(){try{localStorage.setItem('acq-mls-validator',S.name);}catch{}$('reviewer').textContent=S.name||'Your name';}
+ function withName(decision){if(S.name)return save(decision);S.pendingDecision=decision;$('name-input').value='';$('name-dialog').showModal();}
+ function drawProgress(){$('progress').textContent=`${S.counts.reviewed} / ${S.counts.total} reviewed · ${S.counts.remaining} remaining`;$('progress-fill').style.width=(S.counts.total?S.counts.reviewed/S.counts.total*100:0)+'%';}
+ function drawQueue(){
+  $('queue-list').replaceChildren(...S.items.map(item=>{const button=document.createElement('button');button.className='queue-item';button.dataset.id=item.id;button.setAttribute('aria-current',String(S.detail?.id===item.id));button.onclick=()=>open(item.id);const title=document.createElement('strong');title.textContent=item.source_address;const apn=document.createElement('small');apn.textContent='APN '+item.apn;const proposed=document.createElement('small');proposed.textContent=item.listing_id?'Proposed MLS '+item.listing_id:'No MLS ID';const badge=document.createElement('span');badge.className='badge';badge.textContent=item.match_status;button.append(title,apn,proposed,badge);return button;}));
+  $('page').textContent=S.total?`${S.offset+1}–${Math.min(S.offset+S.limit,S.total)} of ${S.total}`:'0';
+  drawControls();
+ }
+ async function load(prefer){
+  setBusy(true);try{const data=await api('mls-validation-queue?'+new URLSearchParams({status:S.status,search:$('search').value.trim(),offset:S.offset,limit:S.limit}));S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;drawProgress();drawQueue();const item=S.items.find(row=>row.id===prefer)||S.items[0];if(item){S.detail=await api('mls-validation?'+new URLSearchParams({id:item.id}));drawDetail();}else{S.detail=null;$('detail').hidden=true;$('empty').hidden=false;}}catch(error){message(error.message,true);}finally{setBusy(false);}}
+ function photoPlaceholder(label){const figure=document.createElement('figure');figure.className='photo';const empty=document.createElement('div');empty.className='placeholder';empty.innerHTML=`<div><strong>No ${label} photo retained</strong><span>Validate from APN, transaction and MLS data.</span></div>`;const caption=document.createElement('figcaption');caption.textContent=label;figure.append(empty,caption);return figure;}
+ function drawDetail(){
+  const d=S.detail;$('detail').hidden=!d;$('empty').hidden=!!d;if(!d)return;
+  $('match-status').textContent=d.match_status;$('address').textContent=d.source_address;$('apn').textContent='APN '+d.apn;
+  $('prior').textContent=`${date(d.prior_sale_date)} · ${money(d.prior_sale_amount)}`;$('last').textContent=`${date(d.last_sale_date)} · ${money(d.last_sale_amount)}`;
+  $('mls-id').textContent=d.listing_id||'No MLS ID available';$('mls-address').textContent=d.listing_address||'—';$('mls-close').textContent=`${date(d.close_date)} · ${money(d.close_price)}`;
+  const photos=d.photos||[],grid=$('photo-grid');grid.replaceChildren();
+  for(let i=0;i<2;i++){const photo=photos[i];if(!photo){grid.append(photoPlaceholder(i===0?'kitchen / interior':'bathroom / interior'));continue;}const figure=document.createElement('figure');figure.className='photo';const image=document.createElement('img');image.src='/api/studio/image?'+new URLSearchParams({id:photo.id});image.alt=(photo.room||'interior')+' photo';const caption=document.createElement('figcaption');caption.textContent=photo.room||'interior';figure.append(image,caption);grid.append(figure);}
+  for(const button of document.querySelectorAll('.queue-item'))button.setAttribute('aria-current',String(button.dataset.id===d.id));drawControls();
+ }
+ async function open(id){if(S.busy)return;setBusy(true);try{S.detail=await api('mls-validation?'+new URLSearchParams({id}));drawDetail();}catch(error){message(error.message,true);}finally{setBusy(false);}}
+ async function save(decision){if(!S.detail||S.busy)return;setBusy(true);try{await api('mls-validation',{id:S.detail.id,decision,reviewer:S.name,expected_revision:S.detail.revision||0});message(decision==='confirmed'?'Certified for training. Loading next record.':'Decision saved. Loading next record.');await load();}catch(error){message(error.message,true);}finally{setBusy(false);}}
+ $('confirm').onclick=()=>withName('confirmed');$('wrong-listing').onclick=()=>withName('wrong_listing');$('wrong-era').onclick=()=>withName('wrong_era');$('unsure').onclick=()=>withName('unsure');
+ $('reviewer').onclick=()=>{$('name-input').value=S.name;$('name-dialog').showModal();};$('name-cancel').onclick=()=>$('name-dialog').close();$('name-form').onsubmit=event=>{event.preventDefault();S.name=$('name-input').value.trim();if(!S.name)return;remember();$('name-dialog').close();const decision=S.pendingDecision;S.pendingDecision=null;if(decision)save(decision);};
+ $('search').oninput=()=>{clearTimeout(S.searchTimer);S.searchTimer=setTimeout(()=>{S.offset=0;load();},250);};for(const button of document.querySelectorAll('.queue-tabs button'))button.onclick=()=>{S.status=button.dataset.status;S.offset=0;for(const tab of document.querySelectorAll('.queue-tabs button'))tab.setAttribute('aria-pressed',String(tab===button));load();};$('prev').onclick=()=>{S.offset=Math.max(0,S.offset-S.limit);load();};$('next').onclick=()=>{S.offset+=S.limit;load();};
+ window.addEventListener('keydown',event=>{if(event.ctrlKey||event.metaKey||event.altKey||document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName))return;const key=event.key.toLowerCase(),map={y:'confirmed',w:'wrong_listing',e:'wrong_era',u:'unsure'};if(map[key]){event.preventDefault();withName(map[key]);}});
+ try{S.name=localStorage.getItem('acq-mls-validator')||'';}catch{}remember();load();
+})();
+</script>
+</body>
+</html>

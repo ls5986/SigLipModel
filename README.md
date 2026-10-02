@@ -49,6 +49,23 @@ Absent environment settings, private runtime files default to `~/.siglipmodel`.
 
 ## Review workflow
 
+### Acquisition MLS Validation
+
+The hosted development root is a focused MLS-validation queue. It includes only
+imported examples whose source `match_status` is `candidate` or `unresolved`; base
+records already marked `confirmed` are excluded. Each record shows the source
+address/APN and transactions, the strongest proposed MLS listing, and at most two
+retained interior photos (kitchen and bathroom first). Missing photos remain explicit
+placeholders rather than fabricated evidence.
+
+One-click decisions are **Confirm acquisition listing**, **Wrong MLS listing**,
+**Right property, wrong era**, and **Unsure**. Every decision uses revisioned
+`studio_state` history and advances immediately. Confirmation sets
+`certified_for_training` on the validation state; the next frozen training snapshot
+includes that selected MLS record without mutating the immutable imported example.
+The detailed room/condition/opportunity reviewer remains available at
+`/property-review`.
+
 - **Review:** property queue, large original photo, room thumbnails, model evidence,
   available-at-review metadata, and an anchored 1–5 target-fit rating. A separate
   Not enough information path prevents missing interiors from becoming negative labels.

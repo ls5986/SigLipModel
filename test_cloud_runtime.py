@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from cloud_storage import PrivateStorage
-from cloud_store import SupabaseStore
+from cloud_store import SupabaseStore, validation_candidate, validation_photo_pair
 from cloud_runtime import CloudApp
 from studio_data import validate_review
 
@@ -163,6 +163,52 @@ def test_complete_review_wrong_photos_saves_no_property_rating():
     assert not result['complete']
     assert db.state(db,'era','house')['decision']=='wrong_era'
     assert db.state(db,'property','house') is None
+
+
+def test_validation_candidate_prefers_selected_then_strongest_match():
+    candidates=[
+        {'listing':{'ListingKey':'weak','ListingId':'W'},'match':{'rank_score':20,'exact_apn':False}},
+        {'listing':{'ListingKey':'strong','ListingId':'S'},'match':{'rank_score':40,'exact_apn':True,'street_number_matches':True}},
+    ]
+    example={'listing_key':None,'source_snapshot':{'mls_candidates':candidates}}
+    assert validation_candidate(example)['listing']['ListingKey']=='strong'
+    example['listing_key']='weak'
+    assert validation_candidate(example)['listing']['ListingKey']=='weak'
+
+
+def test_validation_photo_pair_prefers_kitchen_and_bathroom():
+    def image(identifier,room,context='subject'):
+        return {'id':identifier,'selection':{'included':True},
+                'effective':{'room':room,'context':context}}
+    selected=validation_photo_pair({'images':[
+        image('living','living'),image('bath','bathroom'),
+        image('kitchen','kitchen'),image('amenity','kitchen','shared_amenity'),
+    ]})
+    assert [row['id'] for row in selected]==['kitchen','bath']
+
+
+def test_validation_decision_uses_revisioned_state_and_certifies_training():
+    db=MemoryDatabase()
+    class ValidationStore(Store):
+        def _validation_example(self,db,identifier):
+            if identifier!='example': raise ValueError('Unknown validation record')
+            return {'id':'example','listing_key':None,'listing_id':None,'match_status':'unresolved',
+                    'source_rows':[7],'target_transaction':{},'group_id':'group',
+                    'source_snapshot':{'spreadsheet':{'Address':'134 Espanas Gln','APN':'229-620-21-00'},
+                    'mls_candidates':[{'listing':{'ListingKey':'listing','ListingId':'260002747SD'},
+                                       'match':{'rank_score':40,'exact_apn':True}}]}}
+    store=ValidationStore(db,None)
+    saved=store.save_mls_validation({
+        'id':'example','decision':'confirmed','reviewer':'reviewer','expected_revision':0,
+    })
+    assert saved['revision']==1
+    assert saved['certified_for_training']
+    assert saved['selected_listing_key']=='listing'
+    assert db.state(db,'document','mls-validation:example')['decision']=='confirmed'
+    with pytest.raises(RuntimeError):
+        store.save_mls_validation({
+            'id':'example','decision':'unsure','reviewer':'reviewer','expected_revision':0,
+        })
 
 
 def test_era_quarantine_blocks_approvals_and_preserves_labels():
