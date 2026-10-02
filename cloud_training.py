@@ -34,6 +34,7 @@ def readiness(properties):
 def snapshot(store):
     """One repeatable DB snapshot; protect duplicate/physical groups before filtering the cohort."""
     with store.database.connect() as db:
+        db.execute("SET LOCAL statement_timeout='60000ms'")
         db.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
         cohort = store.database.state(db, 'document', COHORT_KEY)
         cohort = cohort or {'listing_keys':[]}

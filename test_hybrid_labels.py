@@ -58,6 +58,33 @@ def test_retry_clears_prior_failure_diagnostic(monkeypatch):
     assert 'error' not in request and 'error_details' not in request
 
 
+def test_feature_request_with_no_selected_photos_completes_metadata_only(monkeypatch):
+    monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
+    store=WorkerStore()
+    store.docs['autolabel-result:p']={'revision':1,'room_labels_complete':True,'images':[
+        {'image_id':'p:photo','sha256':'a'*64,'room':'other','context':'unrelated'}
+    ]}
+    store.docs['autolabel-request:p'].update(
+        policy=hybrid_policy(),stage='features',mode='all',status='queued',
+        label_provider='copilot',
+    )
+    store.detail['images'][0].update(
+        selection={'included':False},
+        suggestions=[{'room':'other','context':'unrelated'}],
+        effective={'room':'other'},
+    )
+    class Paid:
+        policy=hybrid_policy();stage='features';paid=True;provider='copilot'
+        last_usage={}
+        def classify(self,*args,**kwargs):
+            raise AssertionError('No provider call for metadata-only evidence')
+    assert process(store,'p',Paid())
+    request=store.docs['autolabel-request:p']
+    assert request['status']=='completed'
+    assert request['test_photos']==0
+    assert store.docs['autolabel-result:p']['images'][0]['context']=='unrelated'
+
+
 def test_small_feature_test_preserves_rooms_and_all_unselected_photos(monkeypatch):
     monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
     store=WorkerStore()

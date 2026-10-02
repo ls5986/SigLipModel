@@ -50,7 +50,6 @@ def process(store, identifier, classifier):
                 raise ValueError('Full batch requires the local Copilot worker')
             rows = [row for row in rows if row.get('selection',{}).get('included',True)]
             if request.get('mode')=='test': rows = rows[:8]
-            if not rows: raise ValueError('No applicable photos to test')
         for start in range(0,len(rows),4):
             batch = rows[start:start+4]
             paths = [store.image_path(row['id']) for row in batch]
