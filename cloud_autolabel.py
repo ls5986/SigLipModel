@@ -17,9 +17,15 @@ def process(store, identifier, classifier):
     key = 'autolabel-request:'+identifier
     request = store.document(key)
     if not request or request.get('status') not in {'queued','running'}: return False
+    policy = getattr(classifier, 'policy', POLICY)
+    if request.get('policy') != policy: return False
     if request['status']=='running':
         started = datetime.fromisoformat(request['at'])
         if (datetime.now(timezone.utc)-started).total_seconds()<180: return False
+    if request['status']=='running' and policy.startswith('openai-'):
+        store.save_document(key,{**request,'status':'failed','at':now(),
+            'error':'Worker interrupted. Retry explicitly to resume cached draft tags.'},request['revision'])
+        return False
     # Optimistic revision prevents two workers claiming the same request.
     claimed = store.save_document(key,{**request,'status':'running','at':now()},request['revision'])
     images = []
@@ -42,7 +48,7 @@ def process(store, identifier, classifier):
             raise ValueError('Photo set changed during labeling; results were not published')
         result_key = 'autolabel-result:'+identifier
         previous = store.document(result_key) or {}
-        store.save_document(result_key, {'property_id':identifier,'policy':POLICY,
+        store.save_document(result_key, {'property_id':identifier,'policy':policy,
             'evidence_hash':request['evidence_hash'],'at':now(),'images':images},previous.get('revision',0))
         current = store.document(key)
         if current['revision']==claimed['revision']:
@@ -53,7 +59,7 @@ def process(store, identifier, classifier):
         current = store.document(key)
         if current['revision']==claimed['revision']:
             store.save_document(key,{**current,'status':'failed','at':now(),
-                'error':'Labeling failed or photo evidence changed. Check local worker logs and retry.'},current['revision'])
+                'error':'Labeling failed or photo evidence changed. Check worker configuration, key and quota before retrying.'},current['revision'])
         raise
 
 

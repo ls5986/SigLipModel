@@ -429,3 +429,23 @@ Worker requests/results use the existing workspace-restricted, revisioned
 `acq_training.studio_state` JSONB records and history. No new public table or
 permissions are needed. Changed/expired photo evidence is checked again before
 results are published. Failed requests can be retried from the review page.
+
+
+### Hosted automatic draft tags
+
+The development Render web service now runs an OpenAI draft-label worker alongside the review app.
+Set `OPENAI_API_KEY` as a secret environment variable on `acq-vision-studio-dev` and save/redeploy.
+The key stays server-side; the Blueprint declares it with `sync: false`. No laptop worker is needed.
+`STUDIO_AUTOLABEL_PROVIDER=openai` selects hosted drafts; `STUDIO_OPENAI_MODEL` defaults to
+`gpt-4.1-mini`, and `STUDIO_OPENAI_MAX_CALLS_PER_DAY` defaults to 100 API calls (up to four photos
+per call). This is a call limit, not a dollar budget. Set a project budget separately in OpenAI.
+
+Opening a property queues its retained photos, with no bulk labeling at startup. The worker sends
+resized photos only: no price, listing metadata, target judgment, or sale verification is sent.
+Room, photo context, condition, and visible feature drafts are cached by photo content and model/policy.
+Drafts never approve a sale or train a head. Review and use **Approve photo tags** to save explicit
+human labels; human corrections take priority. Photo condition labels are recorded for review;
+the current trainer does not yet train a separate overall-condition head.
+Failures do not automatically retry paid calls; an interrupted request requires an explicit retry.
+Changing model/policy regenerates drafts. Missing keys leave property verification available.
+The existing local SigLIP worker remains available with `STUDIO_AUTOLABEL_PROVIDER=siglip`.

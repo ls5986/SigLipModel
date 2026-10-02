@@ -30,3 +30,11 @@ services:
         generateValue: true
       - key: STUDIO_CACHE_DIR
         value: /tmp/acq-vision-cache
+      - key: STUDIO_AUTOLABEL_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: STUDIO_OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: STUDIO_OPENAI_MAX_CALLS_PER_DAY
+        value: "100"

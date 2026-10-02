@@ -89,3 +89,11 @@ class SiglipLabels:
         with self.torch.inference_mode():
             logits = self.model(**inputs).logits_per_image.float().cpu().tolist()
         return [{**resolve(row), "backbone_revision": self.revision} for row in logits]
+
+
+def active_policy():
+    import os
+    if os.environ.get('STUDIO_AUTOLABEL_PROVIDER') == 'openai':
+        from openai_labels import policy
+        return policy()
+    return POLICY

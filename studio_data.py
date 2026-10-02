@@ -111,6 +111,13 @@ def validate_review(payload, source):
             preference is not None or any(value is not None for value in features.values())
         ):
             raise ValueError("Non-subject photos cannot approve subject condition or work preference labels")
+        condition = payload.get("condition_label", "unknown")
+        if condition not in CONDITIONS:
+            raise ValueError("Invalid photo condition")
+        if condition != "unknown" and (context not in {"subject", "subject_interior"} or room not in {"kitchen", "bathroom", "living", "bedroom"}):
+            raise ValueError("Photo condition requires a subject interior")
+        if "condition_label" in payload:
+            record["condition_label"] = condition
         record.update(room=room, features=features, preference=preference,
                       training_allowed=source["split"] != "test",
                       property_target_inferred=False)

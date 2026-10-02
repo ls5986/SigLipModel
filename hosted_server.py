@@ -211,8 +211,12 @@ def create_server(port, app, auth):
 def main():
     app=from_env();auth=HostedAuth();port=int(os.environ.get("PORT","10000"))
     server=create_server(port,app,auth)
+    from openai_labels import start_hosted_worker
+    stop = start_hosted_worker(app.get_studio().store)
     print(json.dumps({"status":"ready","port":port,"storage":"supabase"}),flush=True)
     try: server.serve_forever()
-    finally: server.server_close()
+    finally:
+        if stop: stop.set()
+        server.server_close()
 
 if __name__=="__main__": main()

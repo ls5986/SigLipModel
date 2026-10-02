@@ -140,6 +140,7 @@ def snapshot(store):
                 'room':review.get('room') if approved and not excluded else None,
                 'proposed_room':review.get('room') or 'other',
                 'features':review.get('features',{}) if approved and not excluded else {},
+                'condition_label':review.get('condition_label','unknown') if approved and not excluded else 'unknown',
                 'preference':review.get('preference') if approved and not excluded else None,
                 'preference_room':review.get('preference_room') or review.get('room') or 'other',
                 'photo_context':context, 'human_review_revision':review.get('revision',0),
