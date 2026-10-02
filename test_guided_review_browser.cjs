@@ -39,6 +39,7 @@ const fs=require('node:fs');
   await page.locator('#name-input').fill('Nontechnical reviewer');
   await page.locator('#name-form button.primary').click();
   await page.locator('#complete-dialog').waitFor({state:'visible'});
+  assert.equal(await page.locator('#complete-dialog').evaluate(node=>node.scrollWidth>node.clientWidth+1),false);
   assert.match(await page.locator('#complete-remarks').innerText(),/Original finishes/);
   await page.locator('input[name="complete-era"][value="correct_era"]').check();
   await page.locator('#complete-coverage').selectOption('no_interior');
