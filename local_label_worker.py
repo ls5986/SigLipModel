@@ -6,6 +6,14 @@ import time
 import config  # Load the repository .env before validating configuration.
 from cloud_autolabel import heartbeat, process
 from cloud_runtime import from_env
+from studio_data import now
+
+
+def workbench_heartbeat(store,status,detail=None):
+    current=store.document('workbench-worker') or {}
+    return store.save_document('workbench-worker',{
+        'status':status,'at':now(),'detail':detail,'policy':'workbench-worker-v1',
+    },current.get('revision',0))
 
 
 def enqueue_all(store):
@@ -52,8 +60,20 @@ def main():
         from workbench_worker import WorkbenchScorer, process_pending_runs
         from workbench_training import process_training_request
         workbench = WorkbenchScorer(store,rooms)
+        workbench_heartbeat(store,'ready',{
+            'model_version':workbench.pointer['version'],
+            'components':workbench.pointer.get('components',{}),
+        })
+        last_workbench_heartbeat=time.monotonic()
         print('SigLIP ready. Processing queued rooms and Copilot drafts; Ctrl+C stops cleanly.',flush=True)
         while True:
+            if time.monotonic()-last_workbench_heartbeat>30:
+                workbench.load_current()
+                workbench_heartbeat(store,'ready',{
+                    'model_version':workbench.pointer['version'],
+                    'components':workbench.pointer.get('components',{}),
+                })
+                last_workbench_heartbeat=time.monotonic()
             for classifier in (rooms,draft):
                 heartbeat(store,'ready',stage=classifier.stage,provider=getattr(classifier,'provider',None))
                 for identifier in store.autolabel_pending(stage=classifier.stage):
@@ -69,6 +89,7 @@ def main():
             time.sleep(5)
     finally:
         draft.close()
+        workbench_heartbeat(store,'stopped')
         heartbeat(store,'stopped',stage='rooms')
         heartbeat(store,'stopped',stage='features',provider='copilot')
 
