@@ -154,7 +154,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   </details>
   <section class="section stack">
    <div class="row spread"><h3>This photo</h3><span id="photo-context" class="badge">Unknown</span></div>
-   <div class="kv"><span>Room</span><strong id="photo-room">—</strong></div>
+   <div class="kv"><span>Room</span><strong id="photo-room">—</strong><span>Condition</span><strong id="photo-condition-label">Unknown</strong></div><p id="photo-condition-source" class="small muted"></p>
    <div id="feature-tags" class="context-tags"></div><p id="photo-notes" class="muted"></p>
    <details class="technical"><summary>Technical model details</summary><div class="kv"><span>Local preference score</span><strong id="local-score">Not scored</strong><span>GPT scope score</span><strong id="gpt-score">Not scored</strong></div><small>Raw experimental scores—not accuracy, condition severity, or profit probabilities.</small></details>
   </section>
@@ -398,6 +398,10 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    choice.append(check,document.createTextNode('Use photo'));wrapper.append(b,choice);return wrapper;}));
   drawHero();
  }
+ function photoCondition(image){
+  const human=image?.review?.condition_label;
+  return {value:human??image?.condition_draft??'unknown',source:human!=null?'Your correction':'Automatic draft'};
+ }
  function drawHero(){
   const i=current(),photos=photoList(),index=photos.findIndex(p=>p.id===S.photo);
   $('photo-position').textContent=i?`${index+1} / ${photos.length}`:'0 / 0';$('photo-prev').disabled=index<=0;$('photo-next').disabled=index<0||index>=photos.length-1;
@@ -413,6 +417,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('photo-caption').textContent=i?label(roomOf(i))+' · Photo '+(i.sequence??index+1):'Property photos';
   const ai=i?aiPhoto(i.id):null,room=i?roomOf(i):'unknown',local=i?.local_model?.preferences?.[room];
   $('photo-room').textContent=label(room);$('photo-context').textContent=label(i?.effective?.context||ai?.context||'unknown');
+  const conditionTag=photoCondition(i);$('photo-condition-label').textContent=label(conditionTag.value);$('photo-condition-source').textContent=i?conditionTag.source:'';
   $('local-score').textContent=score(i?.effective?i.effective.local_score:typeof local==='number'?local:local?.score);$('gpt-score').textContent=score(i?.effective?i.effective.gpt_scope_score:ai?.renovation_scope_score);
   const features=i?.effective?.features||(i?{...(ai?.features||i.features||{}),...(i.review?.features||{})}:{});
   $('feature-tags').replaceChildren(...Object.entries(features).filter(([,v])=>v===true).map(([k])=>el('span',label(k),'badge')));

@@ -36,3 +36,13 @@ test('legacy metadata remarks and empty properties render without globals', () =
   assert.equal($('remarks-block').hidden, true);
   assert.equal($('listing-remarks').textContent, '');
 });
+
+test('visible condition respects corrections and retains uncertain labels', () => {
+  const begin = source.indexOf(' function photoCondition(');
+  const finish = source.indexOf(' function drawHero()', begin);
+  const condition = new Function(source.slice(begin,finish) + '\nreturn photoCondition;')();
+  assert.equal(condition({condition_draft:'maintained_original'}).value,'maintained_original');
+  assert.equal(condition({condition_draft:'dated',review:{condition_label:'unknown'}}).value,'unknown');
+  assert.equal(condition({condition_draft:'rough',review:{condition_label:'maintained_original'}}).value,'maintained_original');
+  assert.equal(condition(undefined).value,'unknown');
+});

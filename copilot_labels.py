@@ -68,8 +68,14 @@ class CopilotTransport:
             await session.disconnect()
 
     def post(self, url, *, headers, json):
-        # This adapter never sends an HTTP request or forwards an OpenAI key.
-        return self.loop.run_until_complete(self._post(json))
+        # Save only a bounded diagnostic category, never provider bodies or credentials.
+        self.last_error = None
+        try: return self.loop.run_until_complete(self._post(json))
+        except Exception as error:
+            text = str(error).casefold()
+            code = next((code for words,code in ((('quota','credits','limit exceeded'),'credits_or_quota'),(('unauthorized','authentication','not signed'),'authentication'),(('schema','structured'),'structured_output'),(('attachment','image','vision'),'image_attachment'),(('unexpected keyword','attribute','import','module'),'sdk_api_compatibility')) if any(word in text for word in words)),'sdk_request_or_output')
+            self.last_error = {'stage':'copilot_session','exception_type':type(error).__name__,'code':code}
+            raise ValueError('Copilot session failed: '+code) from None
 
     def close(self):
         try:

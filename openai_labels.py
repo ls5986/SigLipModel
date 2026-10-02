@@ -70,6 +70,7 @@ class OpenAILabels:
 
     def classify(self, paths, room_tags=None):
         self.last_usage = None
+        self.last_error = None
         hybrid = room_tags is not None
         if hybrid and len(room_tags)!=len(paths): raise ValueError('SigLIP rooms required')
         cache_keys = []
@@ -127,7 +128,8 @@ class OpenAILabels:
                     'condition_label':row['condition_label'] if row['context'] in {'subject','subject_interior'} and row['room'] in {'kitchen','bathroom','living','bedroom'} else 'unknown',
                     'room_source':'SigLIP' if hybrid else 'OpenAI','context_source':'OpenAI draft',
                     'policy':self.policy,'model':self.model,'provenance':'OpenAI image-only draft; human approval required'}
-        except Exception:
+        except Exception as error:
+            self.last_error = getattr(self.client,'last_error',None) or {'stage':'label_response','exception_type':type(error).__name__,'code':'response_validation_or_provider'}
             # Do not leak provider bodies, request data, authorization headers, or retry paid calls.
             raise ValueError('OpenAI draft labeling failed; check key, quota and model configuration before retrying') from None
         for i in missing:

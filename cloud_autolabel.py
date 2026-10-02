@@ -87,7 +87,8 @@ def process(store, identifier, classifier):
         current = store.document(key)
         if current['revision']==claimed['revision']:
             store.save_document(key,{**current,'status':'failed','at':now(),
-                'error':'Labeling failed or photo evidence changed. Check worker configuration, key and quota before retrying.'},current['revision'])
+                'error':'Labeling failed or photo evidence changed. Check worker configuration, key and quota before retrying.',
+                'error_details':getattr(classifier,'last_error',None)},current['revision'])
         raise
 
 
