@@ -46,3 +46,69 @@ services:
         value: gpt-4.1-mini
       - key: STUDIO_OPENAI_MAX_CALLS_PER_DAY
         value: "100"
+
+  - type: worker
+    name: acq-vision-model-worker-dev
+    runtime: python
+    region: ohio
+    plan: 1c-2g
+    branch: develop
+    autoDeployTrigger: commit
+    buildCommand: pip install -r requirements-worker.txt
+    startCommand: python -B render_model_worker.py
+    maxShutdownDelaySeconds: 300
+    disk:
+      name: acq-vision-model-worker-data
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - key: STUDIO_DATA_BACKEND
+        value: supabase
+      - key: ACQ_DATA_ROOT
+        value: /var/data/siglip
+      - key: STUDIO_CACHE_DIR
+        value: /var/data/siglip/cloud-cache
+      - key: STUDIO_AUTOLABEL_PROVIDER
+        value: hybrid
+      - key: STUDIO_INFERENCE_BATCH_SIZE
+        value: "1"
+      - key: SUPABASE_PROJECT_REF
+        fromService:
+          name: acq-vision-studio-dev
+          type: web
+          envVarKey: SUPABASE_PROJECT_REF
+      - key: STUDIO_DATABASE_URL
+        fromService:
+          name: acq-vision-studio-dev
+          type: web
+          envVarKey: STUDIO_DATABASE_URL
+      - key: STUDIO_WORKSPACE_ID
+        fromService:
+          name: acq-vision-studio-dev
+          type: web
+          envVarKey: STUDIO_WORKSPACE_ID
+      - key: STUDIO_STORAGE_SECRET
+        fromService:
+          name: acq-vision-studio-dev
+          type: web
+          envVarKey: STUDIO_STORAGE_SECRET
+      - key: MLS_SOURCE_SUPABASE_URL
+        fromService:
+          name: acq-vision-studio-dev
+          type: web
+          envVarKey: MLS_SOURCE_SUPABASE_URL
+      - key: MLS_SOURCE_DATABASE_URL
+        fromService:
+          name: acq-vision-studio-dev
+          type: web
+          envVarKey: MLS_SOURCE_DATABASE_URL
+      - key: TRESTLE_CLIENT_ID
+        fromService:
+          name: acq-vision-studio-dev
+          type: web
+          envVarKey: TRESTLE_CLIENT_ID
+      - key: TRESTLE_CLIENT_SECRET
+        fromService:
+          name: acq-vision-studio-dev
+          type: web
+          envVarKey: TRESTLE_CLIENT_SECRET

@@ -1,5 +1,6 @@
 """One local SigLIP worker for cloud review suggestions; no training prerequisite."""
 import argparse
+import os
 import time
 from datetime import datetime, timezone
 
@@ -50,8 +51,11 @@ def process(store, identifier, classifier):
                 raise ValueError('Full batch requires the local Copilot worker')
             rows = [row for row in rows if row.get('selection',{}).get('included',True)]
             if request.get('mode')=='test': rows = rows[:8]
-        for start in range(0,len(rows),4):
-            batch = rows[start:start+4]
+        batch_size = max(1,min(4,int(os.environ.get(
+            'STUDIO_INFERENCE_BATCH_SIZE','4',
+        ))))
+        for start in range(0,len(rows),batch_size):
+            batch = rows[start:start+batch_size]
             paths = [store.image_path(row['id']) for row in batch]
             predictions = classifier.classify(paths,room_tags=[{**row['suggestions'][0],'room':row.get('effective',{}).get('room',row['suggestions'][0]['room'])} for row in batch]) if stage=='features' else classifier.classify(paths)
             for name,value in (getattr(classifier,'last_usage',None) or {}).items():

@@ -30,8 +30,12 @@ def worker_state(store,threshold_seconds=90):
     online = age is not None and age<threshold_seconds and status in {
         "ready","running","loading"
     }
+    detail = heartbeat.get("detail") or {}
+    actionable = online and status=="ready"
+    training_only = detail.get("mode")=="training_only_until_first_v1_candidate"
     return {
-        "online":online,"actionable":online and status=="ready",
+        "online":online,"actionable":actionable,
+        "can_train":actionable,"can_score":actionable and not training_only,
         "status":status if online or status=="stopped" else "offline",
         "age_seconds":round(age,1) if age is not None else None,
         "detail":heartbeat.get("detail"),
@@ -303,8 +307,11 @@ def property_detail(store, identifier):
 
 
 def queue_run(store, payload):
-    if not worker_state(store)["actionable"]:
-        raise ValueError("Local model worker is offline. Start/restart the model worker before running this action.")
+    worker=worker_state(store)
+    if not worker["can_score"]:
+        raise ValueError(
+            "Model scoring is unavailable. Start the worker or train the first V1 candidate."
+        )
     identifier = payload.get("property_id")
     if not isinstance(identifier, str):
         raise ValueError("Property ID required")
@@ -747,8 +754,8 @@ def compare_candidates(store, args):
 
 
 def queue_training(store, payload):
-    if not worker_state(store)["actionable"]:
-        raise ValueError("Local model worker is offline. Start/restart the model worker before running this action.")
+    if not worker_state(store)["can_train"]:
+        raise ValueError("Model worker is offline. Start/restart it before training.")
     dataset = store.document("workbench-dataset-latest")
     if not dataset or dataset.get("status")!="frozen":
         raise ValueError("Freeze a dataset version before training")

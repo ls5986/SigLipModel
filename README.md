@@ -129,8 +129,9 @@ The V1 workbench extends, rather than replaces, existing architecture:
 - `studio_state` documents retain challenge runs, feedback, error queues, dataset
   previews/freezes, training jobs and candidate summaries with revision history.
 - Existing physical-property groups and protected tests remain authoritative.
-- The existing local worker executes queued model runs and V1 training; the hosted
-  review service never loads Torch or model artifacts.
+- The model-capable worker executes queued model runs and V1 training; the hosted
+  review web service never loads Torch or model artifacts. Development can use the
+  local worker or the separate persistent Render worker, but never both at once.
 - Frozen dataset documents are immutable by fingerprint. New feedback requires a new
   preview and dataset version.
 - Existing candidate/artifact pointers remain reproducible; V1 artifacts use a
@@ -377,6 +378,27 @@ Roll out a candidate in shadow mode first: score real incoming MLS snapshots, sa
 the result and model identity, but do not change sourcing decisions. Promotion to
 an approved model release remains an explicit administrative action after slice
 metrics and failure cases are reviewed.
+
+### Render model worker
+
+`render.yaml` defines `acq-vision-model-worker-dev` as a separate background
+worker. It runs frozen SigLIP room inference, Workbench property scoring and V1
+metadata/vision/fusion training. It does not run GitHub Copilot CLI labeling;
+Copilot authentication remains local, while the hosted web process continues to
+handle only explicitly requested OpenAI feature tests.
+
+The worker uses a persistent disk at `/var/data` so downloaded frozen checkpoint
+bytes and immutable V1 candidate artifacts survive deploys. The Blueprint copies
+the existing development Supabase, Storage and MLS-source variables from the web
+service rather than committing credentials. Stop the local model worker and wait
+at least 90 seconds before enabling the Render worker. A fresh disk begins in
+training-only mode if no compatible candidate artifact exists; after the first V1
+candidate completes, scoring becomes available from that same immutable artifact.
+
+The `1c-2g` plan uses inference batches of one to stay within the initial budget.
+Watch the first checkpoint load and representative V1 run for out-of-memory exits;
+move to `2c-4g` only if measured memory requires it. A persistent-disk service is
+single-instance and does not have zero-downtime deploys.
 
 Update this code checkout and restart `launch.py` while keeping `ACQ_DATA_ROOT` and
 `ACQ_EVIDENCE_ROOT` pointed at existing private folders. Updating GitHub does not

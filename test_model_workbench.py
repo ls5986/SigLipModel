@@ -111,10 +111,29 @@ def test_worker_heartbeat_live_stale_and_stopped(monkeypatch):
         def fromisoformat(cls,value): return __import__('datetime').datetime.fromisoformat(value)
     monkeypatch.setattr(module,'datetime',Clock)
     assert worker_state(store)['actionable']
+    assert worker_state(store)['can_train']
+    assert worker_state(store)['can_score']
     assert not worker_state(store,threshold_seconds=20)['online']
     store.docs['workbench-worker']['status']='stopped'
     assert worker_state(store)['status']=='stopped'
     assert not worker_state(store)['actionable']
+
+
+def test_training_only_render_worker_does_not_accept_score_runs(monkeypatch):
+    store=Store()
+    store.docs['workbench-worker']={
+        'status':'ready','at':'2026-01-01T00:00:00+00:00',
+        'detail':{'mode':'training_only_until_first_v1_candidate'},'revision':1,
+    }
+    class Clock:
+        @classmethod
+        def now(cls,tz): return __import__('datetime').datetime(2026,1,1,0,0,30,tzinfo=tz)
+        @classmethod
+        def fromisoformat(cls,value): return __import__('datetime').datetime.fromisoformat(value)
+    monkeypatch.setattr(module,'datetime',Clock)
+    state=worker_state(store)
+    assert state['actionable'] and state['can_train']
+    assert not state['can_score']
 
 
 def test_candidate_history_is_immutable_and_comparison_explains_v0_boundary():

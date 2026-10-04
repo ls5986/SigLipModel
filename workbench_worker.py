@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 from collections import Counter
 from pathlib import Path
 
@@ -28,10 +29,19 @@ METADATA_INPUT_FIELDS = (
 
 
 class WorkbenchScorer:
-    def __init__(self, store, siglip):
+    def __init__(self, store, siglip, allow_untrained=False):
         self.store,self.siglip = store,siglip
         self.pointer = self.bundle = None
-        self.load_current()
+        self.load_error = None
+        try:
+            self.load_current()
+        except (KeyError,OSError,ValueError) as error:
+            if not allow_untrained:
+                raise
+            # A new persistent worker can embed a frozen V1 dataset before its
+            # first candidate exists. Scoring stays unavailable until training
+            # writes a candidate onto that worker's disk.
+            self.load_error = str(error)[:400]
 
     def load_current(self):
         workbench = self.store.document("workbench-candidate-latest")
@@ -50,11 +60,13 @@ class WorkbenchScorer:
                     "components":{"metadata":True,"vision":True,"fusion":True},
                 }
                 self.bundle = joblib.load(path)
+                self.load_error = None
             return
         pointer,file = candidate(pilot.ROOT)
         if not self.pointer or self.pointer.get("version")!=pointer["version"]:
             self.pointer = pointer
             self.bundle = joblib.load(file)
+            self.load_error = None
 
     def embeddings(self, paths):
         images = []
@@ -72,8 +84,11 @@ class WorkbenchScorer:
 
     def _embed_images(self, source_images):
         vectors = []
-        for start in range(0,len(source_images),4):
-            images = source_images[start:start+4]
+        batch_size = max(1,min(4,int(os.environ.get(
+            "STUDIO_INFERENCE_BATCH_SIZE","4",
+        ))))
+        for start in range(0,len(source_images),batch_size):
+            images = source_images[start:start+batch_size]
             inputs = self.siglip.processor(images=images,return_tensors="pt")
             with self.siglip.torch.inference_mode():
                 values = self.siglip.model.get_image_features(
