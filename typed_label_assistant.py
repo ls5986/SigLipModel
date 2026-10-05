@@ -228,4 +228,4 @@ def heartbeat(store, classifier):
     previous = store.document("typed-label-worker") or {}
     return store.save_document("typed-label-worker", {"at":now(),
         "status":"ready" if enabled and classifier else "disabled" if not enabled else "unconfigured",
-        "policy":POLICY, "trained_v2":False, "daily_budget_shared":True}, previous.get("revision", 0))
+        "policy":POLICY, "trained_v2":False, "daily_budget_shared":True, "daily_limit":classifier.limit if classifier else None}, previous.get("revision", 0))
