@@ -141,3 +141,28 @@ def test_v2_training_never_routes_to_legacy_target_classifier(monkeypatch):
     for path in ("/api/studio/v2/train", "/api/studio/v2/dataset/freeze"):
         with pytest.raises(ValueError, match="legacy training"):
             studio_v2.post(studio,path,{"confirmed":True})
+
+
+def test_assisted_approval_preserves_exact_proposal_and_rejects_replaced_draft(monkeypatch):
+    import studio_v2
+    store=Store(); req=request(store); provider,_=classifier(proposal());assert process(store,req,provider)
+    detail=store.property("listing");detail["label_evidence_id"]=req["label_evidence_id"]
+    monkeypatch.setattr(studio_v2,"get",lambda *args:detail)
+    studio=SimpleNamespace(store=store,post=lambda path,value:value)
+    proposed=store.document("typed-label-result:listing")
+    payload={"id":"listing", "label_evidence_id":req["label_evidence_id"],
+        "assistant_input_sha256":proposed["input_sha256"], "assistant_proposal_id":proposed["proposal_id"], "text_signals":[]}
+    saved=studio_v2.post(studio,"/api/studio/v2/label",payload)
+    assert saved["assistant_proposal"]["proposal_id"]==proposed["proposal_id"]
+    assert saved["reviewer"]==studio_v2.identity()["id"]
+    store.docs["typed-label-result:listing"]["proposal_id"]="replaced"
+    with pytest.raises(RuntimeError,match="draft changed"):
+        studio_v2.post(studio,"/api/studio/v2/label",payload)
+
+
+def test_read_only_preview_available_to_authenticated_reviewers(monkeypatch):
+    import studio_v2
+    monkeypatch.setenv("STUDIO_ROLE","reviewer")
+    monkeypatch.setattr("typed_dataset.preview",lambda store:{"read_only":True})
+    studio=SimpleNamespace(store=SimpleNamespace(database=True))
+    assert studio_v2.post(studio,"/api/studio/v2/dataset/preview",{})=={"read_only":True}
