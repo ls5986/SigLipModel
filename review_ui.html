@@ -130,7 +130,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   <form class="queue-tools" id="search-form">
    <div class="row spread"><strong id="queue-title">Properties</strong><small id="queue-count"></small></div>
    <input id="search" type="search" placeholder="Search address or MLS ID" aria-label="Search properties">
-   <div id="cloud-queue-controls" class="stack" hidden><span class="queue-label">What needs attention?</span><div id="cloud-task-tabs" class="queue-tabs"><button type="button" data-scope="acquisitions" data-filter="todo">Needs review</button><button type="button" data-scope="acquisitions" data-filter="photo_match">Listing / photos</button><button type="button" data-scope="acquisitions" data-filter="opportunity">Condition / opportunity</button><button type="button" data-scope="acquisitions" data-filter="complete">Complete</button><button type="button" data-scope="quarantine" data-filter="all">Needs correction</button></div><span class="queue-label">Evidence available</span><div id="cloud-evidence-tabs" class="queue-tabs"><button type="button" data-evidence="all">All</button><button type="button" data-evidence="interior">Interior photos</button><button type="button" data-evidence="limited">Exterior / metadata</button><button type="button" data-evidence="metadata_only">Metadata only</button></div></div>
+   <div id="cloud-queue-controls" class="stack" hidden><span class="queue-label">What needs attention?</span><div id="cloud-task-tabs" class="queue-tabs"><button type="button" data-scope="all" data-filter="all">All matched listings</button><button type="button" data-scope="acquisitions" data-filter="todo">Needs review</button><button type="button" data-scope="acquisitions" data-filter="photo_match">Listing / photos</button><button type="button" data-scope="acquisitions" data-filter="opportunity">Condition / opportunity</button><button type="button" data-scope="acquisitions" data-filter="complete">Complete</button><button type="button" data-scope="quarantine" data-filter="all">Needs correction</button></div><span class="queue-label">Evidence available</span><div id="cloud-evidence-tabs" class="queue-tabs"><button type="button" data-evidence="all">All</button><button type="button" data-evidence="interior">Interior photos</button><button type="button" data-evidence="limited">Exterior / metadata</button><button type="button" data-evidence="metadata_only">Metadata only</button></div></div>
    <select id="dataset-scope" aria-label="Dataset"><option value="acquisitions">Your acquisition candidates</option><option value="quarantine">Wrong era / needs earlier listing</option><option value="reference">Other reference properties</option></select>
    <select id="queue-filter" aria-label="Review queue"><option value="todo">Still needs review</option><option value="photo_match">Needs listing/photo decision</option><option value="opportunity">Photos confirmed; rate opportunity</option><option value="complete">Review complete</option><option value="all">All matched listings</option><option value="tagged">Tagged photos ready</option><option value="ready">AI property draft available</option><option value="unscored">Not reviewed yet</option><option value="reviewed">Reviewed</option></select>
   </form>
@@ -296,7 +296,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    const button=btn('',()=>action(()=>openProperty(i.id)),'queue-item');button.dataset.propertyId=i.id;button.setAttribute('aria-current',String(S.detail?.property.id===i.id));
    if(i.hero_image_id){const img=el('img');img.src=thumbURL(i.hero_image_id);img.alt='';img.loading='lazy';button.append(img);}
    const copy=el('span',null,'copy');
-   const state=S.knownTargets?(i.review_complete?'Review complete ✓':i.needs_photo_match?'Step 1 · Confirm listing and photos':'Step 2 · Rate condition and opportunity'):S.mode==='matching'?(i.needs_photo_match?'Sale/photos need verification':'Sale/photos verified'):i.human_score?`${i.human_score}/5 · Reviewed`:label(i.status);
+   const state=S.knownTargets?(i.review_complete?'Review complete ✓':i.blocked?'Source conflict · inspect dates':i.needs_photo_match?'Step 1 · Confirm listing and photos':'Step 2 · Rate condition and opportunity'):S.mode==='matching'?(i.needs_photo_match?'Sale/photos need verification':'Sale/photos verified'):i.human_score?`${i.human_score}/5 · Reviewed`:label(i.status);
    copy.append(el('strong',i.address),el('small',[i.city,`${i.image_count} photos`].filter(Boolean).join(' · ')),el('small',state));
    if(S.knownTargets&&i.tagged_photo_count)copy.append(el('small',`${i.tagged_photo_count} draft photo tags available`,'muted'));
    if(S.knownTargets)copy.append(el('span',i.evidence_mode==='interior'?`${i.interior_tagged_count} interior photos`:i.evidence_mode==='metadata_only'?'Metadata only':'Exterior / limited photos','queue-badge'));
@@ -309,16 +309,16 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const requestedQueue=S.knownTargets?S.filter:S.mode==='matching'?'photo_match':S.filter;
   const data=await api('review-queue?'+new URLSearchParams({queue:requestedQueue,scope:S.scope,evidence:S.evidence,search:$('search').value.trim(),offset:S.offset,limit:20}));
   const cloud=data.capabilities?.storage==='supabase';
-  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';S.filter='todo';S.scope='acquisitions';$('queue-filter').value='todo';$('review-nav').hidden=true;$('match-nav').textContent='Review properties';$('ready-button').hidden=true;$('cloud-queue-controls').hidden=false;$('dataset-scope').hidden=true;$('queue-filter').hidden=true;drawCloudTabs();return loadQueue(prefer);}
+  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';S.filter='all';S.scope='all';$('queue-filter').value='todo';$('review-nav').hidden=true;$('match-nav').textContent='Review properties';$('ready-button').hidden=true;$('cloud-queue-controls').hidden=false;$('dataset-scope').hidden=true;$('queue-filter').hidden=true;drawCloudTabs();return loadQueue(prefer);}
   S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
   if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
-  $('progress').textContent=S.knownTargets?`${S.counts.todo} incomplete of ${S.counts.all} matched listings`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
+  $('progress').textContent=S.knownTargets?`${S.counts.all} matched listings in this view · ${S.counts.source_conflicts||0} source conflicts · unresolved workbook rows are in All source records`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
   const queueSummary=$('queue-summary');queueSummary.hidden=!S.knownTargets;
   if(S.knownTargets)queueSummary.replaceChildren(
    summaryStat(S.counts.all,'Matched listings'),
    summaryStat(S.counts.verified,'Photo sets confirmed'),
    summaryStat(S.counts.reviewed,'Opportunity reviews'),
-   summaryStat(S.counts.todo,'Still incomplete')
+   summaryStat(S.counts.source_conflicts||0,'Source conflicts')
   );
   $('ready-button').textContent=`AI drafts (${S.counts.ready})`;drawQueue();
   const next=S.items.find(i=>i.id===prefer)||S.items.find(i=>i.id===S.detail?.property.id)||S.items[0];
@@ -384,14 +384,14 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('correct').textContent=S.knownTargets?'Wrong listing/photos': 'Wrong photos & next';
   $('unsure').textContent=S.knownTargets?'Not sure':S.mode==='matching'?"Can’t tell & next":"Not enough information";
   const r=p?.review,approved=r?.status==='approved';
-  $('decision-title').textContent=S.knownTargets?(d?.historical_source?.timing_verified?'Known target · photos verified':'Known target · verify sale and photos'):d?.historical_source?.blocked?'Wrong / uncertain era':approved?(r.target_score?`${r.target_score} / 5 · ${label(r.target_fit)}`:label(r.target_fit)):job?.status==='running'?'AI draft running…':'Ready for your rating';
+  $('decision-title').textContent=S.knownTargets?(d?.historical_source?.timing_verified?'Imported example · photos verified':'Imported example · verify sale and photos'):d?.historical_source?.blocked?'Wrong / uncertain era':approved?(r.target_score?`${r.target_score} / 5 · ${label(r.target_fit)}`:label(r.target_fit)):job?.status==='running'?'AI draft running…':'Ready for your rating';
   $('model-reason').textContent=S.knownTargets?'Confirm the listing/photos, estimate condition from the evidence available, and decide whether this opportunity is worth investigating.':approved?r.reason:S.detail?.capabilities?.assessment===false?'Photos and reviews are saved in Supabase. Rate the property directly; cloud model processing is not enabled for this deployment.':job?.prediction?`Optional AI draft: ${job.prediction.target_reason}`:'Review first from the available photos and property facts. You can request an optional AI second opinion.';
   $('condition').textContent=approved&&r.condition_label?'Your visible condition: '+label(r.condition_label):job?.prediction?'AI condition draft: '+label(condition(job)):'';
   $('model-version').textContent=job?.prediction?`${job.model} · ${job.image_count} selected photos · optional AI draft`:'Human review does not require an AI request. Reviews do not retrain automatically.';
   $('score-button').textContent=job?.prediction?'Refresh optional AI opinion':job?.status==='running'?'Generating AI opinion…':'Get optional AI second opinion';
   const warnings=[...(job?.review_warnings||[]),...(job?.error?[job.error]:[])];
   if(d?.historical_source?.blocked)warnings.push(d.historical_source.block_reason);
-  if(d?.historical_source&&!d.historical_source.timing_verified)warnings.push('Historical photo era not verified. Use Photo matching before training.');
+  if(d?.historical_source&&!d.historical_source.timing_verified)warnings.push('Historical photo era not verified. Record uncertainty if you cannot establish the acquisition period.');
   $('assessment-warning').hidden=!warnings.length;$('assessment-warning').textContent=warnings.join('. ');
   $('coverage').replaceChildren(...Object.entries(job?.prediction?.coverage||d?.coverage||{}).map(([room,value])=>el('span',label(room)+': '+(value===true?'seen':value===false?'not shown':value),'badge')));
   $('saved-answer').hidden=!approved;$('saved-answer').textContent=approved?`Saved review: ${r.target_score?`${r.target_score}/5 · `:''}${label(r.target_fit)} · ${label(r.confidence||'unknown')} confidence`:'';
@@ -708,3 +708,4 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 </script>
 </body>
 </html>
+
