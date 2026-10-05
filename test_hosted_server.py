@@ -61,20 +61,25 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         assert status==303
         cookie=headers['Set-Cookie'].split(';',1)[0]
         status,_,body=request(port,'GET','/',headers={'Cookie':cookie})
+        assert status==200 and b'<title>ActVision Studio</title>' in body
+        status,_,body=request(port,'GET','/studio',headers={'Cookie':cookie})
         assert status==200 and b'<title>ActVision Training Studio</title>' in body
         status,_,body=request(port,'GET','/mls-validation',headers={'Cookie':cookie})
         assert status==200 and b'Acquisition MLS Validation' in body
         status,_,body=request(port,'GET','/property-review',headers={'Cookie':cookie})
         assert status==200 and b'/status#models' in body and b'Training status' in body
         status,_,body=request(port,'GET','/workbench',headers={'Cookie':cookie})
-        assert status==200 and b'Model Workbench' in body and b'TRAIN NEW CANDIDATE' in body
+        assert status==303
+        for path in ('/workbench','/advanced','/legacy','/research'):
+            status,redirect,_=request(port,'GET',path,headers={'Cookie':cookie})
+            assert status==303 and redirect['Location']=='/studio'
         status,headers,_=request(port,'GET','/?property=listing',headers={'Cookie':cookie})
         assert status==303 and headers['Location']=='/property-review?property=listing'
         status,_,body=request(port,'GET','/source-rows',headers={'Cookie':cookie})
-        assert status==200 and b'All workbook rows' in body
+        assert status==200 and b'<h1>All imported source records</h1>' in body
         assert request(port,'GET','/source-rows')[0]==303
         status,_,body=request(port,'GET','/status',headers={'Cookie':cookie})
-        assert status==200 and b'Training and data status' in body
+        assert status==200 and b'<h1>Models and worker readiness</h1>' in body
         status,_,body=request(port,'GET','/api/studio/review-queue',headers={'Cookie':cookie})
         assert status==200 and json.loads(body)['token']=='csrf'
         payload=json.dumps({'answer':True})
