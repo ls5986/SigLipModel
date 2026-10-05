@@ -6,6 +6,7 @@ from actvision_contract import digest, remarks_digest, _text_evidence
 from condition_schema import LABEL_SCHEMA_V2, PHYSICAL_CONDITIONS, MODERNIZATION_STATES, TARGET_LABELS, TEXT_SIGNALS
 
 TRAINING_ACTIONS = {
+    "/api/studio/v2/experimental/train",
     "/api/studio/workbench/dataset/freeze", "/api/studio/workbench/train",
     "/api/studio/train", "/api/studio/v2/dataset/freeze", "/api/studio/v2/train",
 }
@@ -57,6 +58,12 @@ def get(studio, raw_path):
     args = {k: v[0] for k, v in parse_qs(parsed.query).items()}
     action = parsed.path.removeprefix("/api/studio/v2/")
     cloud = hasattr(studio.store, "database")
+    if action == "experimental/status":
+        from experimental_candidate import public_status
+        return public_status(studio.store)
+    if action == "experimental/prediction":
+        from experimental_candidate import prediction
+        return prediction(studio.store, args.get("id", ""))
     if action == "label/batch":
         from typed_draft_batch import status
         return status(studio.store)
@@ -111,6 +118,15 @@ def get(studio, raw_path):
 def post(studio, path, payload):
     action = path.removeprefix("/api/studio/v2/")
     cloud = hasattr(studio.store, "database")
+    if action == "experimental/train":
+        if not cloud: raise ValueError("Hosted experimental worker required")
+        require_operator()
+        from experimental_candidate import enqueue
+        return enqueue(studio.store,payload,identity()["id"])
+    if action == "experimental/predict":
+        if not cloud: raise ValueError("Hosted experimental worker required")
+        from experimental_candidate import queue_prediction
+        return queue_prediction(studio.store,payload,identity()["id"])
     if action == "samples":
         if not cloud: raise ValueError("Hosted sample selection requires cloud storage")
         from sample_selection import change
