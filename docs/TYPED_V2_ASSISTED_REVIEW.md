@@ -200,7 +200,7 @@ MLS dev feedback and production deployment remain incomplete.
 ## Clear property review UI, 2026-10-05 23:29 UTC
 
 - User approved replacing manual-first labeling with review of real drafts after screenshots exposed raw JSON and unclear navigation.
-- Published UI commit afa129fe18aa5e7487993650c7b09e5249f89f1d on the existing feature branch. Studio deployment dep-db235mbtqb8s73bsqe60 is in progress; do not call it live until verified.
+- Published UI commit afa129fe18aa5e7487993650c7b09e5249f89f1d on the existing feature branch. Studio deployment dep-db235mbtqb8s73bsqe60 verified live at 23:30 UTC. Runtime RENDER_GIT_COMMIT confirms afa129fe18aa5e7487993650c7b09e5249f89f1d; health HTTP 200; authenticated /studio HTTP 200 with auto-load and plain questions, raw proposal JSON removed; actual listing 1145875648 proposal HTTP 200 and draft available/trained_v2=false; unauthenticated capabilities HTTP 401. No human approval was submitted by the agent.
 - Existing matching drafts load automatically only when no human review exists. Existing revisions/legacy reviews are preserved; replacing with an AI draft is explicit. Opening/refreshing only reads. Pending analysis polls read-only every five seconds, bound to the selected property.
 - Three plain-language judgments and a proposed explanation replace jargon-first labeling. Description snippets are highlighted verbatim. Unknown/unassessed topics remain Unknown and are collapsed. Human reviewers can mark proposals Unknown or correct exact quotes in Advanced; approval is explicit.
 - Approve & Next retains expected revision, evidence identity, assistant identities, reason tags and standout photos. Source quarantine still blocks save and paid requests. Training/freeze/promotion gates unchanged.
