@@ -25,22 +25,26 @@ start and end to null; never use empty strings or zero placeholders. For PRESENT
 and ABSENT, copy a contiguous verbatim substring from the original remarks, with
 the same punctuation, capitalization, whitespace and Unicode characters. Do not
 quote a paraphrase or text from metadata or visual drafts as a remarks snippet.
+Use enough surrounding original text to make each supporting snippet unique in
+the remarks, rather than an ambiguous repeated word.
 Explain uncertain evidence briefly."""
 
 
 def schema():
     from openai_labels import object_schema
+    common = {"signal":{"type":"string", "enum":list(TEXT_SIGNALS)}, "probability":{"type":"null"}}
+    unknown = object_schema({**common, "state":{"type":"string", "enum":["UNKNOWN"]},
+        "snippet":{"type":"null"}, "start":{"type":"null"}, "end":{"type":"null"}})
+    supported = object_schema({**common, "state":{"type":"string", "enum":["PRESENT","ABSENT"]},
+        "snippet":{"type":"string", "minLength":1},
+        "start":{"type":"integer", "minimum":0}, "end":{"type":"integer", "minimum":1}})
     return object_schema({
         "physical_condition": {"type":"string", "enum":list(PHYSICAL_CONDITIONS)},
         "modernization_state": {"type":"string", "enum":list(MODERNIZATION_STATES)},
         "acquisition_fit": {"type":"string", "enum":list(TARGET_LABELS)},
         "reason": {"type":"string", "maxLength":2000},
-        "text_signals": {"type":"array", "items":object_schema({
-            "signal": {"type":"string", "enum":list(TEXT_SIGNALS)},
-            "state": {"type":"string", "enum":["PRESENT","ABSENT","UNKNOWN"]},
-            "probability": {"type":"null"}, "snippet": {"type":["string","null"]},
-            "start": {"type":["integer","null"]}, "end": {"type":["integer","null"]},
-        })},
+        "text_signals": {"type":"array", "minItems":len(TEXT_SIGNALS), "maxItems":len(TEXT_SIGNALS),
+            "items":{"anyOf":[unknown,supported]}},
     })
 
 
@@ -97,6 +101,7 @@ def process(store, request, classifier):
         return False
     active = store.save_document(key, {**request, "status":"running", "at":now()}, request["revision"])
     stage = "source_evidence"
+    evidence_failure = None
     try:
         detail = store.property(request["property_id"])
         if evidence(detail) != request["label_evidence_id"] or (detail.get("historical_source") or {}).get("blocked"):
@@ -143,6 +148,14 @@ def process(store, request, classifier):
         validate(proposal, schema())
         stage = "text_evidence"
         anchor_text_spans(proposal["text_signals"], inputs["remarks"])
+        for item in proposal["text_signals"]:
+            try:
+                validate_text_reviews([item], inputs["remarks"])
+            except ValueError:
+                evidence_failure = {"signal":item["signal"], "state":item["state"],
+                    "snippet_length":len(item["snippet"]) if item["snippet"] is not None else None,
+                    "span_length":item["end"]-item["start"] if type(item["start"]) is int and type(item["end"]) is int else None}
+                raise
         validate_text_reviews(proposal["text_signals"], inputs["remarks"])
         stage = "semantic_coverage"
         if {item["signal"] for item in proposal["text_signals"]} != set(TEXT_SIGNALS):
@@ -183,6 +196,7 @@ def process(store, request, classifier):
         store.save_document(key, {**active, "status":"failed", "at":now(),
             "error_stage":stage, "error_kind":type(exc).__name__ if type(exc).__name__ in safe_types else "UnexpectedError",
             "error_code":evidence_errors.get(str(exc)) if stage == "text_evidence" else None,
+            "evidence_failure":evidence_failure,
             "provider_status":exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None,
             "error":"Draft request failed or evidence changed; explicit retry required."}, active["revision"])
         return False
