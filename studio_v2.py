@@ -57,6 +57,9 @@ def get(studio, raw_path):
     args = {k: v[0] for k, v in parse_qs(parsed.query).items()}
     action = parsed.path.removeprefix("/api/studio/v2/")
     cloud = hasattr(studio.store, "database")
+    if action == "samples":
+        from sample_selection import listing
+        return listing(studio.store)
     if action == "capabilities":
         actor = identity()
         return {"token": studio.app.token, "actor": actor, "cloud": cloud,
@@ -105,6 +108,10 @@ def get(studio, raw_path):
 def post(studio, path, payload):
     action = path.removeprefix("/api/studio/v2/")
     cloud = hasattr(studio.store, "database")
+    if action == "samples":
+        if not cloud: raise ValueError("Hosted sample selection requires cloud storage")
+        from sample_selection import change
+        return change(studio, payload, identity()["id"])
     if action == "label/propose":
         if not cloud:
             raise ValueError("Hosted draft requests require cloud storage")
