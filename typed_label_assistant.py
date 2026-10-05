@@ -19,7 +19,13 @@ date is relevant to that judgment but does not establish physical condition.
 For each semantic tag return PRESENT only with an exact verbatim supporting snippet
 and character offsets in the original remarks; ABSENT requires explicit contrary
 evidence with a snippet. Mere non-mention is UNKNOWN. Do not guess confidence or
-pretend to be a calibrated trained model. Explain uncertain evidence briefly."""
+pretend to be a calibrated trained model. Return exactly 17 text_signals, one for
+each signal name in the schema, with no duplicates. For UNKNOWN, set snippet,
+start and end to null; never use empty strings or zero placeholders. For PRESENT
+and ABSENT, copy a contiguous verbatim substring from the original remarks, with
+the same punctuation, capitalization, whitespace and Unicode characters. Do not
+quote a paraphrase or text from metadata or visual drafts as a remarks snippet.
+Explain uncertain evidence briefly."""
 
 
 def schema():
@@ -165,8 +171,18 @@ def process(store, request, classifier):
         import httpx
         safe_types = {"ValueError", "RuntimeError", "ValidationError", "JSONDecodeError",
             "HTTPStatusError", "ReadTimeout", "ConnectTimeout", "ConnectError"}
+        evidence_errors = {
+            "Invalid text reviews":"invalid_text_rows",
+            "Invalid typed text evidence":"invalid_text_schema",
+            "UNKNOWN text signal cannot have a probability":"unknown_probability",
+            "Text spans require a snippet":"span_without_snippet",
+            "Text span must match the snippet (Unicode code-point offsets)":"invalid_span",
+            "Text snippet does not match source remarks":"snippet_not_verbatim",
+            "Duplicate text review":"duplicate_signal",
+        }
         store.save_document(key, {**active, "status":"failed", "at":now(),
             "error_stage":stage, "error_kind":type(exc).__name__ if type(exc).__name__ in safe_types else "UnexpectedError",
+            "error_code":evidence_errors.get(str(exc)) if stage == "text_evidence" else None,
             "provider_status":exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None,
             "error":"Draft request failed or evidence changed; explicit retry required."}, active["revision"])
         return False
