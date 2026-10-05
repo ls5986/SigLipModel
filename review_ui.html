@@ -117,7 +117,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 <body>
 <header>
  <div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span class="badge">Local preview</span></div>
- <nav aria-label="Workspace"><button id="match-nav">Review properties</button><button id="review-nav" aria-current="page">Property rating</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a><a href="/source-rows" id="source-ledger-link" hidden>All workbook rows</a></nav>
+ <nav aria-label="Workspace"><a href="/">Overview</a><a id="main-review-link" href="/studio">Review AI suggestions</a><button id="match-nav">Review properties</button><button id="review-nav" aria-current="page">Property rating</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a><a href="/source-rows" id="source-ledger-link" hidden>All workbook rows</a></nav>
  <button id="reviewer-button" class="small">Your name</button>
 </header>
 <div class="statusbar row spread wrap">
@@ -218,7 +218,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);
- const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'acquisitions',evidence:'all',mode:'review',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set(),knownTargets:false};
+ const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'all',evidence:'all',mode:'matching',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set(),knownTargets:false};
  const ROOMS=['kitchen','bathroom','living','bedroom','exterior','outdoor','other'];
  const FEATURES=['dated_kitchen','dated_bathroom','old_flooring','old_cabinetry','dated_appliances','dated_lighting','dated_fixtures','damaged_surfaces','popcorn_ceiling','wood_paneling','clutter_obscures_condition','empty_presentation','visible_deferred_maintenance'];
  const INTERIOR=['kitchen','bathroom','living','bedroom','other'];
@@ -306,13 +306,13 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  }
  async function loadQueue(prefer=null){
   $('dataset-scope').value=S.scope;
-  const requestedQueue=S.knownTargets?S.filter:S.mode==='matching'?'photo_match':S.filter;
+  const requestedQueue=S.filter;
   const data=await api('review-queue?'+new URLSearchParams({queue:requestedQueue,scope:S.scope,evidence:S.evidence,search:$('search').value.trim(),offset:S.offset,limit:20}));
   const cloud=data.capabilities?.storage==='supabase';
-  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';S.filter='todo';S.scope='acquisitions';$('queue-filter').value='todo';$('review-nav').hidden=true;$('match-nav').textContent='Review properties';$('ready-button').hidden=true;$('cloud-queue-controls').hidden=false;$('dataset-scope').hidden=true;$('queue-filter').hidden=true;drawCloudTabs();return loadQueue(prefer);}
+  if(cloud){$('source-ledger-link').hidden=false;$('review-nav').hidden=true;$('match-nav').textContent='Verify listing / photos';$('ready-button').hidden=true;}
   S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
   if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
-  $('progress').textContent=S.knownTargets?`${S.counts.todo} incomplete of ${S.counts.all} matched listings`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
+  $('progress').textContent=S.knownTargets?`${S.counts.todo} incomplete of ${S.counts.all} matched listings`:`${S.counts.all} matched listings · ${S.counts.source_conflicts} source conflicts · source verification only`;
   const queueSummary=$('queue-summary');queueSummary.hidden=!S.knownTargets;
   if(S.knownTargets)queueSummary.replaceChildren(
    summaryStat(S.counts.all,'Matched listings'),
@@ -373,11 +373,11 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  $('retry-autolabel').onclick=()=>{if(S.detail)startAutolabel(S.detail.property.id,S.request,true);};
  function draw(){
   const d=S.detail,p=d?.property,job=d?.assessment;
-  $('address').textContent=p?.address||'No property selected';
+  $('address').textContent=p?.address||'No property selected';$('main-review-link').href='/studio?property='+encodeURIComponent(p?.id||'');
   const m=p?.metadata||{};
   $('property-meta').textContent=p?[p.city,p.year_built?'Built '+p.year_built:null,m.ListingId?'MLS '+m.ListingId:null,m.CloseDate?'Sold '+m.CloseDate:null].filter(Boolean).join(' · '):'Choose another queue.';
   document.body.classList.toggle('matching-mode',S.mode==='matching');
-  $('task-heading').textContent=S.knownTargets?'Review matched acquisition listings':S.mode==='matching'?'Confirm acquisition sale and photo set':'Step 2 of 2 · Rate target properties';
+  $('task-heading').textContent=S.knownTargets?'Review matched acquisition listings':S.mode==='matching'?'Verify the sold listing and acquisition-era photos':'Step 2 of 2 · Rate target properties';
   $('queue-filter').disabled=S.mode==='matching'&&!S.knownTargets;
   $('review-nav').setAttribute('aria-current',S.mode==='review'?'page':'false');$('match-nav').setAttribute('aria-current',S.mode==='matching'?'page':'false');
   $('agree').textContent=S.knownTargets?'Complete review':S.mode==='matching'?'Verify sale/photos & next':'Rate property';
@@ -684,7 +684,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  $('queue-filter').onchange=()=>action(async()=>{S.filter=$('queue-filter').value;S.offset=0;S.detail=null;await loadQueue();});
  $('search-form').onsubmit=e=>{e.preventDefault();action(async()=>{S.offset=0;S.detail=null;await loadQueue();});};
  async function mode(value){if(S.busy||editing())return;S.mode=value;S.offset=0;S.detail=null;await action(loadQueue);}
- $('review-nav').onclick=()=>mode('review');$('match-nav').onclick=()=>mode('matching');
+ $('review-nav').onclick=()=>location.assign('/studio?property='+encodeURIComponent(S.detail?.property.id||''));$('match-nav').onclick=()=>mode('matching');
  $('ready-button').onclick=()=>{S.mode='review';S.filter='ready';$('queue-filter').value='ready';S.offset=0;S.detail=null;action(loadQueue);};
  $('refresh').onclick=()=>{if(editing()){note('Finish or cancel your unsaved edits before reloading.');return;}action(loadQueue);};
  $('queue-toggle').onclick=()=>{const open=document.querySelector('.queue').classList.toggle('expanded');document.body.classList.toggle('queue-open',open);};
@@ -708,3 +708,4 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 </script>
 </body>
 </html>
+
