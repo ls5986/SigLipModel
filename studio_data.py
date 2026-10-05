@@ -86,6 +86,17 @@ def validate_review(payload, source):
         raise ValueError("Choose draft or approved")
     record = {"status": status, "reviewer": reviewer.strip(), "updated_at": now(),
               "source": "human", "notes": payload.get("notes", "")}
+    if payload.get("label_schema_version") is not None:
+        from condition_schema import LABEL_SCHEMA_V2
+        from studio_v2 import validate_text_reviews
+        if payload["label_schema_version"] != LABEL_SCHEMA_V2 or kind != "property":
+            raise ValueError("Unsupported typed label schema")
+        text_signals = payload.get("text_signals", [])
+        validate_text_reviews(text_signals, None)
+        if not isinstance(payload.get("label_evidence_id"), str) or not re.fullmatch(r"[a-f0-9]{64}", payload["label_evidence_id"]):
+            raise ValueError("Typed labels require the original evidence identity")
+        record.update(label_schema_version=LABEL_SCHEMA_V2, text_signals=text_signals,
+                      label_evidence_id=payload.get("label_evidence_id"))
     if not isinstance(record["notes"], str) or len(record["notes"]) > 4000:
         raise ValueError("Notes too long")
     if source is None:

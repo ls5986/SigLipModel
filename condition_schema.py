@@ -18,6 +18,15 @@ MODERNIZATION_STATES = (
 )
 TARGET_LABELS = ("TARGET", "NOT_TARGET", "UNKNOWN")
 LABEL_POLICY_VERSION = "acquisition-labels-v1"
+LABEL_SCHEMA_V2 = "actvision-labels-v2"
+TEXT_SIGNALS = (
+    "original_condition", "dated_or_outdated", "maintained_original",
+    "partially_updated", "recently_updated", "fully_remodeled",
+    "turnkey_or_move_in_ready", "cosmetic_value_add", "clear_slate_or_blank_canvas",
+    "needs_tlc", "handyman_or_investor_special", "estate_or_probate_signal",
+    "major_rehab_signal", "structural_or_foundation_risk", "water_fire_mold_risk",
+    "virtual_staging_or_ai_image_disclosure", "insufficient_or_generic_description",
+)
 
 LEGACY_CONDITION_MAP = {
     "updated": ("C3_WELL_MAINTAINED", "UPDATED"),

@@ -1,0 +1,21 @@
+{
+  "kind": "inference_request",
+  "schema_version": "actvision-v2",
+  "request_id": "fixture-request",
+  "evidence_id": "c5225a77ae8ae34e8eada050c347da2ac9c702bbce6622640893824ab44390fd",
+  "evidence": {
+    "workspace_id": "fixture-workspace",
+    "property_id": "fixture-property",
+    "listing_id": "fixture-listing",
+    "snapshot_at": "2026-10-02T00:00:00Z",
+    "visual_generation": 0,
+    "photos_change_timestamp": null,
+    "selected_photos": [],
+    "remarks_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "structured_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "release_id": "fixture-candidate-v2"
+  },
+  "public_remarks": "",
+  "structured": {},
+  "photo_inputs": []
+}

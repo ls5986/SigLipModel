@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ActVision Training Studio</title>
+<script>
+(() => {
+  const param = new URLSearchParams(window.location.search).get("scoutTheme");
+  const theme = param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", theme);
+})();
+</script>
+<style>
+
+:root {
+  color-scheme: light;
+  --cp-bg: #f3f6fa;
+  --cp-bg-elevated: #e9eff5;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #edf3f8;
+  --cp-border: #cfdae5;
+  --cp-border-strong: #7890a5;
+  --cp-text: #09253e;
+  --cp-text-muted: #526b80;
+  --cp-text-soft: #6c8193;
+  --cp-accent: #155eef;
+  --cp-accent-hover: #0b4dcc;
+  --cp-accent-soft: rgba(21, 94, 239, 0.1);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #079c88;
+  --cp-danger: #cf3349;
+  --cp-warning: #bb6812;
+  --cp-link: #155eef;
+  --cp-shadow: 0 14px 38px rgba(7, 31, 53, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(7, 156, 136, 0.1);
+  --cp-brand-navy: #071f35;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #155eef;
+  --cp-brand-blue-bright: #2f72ff;
+  --cp-brand-teal: #12bfa7;
+  --cp-brand-glow: rgba(21, 94, 239, 0.2);
+  --cp-nav-bg: #071f35;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(47, 114, 255, 0.22);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #071722;
+  --cp-bg-elevated: #0a1d2d;
+  --cp-surface: #0d263a;
+  --cp-surface-soft: #102d43;
+  --cp-border: #29475f;
+  --cp-border-strong: #668198;
+  --cp-text: #eaf3fa;
+  --cp-text-muted: #9eb1c2;
+  --cp-text-soft: #bdcad5;
+  --cp-accent: #4b83ff;
+  --cp-accent-hover: #6b99ff;
+  --cp-accent-soft: rgba(75, 131, 255, 0.16);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #2bd3b8;
+  --cp-danger: #ff7181;
+  --cp-warning: #f5b451;
+  --cp-link: #70a0ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(7, 23, 34, 0.88);
+  --cp-panel: rgba(13, 38, 58, 0.76);
+  --cp-panel-strong: rgba(13, 38, 58, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(43, 211, 184, 0.12);
+  --cp-brand-navy: #061827;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #4b83ff;
+  --cp-brand-blue-bright: #70a0ff;
+  --cp-brand-teal: #2bd3b8;
+  --cp-brand-glow: rgba(75, 131, 255, 0.28);
+  --cp-nav-bg: #061827;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(75, 131, 255, 0.24);
+}
+*{box-sizing:border-box}body{margin:0;min-width:320px;background:var(--cp-bg);background-image:linear-gradient(var(--cp-accent-soft) 1px,transparent 1px),linear-gradient(90deg,var(--cp-accent-soft) 1px,transparent 1px);background-size:40px 40px;color:var(--cp-text);font:14px/1.5 "Segoe UI",Aptos,Calibri,-apple-system,BlinkMacSystemFont,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}button,input,select,textarea{border:1px solid var(--cp-border);border-radius:var(--radius-sm);padding:9px 12px;background:var(--cp-surface);min-height:42px}button{cursor:pointer;font-weight:600}button:hover:not(:disabled){border-color:var(--cp-accent);background:var(--cp-accent-soft)}button:disabled{opacity:.5;cursor:not-allowed}.primary{background:var(--cp-accent);color:var(--cp-accent-fg);border-color:var(--cp-accent)}.primary:hover:not(:disabled){background:var(--cp-accent-hover);color:var(--cp-accent-fg)}a{color:var(--cp-link)}:focus-visible{outline:2px solid var(--cp-accent);outline-offset:3px}
+.sidebar{position:fixed;inset:0 auto 0 0;z-index:20;width:236px;display:flex;flex-direction:column;background:var(--cp-nav-bg);border-right:1px solid var(--cp-brand-navy-soft);padding:24px 16px;color:var(--cp-nav-text)}.sidebar:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,var(--cp-brand-blue),var(--cp-brand-teal))}.brand{display:flex;align-items:center;gap:10px;padding:0 8px 28px}.brand-mark{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border:1px solid var(--cp-brand-blue-bright);border-radius:8px;background:var(--cp-nav-active);color:var(--cp-brand-teal);font-weight:800;font-size:17px}.brand strong{font-size:20px;letter-spacing:-.02em}.brand strong span{color:var(--cp-brand-blue-bright)}.brand small{display:block;color:var(--cp-nav-muted);font-size:11px}.nav-caption{padding:0 12px 10px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--cp-nav-muted)}nav{display:grid;gap:4px}nav button{display:flex;align-items:center;gap:12px;min-height:44px;text-align:left;border:0;background:transparent;color:var(--cp-nav-muted);padding:0 12px}nav button svg{width:18px;height:18px;flex-shrink:0}nav button:hover:not(:disabled),nav button.active{background:var(--cp-nav-active);color:var(--cp-nav-text)}nav button.active svg{color:var(--cp-brand-teal)}.sidebar-note{margin-top:auto;padding:18px 12px 0;border-top:1px solid var(--cp-brand-navy-soft);color:var(--cp-nav-muted);font-size:11px}.sidebar-note strong{display:block;color:var(--cp-nav-text);font-size:12px;margin-bottom:5px}
+header{margin-left:236px;min-height:74px;padding:16px 28px;background:var(--cp-surface);border-bottom:1px solid var(--cp-border);display:flex;justify-content:space-between;align-items:center;gap:16px}header strong{font-size:18px}header small{display:block;color:var(--cp-text-muted);font-size:12px}#actor{font-size:12px;text-align:right;overflow-wrap:anywhere}.header-context{display:flex;align-items:center;gap:16px}.pill{display:inline-flex;align-items:center;border:1px solid var(--cp-border);border-radius:999px;padding:4px 9px;font-size:11px;font-weight:650;background:var(--cp-surface-soft);white-space:nowrap}.pill.accent{border-color:var(--cp-accent);background:var(--cp-accent-soft);color:var(--cp-accent)}.pill.pending{color:var(--cp-text-muted)}
+main{margin:0 0 0 236px;padding:26px 28px 48px;max-width:1680px}h1{font-size:26px;letter-spacing:-.025em;line-height:1.2;margin:0 0 8px}h2{overflow-wrap:anywhere;font-size:18px;line-height:1.35;margin:0 0 12px}h3{font-size:15px;margin:18px 0 10px}p{margin:0 0 16px}.muted{color:var(--cp-text-muted)}.eyebrow{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--cp-text-muted);margin-bottom:7px}.page-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:22px}.page-heading p{max-width:760px;margin:0}.card{background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:var(--radius-md);padding:20px;margin-bottom:16px;min-width:0}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.cards .card{margin-bottom:0}.metric{overflow-wrap:anywhere;font-size:28px;font-weight:750;line-height:1.2;display:block;color:var(--cp-accent);margin:6px 0 10px}#counts{margin-bottom:20px}#counts .card{padding:16px 18px}#counts .card>span:last-child{font-size:12px;color:var(--cp-text-muted)}.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.row>*{min-width:0}.queue-toolbar{align-items:flex-end;padding:16px 18px;margin-bottom:18px;background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:var(--radius-md)}.queue-toolbar label{margin:0;flex:1;min-width:150px}.queue-toolbar input{width:100%}.queue-toolbar #queue-total{flex-basis:100%;font-size:11px}.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px}.evidence{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px}.queue{max-height:740px;overflow:auto;padding:12px}.queue button{display:block;width:100%;text-align:left;margin:0 0 8px;padding:12px;background:var(--cp-surface-soft)}.queue button[aria-current=true]{border-color:var(--cp-accent);background:var(--cp-accent-soft)}.queue small{display:block;margin-top:6px;color:var(--cp-text-muted);font-weight:400;font-size:11px}.hero{display:block;width:100%;height:340px;object-fit:contain;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:var(--radius-md)}.thumbs{display:flex;gap:8px;overflow:auto;padding:10px 0;margin:0 0 8px}.thumbs img{display:block;width:72px;height:54px;object-fit:cover}.thumbs button{padding:0;border:2px solid transparent;min-height:0;flex-shrink:0;overflow:hidden}.thumbs button[aria-pressed=true]{border-color:var(--cp-accent)}.remarks{white-space:pre-wrap;max-height:330px;overflow:auto;user-select:text;line-height:1.7;padding:14px;background:var(--cp-surface-soft);border-radius:var(--radius-sm)}.decisions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}label{display:grid;gap:7px;margin-bottom:12px;font-size:12px;font-weight:600}textarea{width:100%;min-height:90px;resize:vertical}select{max-width:100%;width:100%}input[type=checkbox]{min-height:auto}.warning{border:1px solid var(--cp-border);border-left:3px solid var(--cp-warning);border-radius:var(--radius-sm);padding:12px 14px;background:var(--cp-surface-soft);margin-bottom:16px;font-size:12px}#era{margin:12px 0 18px}#message{margin:0 28px 0 264px;white-space:pre-wrap;color:var(--cp-danger);overflow-wrap:anywhere}#message:not(:empty){border:1px solid var(--cp-border);background:var(--cp-surface);border-left:3px solid var(--cp-danger);padding:12px 16px;margin-top:16px;border-radius:var(--radius-sm)}#message.ok{color:var(--cp-success);border-left-color:var(--cp-success)}.evidence-tabs{display:flex;gap:4px;border-bottom:1px solid var(--cp-border);margin-bottom:18px;padding-bottom:0;flex-wrap:wrap}.evidence-tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--cp-text-muted);padding:10px 12px}.evidence-tabs button[aria-pressed=true]{border-bottom-color:var(--cp-accent);color:var(--cp-accent)}#label-form{margin-top:24px;border-top:1px solid var(--cp-border);padding-top:8px}.save-bar{border-top:1px solid var(--cp-border);padding-top:16px;margin-top:16px}.save-bar small{font-weight:400;font-size:11px}.save-bar .primary{min-width:150px}.model-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.model-card{padding:18px;display:flex;flex-direction:column;gap:12px;margin:0}.model-card h2{margin:0}.model-card p{font-size:12px;margin:0}.model-card .pill{align-self:flex-start;margin-top:auto}.section-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.section-heading h2{margin:0}.workflow-note{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:var(--radius-sm);margin-bottom:20px;font-size:12px}.workflow-note strong{color:var(--cp-accent)}.workflow-note p{margin:0}.legacy-tools{border-left:3px solid var(--cp-warning)}.legacy-tools p{font-size:12px}.legacy-tools .row{margin:16px 0}.model-table{overflow-x:auto}.model-table table{min-width:510px}.model-table th{font-size:11px;color:var(--cp-text-muted);font-weight:650;background:var(--cp-surface-soft)}pre{font:12px/1.6 Consolas,"Courier New",monospace;white-space:pre-wrap;overflow-wrap:anywhere;padding:14px;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:var(--radius-sm)}.tag{border:1px solid var(--cp-border);padding:12px;border-radius:var(--radius-sm);margin:8px 0;background:var(--cp-surface-soft)}.tag button{float:right}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:10px 12px;border-bottom:1px solid var(--cp-border);overflow-wrap:anywhere}td{max-width:380px}summary{cursor:pointer;font-size:12px;color:var(--cp-text-muted)}details{margin:14px 0}details[open] summary{margin-bottom:16px}.tool-link{display:block;text-decoration:none;color:var(--cp-text);border-radius:var(--radius-md)}.tool-link:hover{border-color:var(--cp-accent)}.tool-link small{display:block;color:var(--cp-text-muted);margin-top:8px;font-size:12px}.hidden,[hidden]{display:none!important}
+@media(max-width:1180px){main{padding:24px 20px}.layout{grid-template-columns:200px minmax(0,1fr)}.evidence{grid-template-columns:1fr}.model-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hero{height:360px}.header-context .pill{display:none}}
+@media(max-width:900px){.sidebar{position:relative;inset:auto;width:100%;padding:16px;gap:8px}.brand{padding:0 4px 10px}.brand small,.nav-caption,.sidebar-note{display:none}nav{display:flex;overflow-x:auto;max-width:100%;padding-bottom:3px}nav button{flex-shrink:0;white-space:nowrap;padding:0 12px;gap:8px}header{margin-left:0;padding:16px;min-height:66px}main{margin-left:0;padding:22px 16px 28px}.layout{grid-template-columns:1fr}.queue{max-height:180px}.decisions{grid-template-columns:1fr 1fr}.hero{height:280px}#message{margin:0 16px}#message:not(:empty){margin-top:12px}.page-heading{flex-direction:column;gap:12px}.model-grid{grid-template-columns:1fr 1fr}.section-heading{align-items:flex-start;flex-direction:column}.card{padding:16px}.queue-toolbar button{flex:1}.save-bar{align-items:flex-start;flex-direction:column}.save-bar .primary{width:100%}#actor{max-width:46%}}
+@media(max-width:500px){.model-grid,.decisions{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}.model-card{gap:10px}.hero{height:250px}.row>label{width:100%}.queue-toolbar label{min-width:0}.header-context strong{font-size:16px}.brand strong{font-size:18px}h1{font-size:24px}.evidence-tabs button{padding:9px}.workflow-note{display:block}.workflow-note strong{display:block;margin-bottom:5px}}
+
+</style></head>
+<body>
+<aside class="sidebar" aria-label="Studio navigation"><div class="brand"><span class="brand-mark" aria-hidden="true">AV</span><div><strong>ACQ <span>Vision</span></strong><small>Human evidence. Better models.</small></div></div><div class="nav-caption">Training workspace</div><nav aria-label="Primary"><button data-page="label" class="active" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z M8 9h8 M8 13h5"/></svg>Label properties</button><button data-page="review"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4 M5 4h14v16H5z"/></svg>Feedback inbox</button><button data-page="train"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z M8 9h8 M8 13h5"/></svg>Datasets & models</button><button data-page="releases"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5"/></svg>Releases</button><button data-page="operations"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Worker & connections</button><button data-page="advanced"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16 M4 17h16 M8 4v6 M16 14v6"/></svg>Advanced tools</button></nav><div class="sidebar-note"><strong>Human review comes first</strong>Draft labels need your approval. Saving a review never starts training.</div></aside><header><div class="header-context"><div><strong>Training Studio</strong><small>Review evidence and prepare model candidates</small></div><span class="pill accent">Human review workspace</span></div><div id="actor" class="muted"></div></header>
+<div id="message" role="status" aria-live="polite"></div>
+<main>
+<section id="label" data-panel>
+ <div class="page-heading"><div><span class="eyebrow">Build your reviewed dataset</span><h1>Label properties</h1><p class="muted">Check the listing and photos, then judge condition, updates and acquisition fit separately. Use Unknown when the evidence does not support an answer.</p></div><span class="pill">Human labels</span></div>
+ <div class="cards" id="counts"></div>
+ <div class="row queue-toolbar"><label>Review queue<select id="queue-filter"><option value="unscored">Unlabeled</option><option value="all">All properties</option><option value="reviewed">Reviewed</option><option value="missing_text">Missing text labels</option><option value="photo_match">Source / photo era needs review</option></select></label><label>Search<input id="search" type="search" placeholder="Address or MLS ID"></label><button id="refresh">Refresh</button><button id="more">Next page</button><span id="queue-total" class="muted"></span></div>
+ <div class="layout"><aside class="card queue" id="queue" aria-label="Property inbox"></aside>
+ <div class="card"><div id="empty">Select a property to start labeling.</div><div id="property" hidden>
+  <h2 id="address"></h2><p id="identity" class="muted"></p><div id="era" class="warning"></div>
+  <div class="evidence-tabs" aria-label="Property evidence"><button data-tab="photos" aria-pressed="true">Photos</button><button data-tab="text">Text signals</button><button data-tab="facts">Structured facts</button></div>
+  <div id="photos-panel" class="evidence">
+   <div><img id="hero" class="hero" alt="Selected property evidence" hidden><p id="no-photos">No photos available. Physical evidence remains unknown unless supported by other reviewed evidence.</p><div id="thumbnails" class="thumbs"></div><p id="photo-status" class="muted"></p>
+    <details><summary>Review this photo</summary><form id="photo-form"><div class="row"><label>Context<select id="photo-context"><option>unknown</option><option>subject</option><option>subject_interior</option><option>subject_exterior</option><option>shared_amenity</option><option>floor_plan</option><option>unrelated</option></select></label><label>Room<select id="photo-room"><option>other</option><option>kitchen</option><option>bathroom</option><option>living</option><option>bedroom</option><option>exterior</option><option>outdoor</option></select></label></div><div class="row"><label>Photo condition<select id="photo-physical"></select></label><label>Photo modernization<select id="photo-modernization"></select></label></div><label>Exclude from evidence<select id="photo-exclusion"><option value="">Keep existing selection</option><option value="amenity">Shared amenity</option><option value="floor_plan">Floor plan</option><option value="virtual_staging">Virtual staging</option><option value="duplicate">Duplicate</option><option value="unrelated">Unrelated</option><option value="unusable">Unusable</option></select></label><p class="muted">Subject-interior condition only. Use Unknown for excluded or insufficient photos. Detailed feature labels remain in Advanced.</p><button type="submit">Save photo review</button></form></details>
+   </div><div><h3>Listing remarks</h3><div id="remarks" class="remarks"></div><p class="muted">No semantic suggestions are fabricated. Human text labels are separate from model predictions.</p></div>
+  </div>
+  <div id="text-panel" hidden><h3>Typed listing-text evidence</h3><p class="muted">Omitted tags are unassessed, not negative. Paste an exact supporting phrase, or leave blank if there is no snippet.</p><div id="text-remarks" class="remarks"></div><label>Signal<select id="signal"></select></label><label>Judgment<select id="signal-state"><option>PRESENT</option><option>ABSENT</option><option>UNKNOWN</option></select></label><label>Exact supporting phrase<input id="snippet" maxlength="10000"></label><button id="add-signal">Add / replace signal</button><div id="signals"></div></div>
+  <div id="facts-panel" hidden><h3>Structured listing facts</h3><p class="muted">Acquisition-time numeric/categorical allowlist only. Remarks and future sale outcomes are excluded.</p><table id="facts"></table></div>
+  <form id="label-form"><h3>Your property judgment</h3><div class="decisions">
+   <label>Physical condition<select id="physical"></select></label><label>Modernization<select id="modernization"></select></label><label>Acquisition fit<select id="fit"></select></label><label>Review confidence<select id="confidence"><option value="">Not assessed</option><option>low</option><option>medium</option><option>high</option></select></label>
+  </div><div class="row"><label>Fit basis<select id="fit-basis"><option value="unknown">Unknown</option><option value="renovation">Physical renovation evidence</option><option value="pricing">Pricing (separate economics)</option><option value="layout_location">Layout / location</option><option value="mixed">Mixed</option></select></label><label>Evidence source<select id="evidence-source"><option value="">Not assessed</option><option value="images">Photos</option><option value="metadata">Remarks / facts</option><option value="both">Both</option><option value="insufficient">Insufficient evidence</option></select></label></div>
+  <label>Reason / insufficient evidence explanation<textarea id="reason" maxlength="2000" required></textarea></label><div class="row save-bar"><button class="primary" type="submit" id="save-next">Save &amp; Next</button><small class="muted">Ctrl+Enter to save. This never trains or promotes a model.</small></div></form>
+ </div></div></div>
+</section>
+<section id="review" data-panel hidden><span class="eyebrow">Corrections need human judgment</span><h1>Feedback inbox</h1><p class="muted">Production feedback is immutable. Review decisions do not change frozen datasets or canonical MLS intelligence.</p><div class="row"><button id="load-feedback">Load production corrections</button><label>Legacy candidate review queue<select id="error-category"><option value="high_confidence_wrong">Highest confidence wrong</option><option value="disagreement">Target disagreement</option><option value="hard_negative">Hard negatives</option><option value="candidate_regression">Candidate regression</option><option value="limited_visual">Limited visual evidence</option></select></label><button id="load-errors">Load legacy review queue</button></div><p class="warning">Vision-vs-text semantic disagreement requires trained v2 artifacts and is not available yet.</p><div id="review-content"></div></section>
+<section id="train" data-panel hidden><div class="page-heading"><div><span class="eyebrow">From human labels to a candidate</span><h1>Datasets &amp; models</h1><p class="muted">Four components make up the planned v2 model. Draft suggestions are not approved training labels.</p></div><span class="pill pending">V2 training unavailable</span></div><div class="model-grid"><article class="card model-card"><span class="eyebrow">Photos</span><h2>Vision</h2><p class="muted">Learns visible physical condition and modernization from reviewed subject photos.</p><span class="pill pending">Not trained for v2</span><p class="muted">Baseline code; no approved v2 model</p></article><article class="card model-card"><span class="eyebrow">Listing remarks</span><h2>Text</h2><p class="muted">Learns semantic evidence tags from explicit Present, Absent and Unknown judgments.</p><span class="pill pending">Not trained for v2</span><p class="muted">TF-IDF baseline; semantic encoder pending</p></article><article class="card model-card"><span class="eyebrow">Listing facts</span><h2>Structured</h2><p class="muted">Uses acquisition-time numeric and categorical facts. Future sale outcomes stay excluded.</p><span class="pill pending">Not trained for v2</span><p class="muted">Baseline code; no approved v2 model</p></article><article class="card model-card"><span class="eyebrow">Combined evidence</span><h2>Fusion</h2><p class="muted">Combines the three components and accounts for missing photos, remarks or facts.</p><span class="pill pending">Not trained for v2</span><p class="muted">Orchestration and calibration pending</p></article></div><div class="workflow-note"><strong>What happens next</strong><p>Review source and photo era, fill label gaps, inspect the grouped dataset, then freeze it deliberately. Training and protected-test evaluation come after that. No model starts from opening this page.</p></div><div class="card"><div class="section-heading"><h2>V2 candidate readiness</h2><button disabled aria-describedby="v2-training-gate">Train v2 candidate</button></div><p id="v2-training-gate" class="muted">The v2 training workflow and compatible approved model artifacts are not connected yet.</p><div class="model-table"><table><thead><tr><th scope="col">Needed before a candidate</th><th scope="col">Current gate</th></tr></thead><tbody><tr><td>Approved human labels</td><td>Check class coverage, source / era and property groups in the dataset preview</td></tr><tr><td>Grouped training and calibration</td><td>End-to-end orchestration still required</td></tr><tr><td>Text encoder</td><td>Current baseline is TF-IDF; semantic encoder integration remains</td></tr><tr><td>Protected-test acceptance</td><td>Thresholds and approved inference adapters remain</td></tr></tbody></table></div></div><div class="card legacy-tools"><div class="section-heading"><h2>Existing acquisition-target experiment</h2><span class="pill">Legacy classifier</span></div><p class="muted">These controls operate the existing target / non-target classifier. They do not train the v2 condition, text or fusion model. Dataset previews use the existing grouped and protected-test rules.</p><div class="row"><button id="preview">Preview Dataset vNext</button><button id="freeze" disabled>Freeze dataset</button><button id="train-candidate" disabled>Train legacy target classifier</button></div><label><span><input id="confirm-training" type="checkbox"> I confirm this explicit freeze / legacy training action.</span></label><div id="training-result"></div></div></section>
+<section id="releases" data-panel hidden><h1>Versioned releases</h1><p class="warning">No automatic promotion. Shadow, production and rollback require an operator-reviewed bundle and protected-slice acceptance policy.</p><button id="load-releases">Refresh registry</button><div id="release-content"></div><div class="row"><button disabled>Approve for Shadow</button><button disabled>Approve for Production</button><button disabled>Retire / Roll back</button></div><div class="card"><h2>Compare existing legacy candidates</h2><p class="muted">Target-classifier metrics are not physical-condition metrics. Protected slices remain visible in each candidate report.</p><button id="load-candidates">Load saved candidates</button><div id="candidate-controls" class="row" hidden><label>Baseline<select id="candidate-left"></select></label><label>Candidate<select id="candidate-right"></select></label><button id="compare-candidates">Compare protected metrics</button></div><div id="comparison"></div></div></section>
+<section id="operations" data-panel hidden><div class="page-heading"><div><span class="eyebrow">Check the connection before testing</span><h1>Worker &amp; connections</h1><p class="muted">Label workers suggest drafts. Model workers run separate experiments. A ready label worker does not mean v2 inference or the MLS feedback loop is connected.</p></div></div><div class="warning">Worker heartbeats must be recent. An old “ready” status is not proof a worker is online.</div><div class="card"><h2>Runtime status</h2><div id="operation-content"></div></div></section>
+<section id="advanced" data-panel hidden><h1>Advanced research tools</h1><p>Existing tools remain available. These are not the primary labeling workflow.</p><div class="cards"><a class="card" href="/workbench">Legacy Model Workbench / challenge batches</a><a class="card" href="/property-review">Detailed property / photo-era review</a><a class="card" href="/mls-validation">Acquisition MLS Validation</a><a class="card" href="/source-rows">Source rows / provenance</a><a class="card" href="/status">Raw training / data status</a><a class="card" href="/research">Prompt lab / dataset tools (local research)</a></div></section>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const state={caps:null,items:[],detail:null,signals:[],offset:0,total:0,photo:0,busy:false,dirty:false,preview:null,frozen:null,load:0};
+const structuredKeys=['YearBuilt','PhotosCount','LivingArea','BedroomsTotal','BathroomsTotalInteger','ListPrice','OriginalListPrice','DaysOnMarket','PriorSaleCount','MonthsSinceMostRecentPriorSale','MostRecentPriorSalePrice','PropertyType','PropertySubType','PostalCode','City'];
+function message(text,ok=false){$('message').textContent=text;$('message').className=ok?'ok':''}
+function node(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}
+function options(id,values){$(id).replaceChildren(...values.map(v=>{const n=node('option',v.replaceAll('_',' '));n.value=v;return n}));$(id).value=values.includes('UNKNOWN')?'UNKNOWN':values[0]}
+async function api(path,payload){
+ const response=await fetch(path,{method:payload===undefined?'GET':'POST',redirect:'error',headers:payload===undefined?{}:{'Content-Type':'application/json','X-Review-Token':state.caps.token},body:payload===undefined?undefined:JSON.stringify(payload)});
+ if(!response.headers.get('content-type')?.includes('application/json'))throw Error('Unexpected server response; sign in again before retrying.');
+ const data=await response.json();if(response.status===401){window.location.assign(data.login||'/login');throw Error('Session expired')}
+ if(!response.ok)throw Error(data.error||'Request failed');return data;
+}
+function guard(fn){return async event=>{try{await fn(event)}catch(error){message(error.message)}}}
+function showPage(name){
+ if(state.busy)throw Error('Wait for the current save to finish.');
+ if(state.dirty&&name!=='label')throw Error('Save your current property before leaving, or reload to discard unsaved changes.');
+ document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.id!==name);
+ document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===name);if(b.dataset.page===name)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+}
+function renderQueue(){
+ $('queue').replaceChildren();for(const item of state.items){const b=node('button');b.append(node('strong',item.address||item.id),node('small',`${item.image_count||0} photos | ${item.status||'unreviewed'}`));b.onclick=guard(()=>loadProperty(item.id));$('queue').append(b)}
+ if(!state.items.length)$('queue').textContent='No properties in this queue.';
+ $('queue-total').textContent=`${state.offset+1 > state.total?0:state.offset+1}-${Math.min(state.offset+state.items.length,state.total)} of ${state.total}`;
+ $('more').disabled=state.offset+state.items.length>=state.total;
+}
+async function loadQueue(){
+ if(state.dirty)throw Error('Save the current property before changing queues.');
+ const data=await api('/api/studio/review-queue?scope=acquisitions&queue='+encodeURIComponent($('queue-filter').value)+'&search='+encodeURIComponent($('search').value)+'&offset='+state.offset+'&limit=20');
+ state.items=data.items;state.total=data.total;renderQueue();$('counts').replaceChildren();
+ for(const [title,value] of [['Unlabeled',data.counts.unscored],['Reviewed',data.counts.reviewed],['Missing text labels',data.counts.missing_text],['Source / photo checks',data.counts.photo_match]]){const card=node('div',undefined,'card');card.append(node('span',value??'Unavailable','metric'),node('span',title));$('counts').append(card)}
+ if(!state.detail&&state.items.length)await loadProperty(state.items[0].id);
+}
+async function loadProperty(id){
+ if(state.dirty)throw Error('Save the current property before selecting another.');
+ const request=++state.load;const detail=await api('/api/studio/v2/property?id='+encodeURIComponent(id));if(request!==state.load)return;
+ state.detail=detail;state.photo=0;state.signals=structuredClone(detail.property.review?.text_signals||[]);state.dirty=false;
+ const p=detail.property,r=p.review||{},history=detail.historical_source||{};
+ $('empty').hidden=true;$('property').hidden=false;$('address').textContent=p.address||p.id;
+ $('identity').textContent=`MLS ${p.metadata?.ListingId||p.id} | ${p.metadata?.ListDate||p.metadata?.ListingContractDate||'Listing date unknown'} | ${p.property_type||'Property type unknown'}`;
+ $('era').replaceChildren(node('span',history.blocked?history.block_reason||'Quarantined acquisition evidence.':history.timing_verified?'Source and photo era verified.':'Source / photo era not yet verified. Labels do not override training eligibility.'));
+ const link=node('a',' Verify source / era');link.href='/property-review?property='+encodeURIComponent(p.id);$('era').append(link);
+ $('save-next').disabled=!!history.blocked;
+ $('remarks').textContent=p.mls_remarks||'No listing remarks available.';$('text-remarks').textContent=p.mls_remarks||'No listing remarks available.';
+ $('physical').value=r.physical_condition||'UNKNOWN';$('modernization').value=r.modernization_state||'UNKNOWN';
+ $('fit').value={target:'TARGET',not_target:'NOT_TARGET',unsure:'UNKNOWN'}[r.target_fit]||'UNKNOWN';
+ $('confidence').value=r.confidence||'';$('reason').value=r.reason||'';$('fit-basis').value=r.fit_basis||'unknown';$('evidence-source').value=r.evidence_source||'';
+ $('facts').replaceChildren(...structuredKeys.filter(k=>p.metadata?.[k]!==undefined).map(k=>{const row=node('tr');row.append(node('th',k),node('td',String(p.metadata[k])));return row}));
+ $('thumbnails').replaceChildren(...detail.images.map((image,index)=>{const b=node('button');b.type='button';b.setAttribute('aria-label',`Photo ${index+1}`);const img=node('img');img.src='/api/studio/image?id='+encodeURIComponent(image.id);img.alt=`Photo ${index+1}`;b.append(img);b.onclick=()=>{state.photo=index;renderPhoto()};return b}));
+ renderPhoto();renderSignals();
+}
+function renderPhoto(){
+ const image=state.detail.images[state.photo];$('hero').hidden=!image;$('no-photos').hidden=!!image;$('photo-form').hidden=!image;
+ if(!image){$('hero').removeAttribute('src');$('photo-status').textContent='';return}
+ $('hero').src='/api/studio/image?id='+encodeURIComponent(image.id);
+ $('photo-status').textContent=`Photo ${state.photo+1} of ${state.detail.images.length} | ${image.selection?.included===false?'Excluded: '+image.selection.reason:'Subject relevance still requires review'} | ${image.split==='test'?'Protected test group':'Review evidence'}`;
+ $('photo-context').value=image.review?.context||image.effective?.context||'unknown';$('photo-room').value=image.review?.room||image.effective?.room||'other';$('photo-exclusion').value='';
+ $('photo-physical').value=image.review?.physical_condition||'UNKNOWN';$('photo-modernization').value=image.review?.modernization_state||'UNKNOWN';
+ [...$('thumbnails').children].forEach((b,i)=>b.setAttribute('aria-pressed',String(i===state.photo)));
+}
+function renderSignals(){
+ $('signals').replaceChildren(...state.signals.map((item,i)=>{const row=node('div',undefined,'tag');const remove=node('button','Remove');remove.type='button';remove.onclick=()=>{state.signals.splice(i,1);state.dirty=true;renderSignals()};row.append(remove,node('strong',item.signal.replaceAll('_',' ')+' - '+item.state),node('p',item.snippet||'No supporting snippet supplied'));return row}));
+}
+async function saveNext(event){
+ event.preventDefault();if(state.busy||!state.detail)return;state.busy=true;$('save-next').disabled=true;
+ try{
+  const p=state.detail.property;const saved=await api('/api/studio/v2/label',{id:p.id,expected_revision:p.review?.revision||0,label_evidence_id:state.detail.label_evidence_id,status:'approved',physical_condition:$('physical').value,modernization_state:$('modernization').value,target_fit:{TARGET:'target',NOT_TARGET:'not_target',UNKNOWN:'unsure'}[$('fit').value],target_score:null,condition_label:'unknown',confidence:$('confidence').value||null,evidence_source:$('evidence-source').value||null,fit_basis:$('fit-basis').value,reason:$('reason').value,text_signals:state.signals,reason_tags:p.review?.reason_tags||[],standout_image_ids:p.review?.standout_image_ids||[],notes:p.review?.notes||''});p.review=saved;
+  state.dirty=false;const index=state.items.findIndex(i=>i.id===p.id),next=state.items[index+1];
+  if(next)await loadProperty(next.id);else{state.detail=null;$('property').hidden=true;$('empty').hidden=false;state.offset=0;await loadQueue()}
+  message('Review saved. No training or promotion was started.',true);
+ }finally{state.busy=false;$('save-next').disabled=!!state.detail?.historical_source?.blocked}
+}
+function renderJson(target,data){$(target).replaceChildren(node('pre',JSON.stringify(data,null,2)))}
+async function loadFeedback(){
+ const data=await api('/api/studio/v2/feedback');$('review-content').replaceChildren(node('p',data.notice||data.unavailable||''));
+ for(const item of data.items){const card=node('article',undefined,'card');const body=item.payload;
+  card.append(node('h2',`${body.evidence.listing_id} - ${item.decision||'Pending'}`),node('p',`Release ${body.release_id} | Reviewer ${body.reviewer.id}`),node('pre',JSON.stringify(body.corrections,null,2)));
+  const note=node('textarea');note.placeholder='Review rationale (required)';note.setAttribute('aria-label','Feedback review rationale');card.append(note);
+  for(const decision of ['reviewed','rejected']){const button=node('button',decision==='reviewed'?'Mark reviewed (not training approval)':'Reject correction');button.onclick=guard(async()=>{await api('/api/studio/v2/feedback/review',{event_id:item.event_id,decision,decision_id:crypto.randomUUID(),note:note.value});await loadFeedback()});card.append(button)}
+  $('review-content').append(card);
+ }if(!data.items.length)$('review-content').append(node('p','No production feedback received.'));
+}
+async function boot(){
+ state.caps=await api('/api/studio/v2/capabilities');$('actor').textContent=state.caps.actor.id+' | '+state.caps.actor.role;
+ options('physical',state.caps.taxonomy.physical_condition);options('modernization',state.caps.taxonomy.modernization);options('fit',state.caps.taxonomy.acquisition_fit);options('signal',state.caps.taxonomy.text_signals);
+ options('photo-physical',state.caps.taxonomy.physical_condition);options('photo-modernization',state.caps.taxonomy.modernization);
+ $('preview').disabled=!state.caps.training;$('load-errors').disabled=!state.caps.cloud;
+ document.querySelectorAll('[data-page]').forEach(b=>b.onclick=guard(async()=>{showPage(b.dataset.page);if(b.dataset.page==='operations'){const status=await api('/api/studio/v2/operations');renderJson('operation-content',{...status,blockers:state.caps.blockers})}}));
+ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{for(const name of ['photos','text','facts'])$(name+'-panel').hidden=name!==b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===b)))});
+ $('refresh').onclick=guard(async()=>{state.offset=0;await loadQueue()});$('more').onclick=guard(async()=>{if(state.dirty)throw Error('Save current labels first.');state.offset+=20;await loadQueue()});
+ $('label-form').oninput=()=>{state.dirty=true};$('label-form').onsubmit=guard(saveNext);
+ $('add-signal').onclick=guard(()=>{
+  const snippet=$('snippet').value,remarks=state.detail?.property.mls_remarks||'',index=remarks.indexOf(snippet);
+  if(snippet&&index<0)throw Error('The supporting phrase must exactly match the listing remarks.');
+  const start=snippet?Array.from(remarks.slice(0,index)).length:null;
+  const item={signal:$('signal').value,state:$('signal-state').value,probability:null,snippet:snippet||null,start,end:snippet?start+Array.from(snippet).length:null};
+  state.signals=state.signals.filter(s=>s.signal!==item.signal);state.signals.push(item);state.dirty=true;renderSignals();$('snippet').value='';
+ });
+ $('photo-form').onsubmit=guard(async event=>{
+  event.preventDefault();if(state.dirty)throw Error('Save property labels before saving a photo review.');const image=state.detail.images[state.photo],r=image.review||{},exclude=$('photo-exclusion').value;
+  await api('/api/studio/review',{...r,id:image.id,kind:'image',expected_revision:r.revision||0,reviewer:state.caps.actor.id,status:'draft',context:$('photo-context').value,room:$('photo-room').value,features:exclude?{}:(r.features||{}),preference:exclude?null:(r.preference||null),condition_label:exclude?'unknown':(r.condition_label||'unknown'),physical_condition:$('photo-physical').value,modernization_state:$('photo-modernization').value,...(exclude?{include_in_similarity:false}:{}),notes:exclude?[r.notes,'Excluded: '+exclude].filter(Boolean).join('\n'):(r.notes||'')});
+  await loadProperty(state.detail.property.id);message('Photo review saved as draft. Existing era and protected-test safeguards remain.',true);
+ });
+ $('load-feedback').onclick=guard(loadFeedback);$('load-errors').onclick=guard(async()=>renderJson('review-content',await api('/api/studio/workbench/errors?category='+$('error-category').value)));
+ $('preview').onclick=guard(async()=>{state.preview=await api('/api/studio/v2/dataset/preview',{});state.frozen=null;renderJson('training-result',state.preview);$('freeze').disabled=!state.preview.protected_groups_unchanged;$('train-candidate').disabled=true;$('confirm-training').checked=false});
+ $('freeze').onclick=guard(async()=>{if(!$('confirm-training').checked)throw Error('Confirm the explicit freeze action.');state.frozen=await api('/api/studio/v2/dataset/freeze',{id:state.preview.id,confirmed:true});renderJson('training-result',state.frozen);$('train-candidate').disabled=!state.frozen.trainable;$('freeze').disabled=true;$('confirm-training').checked=false});
+ $('train-candidate').onclick=guard(async()=>{if(!$('confirm-training').checked)throw Error('Confirm the explicit training action.');const job=await api('/api/studio/v2/train',{dataset_fingerprint:state.frozen.fingerprint,confirmed:true});renderJson('training-result',job);$('train-candidate').disabled=true;$('confirm-training').checked=false});
+ $('load-releases').onclick=guard(async()=>renderJson('release-content',await api('/api/studio/v2/releases')));
+ $('load-candidates').disabled=!state.caps.cloud;
+ $('load-candidates').onclick=guard(async()=>{
+  const history=await api('/api/studio/workbench/candidates');
+  for(const id of ['candidate-left','candidate-right'])$(id).replaceChildren(...history.items.map(item=>{const opt=node('option',item.version);opt.value=item.id;return opt}));
+  $('candidate-controls').hidden=history.items.length<2;
+  if(history.items.length>=2)$('candidate-right').selectedIndex=1;
+  renderJson('comparison',history);
+ });
+ $('compare-candidates').onclick=guard(async()=>renderJson('comparison',await api('/api/studio/workbench/compare?left='+encodeURIComponent($('candidate-left').value)+'&right='+encodeURIComponent($('candidate-right').value))));
+ document.addEventListener('keydown',event=>{if(event.ctrlKey&&event.key==='Enter'&&!$('label').hidden&&state.detail&&!$('save-next').disabled){event.preventDefault();$('label-form').requestSubmit()}});
+ window.addEventListener('beforeunload',event=>{if(state.dirty){event.preventDefault();event.returnValue=''}});
+ if(location.pathname==='/advanced'){showPage('advanced');return}
+ await loadQueue();
+}
+guard(boot)();
+</script></body></html>

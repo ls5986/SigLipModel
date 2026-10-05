@@ -326,6 +326,16 @@ class SupabaseStore:
             if source and kind=='image':
                 source = {**source,'split':'test' if source['protected_test'] else 'learning'}
             current = self.database.state(db,kind,identifier)
+            if payload.get('label_schema_version'):
+                from studio_v2 import label_evidence, validate_text_reviews
+                detail = self.property(identifier)
+                prop = detail['property']
+                expected_evidence = label_evidence(
+                    identifier, prop.get('mls_remarks') or '', detail['images'], prop.get('metadata'),
+                )
+                if payload.get('label_evidence_id') != expected_evidence:
+                    raise RuntimeError('Evidence changed; reload before saving labels')
+                validate_text_reviews(payload.get('text_signals', []), prop.get('mls_remarks') or '')
             effective = dict(payload)
             if kind=='image' and 'context' not in effective and current and current.get('context'):
                 effective['context'] = current['context']
@@ -335,6 +345,39 @@ class SupabaseStore:
             }:
                 raise ValueError('Standout photo belongs to another property')
             result = self.database.save(db,kind,identifier,payload.get('expected_revision'),record)
+            if payload.get('label_schema_version'):
+                from psycopg.types.json import Jsonb
+                reviewed_signals = {item['signal'] for item in record['text_signals']}
+                retractions = [
+                    {'signal': item['signal'], 'state': 'UNKNOWN', 'probability': None,
+                     'snippet': None, 'start': None, 'end': None}
+                    for item in (current or {}).get('text_signals', [])
+                    if item['signal'] not in reviewed_signals
+                ]
+                answers = [
+                    ('property_condition', {'value': record.get('physical_condition', 'UNKNOWN')}),
+                    ('property_modernization', {'value': record.get('modernization_state', 'UNKNOWN')}),
+                    ('property_target', {'value': record.get('target_fit') or 'unsure', 'fit_basis': record.get('fit_basis')}),
+                    *[('property_text_signal', item) for item in [*record['text_signals'], *retractions]],
+                ]
+                for task, answer in answers:
+                    previous = db.execute('''SELECT id FROM acq_training.review_events
+                        WHERE workspace_id=%s AND example_id=%s AND task=%s
+                          AND (%s::text IS NULL OR answer->>'signal'=%s)
+                        ORDER BY created_at DESC,id DESC LIMIT 1''',
+                        (self.workspace, examples[0]['id'], task, answer.get('signal'), answer.get('signal'))).fetchone()
+                    db.execute('''INSERT INTO acq_training.review_events
+                        (workspace_id,example_id,task,answer,status,reviewer_id,prediction_was_visible,
+                         prior_event_id,label_schema_version,source_evidence)
+                        VALUES (%s,%s,%s,%s,%s,%s,false,%s,%s,%s)''',
+                        (self.workspace, examples[0]['id'], task, Jsonb(answer), record['status'],
+                         record['reviewer'], previous['id'] if previous else None,
+                         record['label_schema_version'], Jsonb({
+                             'label_evidence_id': expected_evidence, 'property_id': identifier,
+                             'remarks_sha256': hashlib.sha256((prop.get('mls_remarks') or '').encode()).hexdigest(),
+                             'photo_hashes': [{'id': image['id'], 'sha256': image.get('sha256')}
+                                              for image in detail['images']],
+                         })))
         self._index = None
         return result
 
@@ -466,7 +509,7 @@ class SupabaseStore:
         scope, queue = args.get('scope','acquisitions'), args.get('queue','all')
         evidence_filter = args.get('evidence','all')
         if scope not in {'acquisitions','quarantine','reference','training'} or queue not in {
-            'all','ready','unscored','reviewed','photo_match','tagged','todo','opportunity','complete'
+            'all','ready','unscored','reviewed','photo_match','tagged','todo','opportunity','complete','missing_text'
         }:
             raise ValueError('Unknown review queue')
         if evidence_filter not in {'all','interior','limited','metadata_only'}:
@@ -532,6 +575,7 @@ class SupabaseStore:
                         'status':'reviewed' if review.get('status')=='approved' else 'unscored',
                         'human_target':review.get('target_fit'),
                         'human_score':review.get('target_score'),'target':None,
+                        'missing_text':not bool(review.get('text_signals')),
                         # Queue is conservative; property detail verifies exact evidence hash.
                         'needs_photo_match':not(photo.get('count') and era.get('decision')=='correct_era' and era.get('evidence_hash')==photo.get('evidence_hash')),'blocked':blocked or era.get('decision')=='wrong_era',
                         'autolabel_status':label_request.get('status','not_requested'),
@@ -565,6 +609,7 @@ class SupabaseStore:
         counts['interior'] = sum(i['evidence_mode']=='interior' for i in items)
         counts['limited'] = sum(i['evidence_mode']=='limited' for i in items)
         counts['metadata_only'] = sum(i['evidence_mode']=='metadata_only' for i in items)
+        counts['missing_text'] = sum(i['missing_text'] for i in items)
         photo_count = sum(i['image_count'] for i in items)
         search = args.get('search','').strip().casefold()
         items = [i for i in items if (queue=='all' or queue=='todo' and not i['review_complete']
@@ -572,6 +617,7 @@ class SupabaseStore:
                   or queue=='complete' and i['review_complete']
                   or queue=='photo_match' and i['needs_photo_match']
                   or queue=='tagged' and i['autolabel_status']=='completed' and i['tagged_photo_count']
+                  or queue=='missing_text' and i['missing_text']
                   or i['status']==queue)
                  and (evidence_filter=='all' or evidence_filter=='limited' and i['evidence_mode']!='interior'
                       or i['evidence_mode']==evidence_filter)
