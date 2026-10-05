@@ -60,6 +60,7 @@ def process(store, identifier, classifier):
             if stage=='features' and detail['historical_source'].get('photo_coverage')=='no_interior':
                 predictions = [{**pred,'condition_label':'unknown'} for pred in predictions]
             images.extend({**(row['suggestions'][0] if stage=='features' else {}),**pred,
+                          **({'provider':getattr(classifier,'provider','openai')} if stage=='features' else {}),
                           **({'room_source':'SigLIP'} if stage else {}),'image_id':row['id'],'sha256':row['sha256']}
                           for row,pred in zip(batch,predictions))
             claimed = store.save_document(key,{**claimed,'at':now(),'processed_photos':len(images),'total_photos':len(rows)},claimed['revision'])
