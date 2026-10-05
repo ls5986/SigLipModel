@@ -257,7 +257,7 @@ def challenge_item(store, identifier):
 
 
 def property_detail(store, identifier):
-    from v1_models import acquisition_time_metadata
+    from acquisition_metadata import acquisition_time_metadata
     detail = store.property(identifier)
     source = (detail.get("historical_source") or {}).get("source") or {}
     v1_metadata = acquisition_time_metadata(
