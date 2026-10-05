@@ -340,7 +340,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   S.photo=same&&detail.images.some(i=>i.id===oldPhoto)?oldPhoto:(detail.images.find(i=>roomOf(i)==='kitchen')||detail.images[0])?.id;
   document.querySelector('.queue').classList.remove('expanded');document.body.classList.remove('queue-open');drawQueue();draw();
   $('autolabel-status').hidden=!detail.capabilities?.autolabel;$('retry-autolabel').hidden=true;$('test-autolabel').disabled=true;$('label-tools').hidden=!detail.capabilities?.autolabel||!detail.images.length;
-  if(detail.capabilities?.autolabel&&detail.images.length)startAutolabel(id,ticket);
+  if(detail.capabilities?.autolabel&&detail.images.length){const existing=await api('autolabel?'+new URLSearchParams({id}));if(ticket!==S.request)return;S.labelTask={id,ticket,checked:0,...existing};labelStatus(existing);$('label-tools').hidden=true;}
   else{S.labelTask=null;$('autolabel-status').textContent='No valid first-sale photos to classify.';}
  }
  function labelStatus(data){
@@ -369,8 +369,8 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    S.detail.images=fresh.images;drawPhotos();
   }
  }
- $('test-autolabel').onclick=()=>{if(S.detail)startAutolabel(S.detail.property.id,S.request,false,true);};
- $('retry-autolabel').onclick=()=>{if(S.detail)startAutolabel(S.detail.property.id,S.request,true);};
+ $('test-autolabel').onclick=()=>location.assign('/studio?property='+encodeURIComponent(S.detail?.property.id||''));
+ $('retry-autolabel').onclick=()=>location.assign('/studio?property='+encodeURIComponent(S.detail?.property.id||''));
  function draw(){
   const d=S.detail,p=d?.property,job=d?.assessment;
   $('address').textContent=p?.address||'No property selected';$('main-review-link').href='/studio?property='+encodeURIComponent(p?.id||'');
@@ -388,6 +388,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('model-reason').textContent=S.knownTargets?'Confirm the listing/photos, estimate condition from the evidence available, and decide whether this opportunity is worth investigating.':approved?r.reason:S.detail?.capabilities?.assessment===false?'Photos and reviews are saved in Supabase. Rate the property directly; cloud model processing is not enabled for this deployment.':job?.prediction?`Optional AI draft: ${job.prediction.target_reason}`:'Review first from the available photos and property facts. You can request an optional AI second opinion.';
   $('condition').textContent=approved&&r.condition_label?'Your visible condition: '+label(r.condition_label):job?.prediction?'AI condition draft: '+label(condition(job)):'';
   $('model-version').textContent=job?.prediction?`${job.model} · ${job.image_count} selected photos · optional AI draft`:'Human review does not require an AI request. Reviews do not retrain automatically.';
+  $('score-button').hidden=true;
   $('score-button').textContent=job?.prediction?'Refresh optional AI opinion':job?.status==='running'?'Generating AI opinion…':'Get optional AI second opinion';
   const warnings=[...(job?.review_warnings||[]),...(job?.error?[job.error]:[])];
   if(d?.historical_source?.blocked)warnings.push(d.historical_source.block_reason);
@@ -397,6 +398,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('saved-answer').hidden=!approved;$('saved-answer').textContent=approved?`Saved review: ${r.target_score?`${r.target_score}/5 · `:''}${label(r.target_fit)} · ${label(r.confidence||'unknown')} confidence`:'';
   $('next-instruction').textContent=S.knownTargets?'Complete this property review.':S.mode==='matching'?'Are these the right acquisition-era photos?':'Rate whether this property is worth investigating.';
   $('action-note').textContent=S.knownTargets?'One form covers listing/photos, evidence, condition, and opportunity.':S.mode==='matching'?'Confirm the listing and dates, not just how the house looks.':'Use photos, metadata, or both. Missing evidence is not a negative label.';
+  $('decision-title').textContent='Check the sold listing and photo era';$('model-reason').textContent='This step checks identity and dates only. Use Review AI suggestions for condition and Target / Not target judgments.';
   const facts=[
    ['Type',m.PropertySubType||m.PropertyType||p?.property_type],
    ['Built',m.YearBuilt||p?.year_built],
