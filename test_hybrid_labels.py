@@ -58,6 +58,23 @@ def test_retry_clears_prior_failure_diagnostic(monkeypatch):
     assert 'error' not in request and 'error_details' not in request
 
 
+def test_openai_feature_retry_replaces_old_copilot_provider(monkeypatch):
+    monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
+    store=WorkerStore()
+    old={'image_id':'p:photo','sha256':'a'*64,'room':'kitchen','context':'subject','provider':'copilot'}
+    store.docs['autolabel-result:p']={'revision':1,'room_labels_complete':True,'images':[old]}
+    store.docs['autolabel-request:p'].update(policy=hybrid_policy(),stage='features',mode='test',label_provider='openai')
+    store.detail['images'][0].update(selection={'included':True},suggestions=[old],effective={'room':'kitchen'})
+    class Paid:
+        policy=hybrid_policy();stage='features';paid=True;provider='openai'
+        def classify(self,paths,room_tags):
+            return [{'room':'kitchen','model':'gpt-4.1-mini','provenance':'OpenAI image-only draft; human approval required'}]
+    assert process(store,'p',Paid())
+    result=store.docs['autolabel-result:p']['images'][0]
+    assert result['provider']=='openai' and result['room_source']=='SigLIP'
+    assert result['model']=='gpt-4.1-mini'
+
+
 def test_feature_request_with_no_selected_photos_completes_metadata_only(monkeypatch):
     monkeypatch.setenv('STUDIO_AUTOLABEL_PROVIDER','hybrid')
     store=WorkerStore()
