@@ -94,7 +94,7 @@ main{margin:0 0 0 236px;padding:26px 28px 48px;max-width:1680px}h1{font-size:26p
 
 </style></head>
 <body>
-<aside class="sidebar" aria-label="Studio navigation"><div class="brand"><span class="brand-mark" aria-hidden="true">AV</span><div><strong>ACQ <span>Vision</span></strong><small>Human evidence. Better models.</small></div></div><div class="nav-caption">Training workspace</div><nav aria-label="Primary"><a href="/" style="display:block;padding:12px;color:inherit">Overview</a><button data-page="label" class="active" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z M8 9h8 M8 13h5"/></svg>Review properties</button><button data-page="review"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4 M5 4h14v16H5z"/></svg>Feedback inbox</button><button data-page="train"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z M8 9h8 M8 13h5"/></svg>Datasets & models</button><button data-page="releases"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5"/></svg>Releases</button><button data-page="operations"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Worker & connections</button><button data-page="advanced"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16 M4 17h16 M8 4v6 M16 14v6"/></svg>Advanced tools</button></nav><div class="sidebar-note"><strong>Human review comes first</strong>Draft labels need your approval. Saving a review never starts training.</div></aside><header><div class="header-context"><div><strong>Training Studio</strong><small>Review evidence and prepare model candidates</small></div><span class="pill accent">Human review workspace</span></div><div id="actor" class="muted"></div></header>
+<aside class="sidebar" aria-label="Studio navigation"><div class="brand"><span class="brand-mark" aria-hidden="true">AV</span><div><strong>ACQ <span>Vision</span></strong><small>Human evidence. Better models.</small></div></div><div class="nav-caption">Training workspace</div><nav aria-label="Primary"><a href="/" style="display:block;padding:12px;color:inherit">Overview</a><button data-page="label" class="active" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z M8 9h8 M8 13h5"/></svg>Review properties</button><button data-page="review"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4 M5 4h14v16H5z"/></svg>Feedback inbox</button><button data-page="train"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z M8 9h8 M8 13h5"/></svg>Datasets & models</button><button data-page="releases"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5"/></svg>Releases</button><button data-page="operations"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Worker & connections</button><button data-page="advanced"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16 M4 17h16 M8 4v6 M16 14v6"/></svg>Advanced tools</button></nav><div class="sidebar-note"><strong>Human review comes first</strong>Draft labels need your approval. Saving a review never starts training.</div></aside><header><div class="header-context"><div><strong>Review properties</strong><small>Review evidence and prepare model candidates</small></div><span class="pill accent">Human review workspace</span></div><div id="actor" class="muted"></div></header>
 <div id="message" role="status" aria-live="polite"></div>
 <main>
 <section id="label" data-panel>
@@ -163,13 +163,13 @@ async function loadQueue(){
 async function loadProperty(id){
  if(state.dirty)throw Error('Save the current property before selecting another.');
  const request=++state.load;const detail=await api('/api/studio/v2/property?id='+encodeURIComponent(id));if(request!==state.load)return;
- state.detail=detail;state.photo=0;state.signals=structuredClone(detail.property.review?.text_signals||[]);state.dirty=false;
+ state.detail=detail;state.photo=0;if(state.poll)clearTimeout(state.poll);state.signals=structuredClone(detail.property.review?.text_signals||[]);state.dirty=false;
  const p=detail.property,r=p.review||{},history=detail.historical_source||{};
  $('empty').hidden=true;$('property').hidden=false;$('address').textContent=p.address||p.id;
  $('identity').textContent=`MLS ${p.metadata?.ListingId||p.id} | ${p.metadata?.ListDate||p.metadata?.ListingContractDate||'Listing date unknown'} | ${p.property_type||'Property type unknown'}`;
  $('era').replaceChildren(node('span',history.blocked?history.block_reason||'Quarantined acquisition evidence.':history.timing_verified?'Source and photo era verified.':'Source / photo era not yet verified. Labels do not override training eligibility.'));
  const link=node('a',' Verify source / era');link.href='/property-review?property='+encodeURIComponent(p.id);$('era').append(link);
- $('save-next').disabled=!!history.blocked;
+ $('save-next').disabled=!!history.blocked;$('request-proposal').disabled=!!history.blocked;
  $('remarks').textContent=p.mls_remarks||'No listing remarks available.';$('text-remarks').textContent=p.mls_remarks||'No listing remarks available.';
  $('physical').value=r.physical_condition||'UNKNOWN';$('modernization').value=r.modernization_state||'UNKNOWN';
  $('fit').value={target:'TARGET',not_target:'NOT_TARGET',unsure:'UNKNOWN'}[r.target_fit]||'UNKNOWN';
@@ -203,10 +203,11 @@ function renderSignals(){
 function applyDraft(){
  if(state.dirty)throw Error('Your edits are kept. Approve or reload before replacing them with a draft.');
  const draft=state.proposal;if(!draft||draft.label_evidence_id!==state.detail.label_evidence_id)throw Error('This draft uses older evidence. Request a new analysis after checking the source.');
- state.assistantInput=draft.input_sha256;state.assistantProposalId=draft.proposal_id;$('physical').value=draft.physical_condition;$('modernization').value=draft.modernization_state;$('fit').value=draft.acquisition_fit;$('reason').value=draft.reason;state.signals=structuredClone(draft.text_signals);state.dirty=true;renderSignals();$('draft-status').textContent='AI draft ready for your review';$('draft-help').textContent='Check the three answers and highlighted quotes. Correct mistakes, then Approve & Next.';$('use-proposal').disabled=true;
+ state.assistantInput=draft.input_sha256;state.assistantProposalId=draft.proposal_id;$('physical').value=draft.physical_condition;$('modernization').value=draft.modernization_state;$('fit').value=draft.acquisition_fit;$('reason').value=draft.reason;state.signals=structuredClone(draft.text_signals);state.dirty=true;renderSignals();$('draft-status').textContent='AI draft ready for your review';$('draft-help').textContent='OpenAI suggestions, not a trained v2 model. Check the three answers and highlighted quotes, then Approve & Next.';$('use-proposal').disabled=true;
 }
 async function refreshDraft(request=state.load,auto=false){
  const id=state.detail.property.id,data=await api('/api/studio/v2/label/proposal?id='+encodeURIComponent(id));if(request!==state.load||id!==state.detail.property.id)return;
+ if(state.poll)clearTimeout(state.poll);if(['queued','running'].includes(data.request?.status))state.poll=setTimeout(()=>{if(state.detail?.property.id===id)refreshDraft(request,!state.dirty).catch(e=>message(e.message))},5000);
  state.proposal=data.proposal;const current=!!data.proposal&&data.proposal.label_evidence_id===state.detail.label_evidence_id;
  $('use-proposal').disabled=!current||state.dirty;$('proposal-result').replaceChildren();
  if(current){$('draft-status').textContent='Saved AI draft available';$('draft-help').textContent='Suggestions include the description quotes. Review them against the source.';const r=state.detail.property.review||{};if(auto&&!state.dirty&&!r.revision&&!r.legacy&&r.status!=='approved')applyDraft();else if(r.revision||r.status==='approved'){$('draft-status').textContent='Your saved review is loaded';$('draft-help').textContent='Your answers have been kept. Loading the AI draft is optional.'}}
@@ -247,7 +248,7 @@ async function boot(){
   if(snippet&&index<0)throw Error('The supporting phrase must exactly match the listing remarks.');
   const start=snippet?Array.from(remarks.slice(0,index)).length:null;
   const item={signal:$('signal').value,state:$('signal-state').value,probability:null,snippet:snippet||null,start,end:snippet?start+Array.from(snippet).length:null};
-  state.signals=state.signals.filter(s=>s.signal!==item.signal);state.signals.push(item);state.dirty=true;renderSignals();$('snippet').value='';
+  state.signals=state.signals.filter(s=>s.signal!==item.signal);state.signals.push(item);state.dirty=true;renderSignals();$('snippet').value='';message('Evidence correction ready. Approve & Next to save it.',true);
  });
  $('photo-form').onsubmit=guard(async event=>{
   event.preventDefault();if(state.dirty)throw Error('Save property labels before saving a photo review.');const image=state.detail.images[state.photo],r=image.review||{},exclude=$('photo-exclusion').value;
@@ -273,6 +274,7 @@ async function boot(){
  document.addEventListener('keydown',event=>{if(event.ctrlKey&&event.key==='Enter'&&!$('label').hidden&&state.detail&&!$('save-next').disabled){event.preventDefault();$('label-form').requestSubmit()}});
  window.addEventListener('beforeunload',event=>{if(state.dirty){event.preventDefault();event.returnValue=''}});
  if(location.pathname==='/advanced'){showPage('advanced');return}
+ const destination=location.hash.slice(1);if(['train','review','releases','operations','advanced'].includes(destination)){showPage(destination);return}
  await loadQueue();
 }
 guard(boot)();
