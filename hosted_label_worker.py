@@ -12,14 +12,14 @@ from cloud_autolabel import heartbeat, process
 STOP = threading.Event()
 
 
-def eligible_request(request, stage):
+def eligible_request(request, stage, provider="copilot"):
     if not request or request.get("stage", "rooms") != stage:
         return False
     # Never drain old bulk requests merely because a new worker was deployed.
     return request.get("mode") != "all" and (
         stage == "rooms" or (
             request.get("mode") == "test"
-            and request.get("label_provider") == "copilot"
+            and request.get("label_provider", "openai") == provider
         )
     )
 
@@ -33,13 +33,58 @@ def poll_once(store, classifiers, process_request=process):
         for identifier in store.autolabel_pending(stage=stage):
             if STOP.is_set():
                 break
-            if not eligible_request(store.document("autolabel-request:" + identifier), stage):
+            if not eligible_request(store.document("autolabel-request:" + identifier), stage,
+                                    getattr(classifier, "provider", "copilot")):
                 continue
             try:
                 count += bool(process_request(store, identifier, classifier))
             except Exception:
                 print("Draft request failed; inspect saved status before retrying.", flush=True)
     return count
+
+
+def optional_copilot(store, factory=None):
+    """Keep room tagging available while an optional provider is unconfigured."""
+    limit = int(os.environ.get("STUDIO_COPILOT_MAX_CALLS_PER_DAY", "2"))
+    if not 1 <= limit <= 10:
+        raise ValueError("Hosted Copilot daily budget must be 1 through 10")
+    os.environ["STUDIO_COPILOT_MAX_CALLS_PER_DAY"] = str(limit)
+    if factory is None:
+        from copilot_labels import CopilotLabels
+        factory = CopilotLabels
+    classifier = factory(store)
+    try:
+        classifier.transport.preflight()
+    except Exception:
+        # Never persist provider exception text, tokens or authentication bodies.
+        heartbeat(store, "unconfigured", "Copilot authentication/model preflight failed; no feature requests processed.",
+                  stage="features", provider="copilot")
+        print("Copilot preflight failed. Room tagging remains available; Copilot feature requests stay blocked.", flush=True)
+        try:
+            classifier.close()
+        except Exception:
+            pass
+        return None
+    return classifier
+
+
+def optional_openai(store, factory=None):
+    limit = int(os.environ.get("STUDIO_OPENAI_MAX_CALLS_PER_DAY", "2"))
+    if not 1 <= limit <= 10:
+        raise ValueError("Hosted OpenAI daily budget must be 1 through 10")
+    os.environ["STUDIO_OPENAI_MAX_CALLS_PER_DAY"] = str(limit)
+    if not os.environ.get("OPENAI_API_KEY", "").strip():
+        heartbeat(store, "unconfigured", "Add OPENAI_API_KEY to this worker's managed environment; no feature requests processed.",
+                  stage="features", provider="openai")
+        print("OpenAI key missing. Room tagging remains available; OpenAI feature requests stay blocked.", flush=True)
+        return None
+    from openai_labels import OpenAILabels, hybrid_policy
+    classifier = (factory or OpenAILabels)(store)
+    classifier.policy = hybrid_policy()
+    classifier.stage = "features"
+    classifier.provider = "openai"
+    classifier.paid = True
+    return classifier
 
 
 def main():
@@ -58,23 +103,19 @@ def main():
     from automatic_labels import SiglipLabels, active_policy
     store = from_env().get_studio().store
     classifiers = []
-    copilot = None
+    paid = None
     try:
         heartbeat(store, "loading", stage="rooms")
         rooms = SiglipLabels()
         rooms.policy = active_policy()
         rooms.stage = "rooms"
         classifiers.append(rooms)
-        if os.environ.get("STUDIO_COPILOT_ENABLED", "false").lower() == "true":
-            # Enforced by the existing provider's durable daily budget.
-            limit = int(os.environ.get("STUDIO_COPILOT_MAX_CALLS_PER_DAY", "2"))
-            if not 1 <= limit <= 10:
-                raise ValueError("Hosted Copilot daily budget must be 1 through 10")
-            os.environ["STUDIO_COPILOT_MAX_CALLS_PER_DAY"] = str(limit)
-            from copilot_labels import CopilotLabels
-            copilot = CopilotLabels(store)
-            copilot.transport.preflight()
-            classifiers.append(copilot)
+        if os.environ.get("STUDIO_OPENAI_ENABLED", "false").lower() == "true":
+            paid = optional_openai(store)
+        elif os.environ.get("STUDIO_COPILOT_ENABLED", "false").lower() == "true":
+            paid = optional_copilot(store)
+        if paid:
+            classifiers.append(paid)
         last_heartbeat = 0
         while not STOP.is_set():
             if time.monotonic() - last_heartbeat >= 30:
@@ -85,8 +126,8 @@ def main():
             poll_once(store, classifiers)
             STOP.wait(5)
     finally:
-        if copilot:
-            copilot.close()
+        if paid:
+            paid.close()
         for classifier in classifiers:
             heartbeat(store, "stopped", stage=classifier.stage,
                       provider=getattr(classifier, "provider", None))
