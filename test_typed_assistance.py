@@ -166,3 +166,46 @@ def test_read_only_preview_available_to_authenticated_reviewers(monkeypatch):
     monkeypatch.setattr("typed_dataset.preview",lambda store:{"read_only":True})
     studio=SimpleNamespace(store=SimpleNamespace(database=True))
     assert studio_v2.post(studio,"/api/studio/v2/dataset/preview",{})=={"read_only":True}
+
+
+def test_unique_verbatim_snippet_offsets_are_derived_without_changing_evidence():
+    store=Store(); req=request(store); value=proposal()
+    signal=next(item for item in value["text_signals"] if item["signal"]=="needs_tlc")
+    signal.update(start=1,end=10)
+    provider,calls=classifier(value)
+    assert process(store,req,provider) and len(calls)==1
+    saved=store.document("typed-label-result:listing")
+    signal=next(item for item in saved["text_signals"] if item["signal"]=="needs_tlc")
+    assert signal["snippet"]=="Needs TLC" and signal["start"]==0 and signal["end"]==9
+    assert saved["status"]=="draft" and saved["trained_v2"] is False
+
+
+def test_ambiguous_and_invented_snippets_never_get_guessed_offsets():
+    from typed_label_assistant import anchor_text_spans
+    for remarks,snippet in [("Needs TLC. Needs TLC", "Needs TLC"),("Needs TLC", "Needs repair")]:
+        item={"state":"PRESENT", "snippet":snippet, "start":99, "end":100}
+        assert anchor_text_spans([item],remarks)[0]["start"]==99
+
+
+def test_provider_failure_records_only_safe_stage_and_status():
+    import httpx
+    store=Store();req=request(store)
+    response=httpx.Response(401,request=httpx.Request("POST","https://api.openai.com/v1/responses"))
+    def fail(*args,**kwargs):
+        raise httpx.HTTPStatusError("secret-provider-body-and-key",request=response.request,response=response)
+    provider,_=classifier(proposal());provider.client.post=fail
+    assert not process(store,req,provider)
+    saved=store.document("typed-label-request:listing")
+    assert saved["error_stage"]=="provider_request" and saved["provider_status"]==401
+    assert saved["error_kind"]=="HTTPStatusError" and "secret-provider" not in json.dumps(saved)
+    assert store.document("typed-label-result:listing") is None
+
+
+def test_text_evidence_failure_reports_stage_without_private_evidence():
+    store=Store();req=request(store);value=proposal()
+    signal=next(item for item in value["text_signals"] if item["signal"]=="needs_tlc")
+    signal["snippet"]="Private invented evidence"
+    provider,_=classifier(value);assert not process(store,req,provider)
+    saved=store.document("typed-label-request:listing")
+    assert saved["error_stage"]=="text_evidence"
+    assert "Private invented evidence" not in json.dumps(saved)
