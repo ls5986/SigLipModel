@@ -72,15 +72,21 @@ Existing staging only: Studio `srv-daukbp8u01pc7382dlng`, worker
 No production change, new billable service, protected-branch merge, training job or
 bulk enqueue is requested by this branch.
 
-The producer migration `20261002210000_actvision_v2_contracts.sql` is missing from
-actual staging migration history and must precede typed review writes. Inspect
-current migration history and a usable managed backup/recovery point first. Apply
-only the missing reviewed migration transactionally with administrative credentials;
-continue runtime under its restricted workspace role. Do not recreate base schema.
-If migration fails, roll back the transaction. If application verification fails,
-redeploy the prior recorded Studio/worker commits while retaining additive schema
-and all existing reviews/photos. A verified database recovery point is still required
-before applying a migration to this non-disposable project.
+The reviewed producer migration `20261002210000_actvision_v2_contracts.sql` was
+applied on 2026-10-05 to this training project, recorded as migration history
+`20261005201127` (`actvision_v2_contracts`). No base schema was recreated.
+The user-supplied dashboard screenshot listed a physical backup at
+2026-10-05 04:08:56 UTC; it was not restore-tested and excludes Storage objects.
+Application recovery is redeployment of the prior recorded commits while retaining
+the additive schema and existing reviews/photos. A managed database restore remains
+an emergency action requiring separate approval and would discard later changes.
+
+Before/after migration counts remained 618 examples and 13,271 photos, with unchanged
+example, photo and existing human-review fingerprints. Runtime uses
+`acq_studio_runtime`, the explicit training workspace and encrypted client
+connections (`ssl_in_use=true`, `sslmode=require`). The private photo bucket
+`acq-training-private` remains non-public. Pooler-to-database `pg_stat_ssl` is not
+the client connection's TLS indicator.
 
 Worker build: `python -B build_label_worker.py`; start:
 `python -B hosted_label_worker.py`. Studio continues its existing hosted build/start.
@@ -92,3 +98,58 @@ Remaining model work: grouped out-of-fold vision/semantic-text/structured traini
 calibration, fusion, durable bundles, protected-slice thresholds and compatible
 inference adapters. A paid draft assistant is useful immediately after deployment;
 it does not complete these model-training pieces.
+
+## Actual staging verification: 2026-10-05
+
+- Studio service `srv-daukbp8u01pc7382dlng`: commit
+  `a1566b85b205eb1ed066245c2bda0e99208d7158`, deploy
+  `dep-db20h9ss728c73akh8ig`, live; health version `a1566b85b205`.
+- Worker `srv-db1t8o2jnfac73ehen70`: commit
+  `933abf915e5fbf507716766cd8a5ee08f132a686`, deploy
+  `dep-db20g1rncjis73b8begg`, live; running commit verified in the instance.
+  Both use the feature branch, with auto-deploy off; no merge was performed.
+- Authenticated home, Studio, source ledger, MLS validation, status, feedback inbox
+  and release list returned 200. Unauthenticated v2 capabilities returned 401.
+  An intentionally stale save returned 409 without writing a review.
+- The all-record queue returned 463 matched listings. Imported ledger totals are
+  618 source rows / 551 physical groups; these are not approved human task labels.
+- Real source/era-verified listing `1145875648` had 21 retained photos and actual
+  remarks; a retained thumbnail returned 200 image/jpeg. No evidence was fabricated.
+- An explicitly queued single OpenAI typed request was consumed by the hosted worker
+  but failed before saving any proposal. The original code retained only a generic
+  error, so its cause is unknown. No successful model proposal is claimed.
+  Today's two shared call slots are consumed; no automatic retry or budget increase
+  occurred. The newer worker records safe failure stage/type/status, without provider
+  bodies or keys, and derives offsets only from unique exact verbatim snippets.
+  Those diagnostics have not been verified with another paid request.
+- Worker typed/OpenAI flags are true; Copilot false; paused false; daily limit 2.
+  Pinned semantic checkpoint all-MiniLM-L6-v2 revision
+  `1110a243fdf4706b3f48f1d95db1a4f5529b4d41` verified at runtime.
+  Provisioning a frozen encoder is not training task heads or a fusion bundle.
+- Corrected read-only v2 preview returned 200: 0 approved typed review rows,
+  0 independent train/validation/protected-test groups, all per-class/per-tag approved
+  coverage counts 0, and 7 actual legacy/draft review representations.
+  Empty imported review envelopes are no longer counted as reviews.
+  Missing-modality totals among the empty approved set cannot describe all imports.
+- Existing source/era and legacy human review records remain non-disposable.
+  No human label was approved on the user's behalf; review_events remains 0.
+  Human Save & Next/reload history, Advanced-tag/standout retention, and real model-backed
+  feedback remain unverified in this deployment. Disposable/local tests cover their
+  underlying persistence, contracts and guards.
+- 129 focused Python tests passed before the audit-counter refinement; the final
+  typed-assistance suite passed all 19 cases, including the three added audit cases.
+  Updated full browser regression remains unrun (local Chromium installation failed).
+- MLS dev consumer was not deployed or migrated in this action. Its default-off shadow
+  integration, migration 0046, service-to-service secret configuration, compatible
+  trained bundle/adapters and protected-slice acceptance remain prerequisites.
+  Studio ACTVISION_SERVICE_TOKEN is missing; no credential was disclosed or changed.
+  No new billable infrastructure, training, freeze, promotion or canonical MLS write
+  occurred. The dashboard also showed a quota restriction warning for 26 October;
+  billing and plan settings were left unchanged.
+
+The next bounded live test is an explicit single-property retry after the shared UTC
+daily budget resets, using the deployed diagnostics. After a valid draft exists,
+the reviewer verifies/tweaks and explicitly approves it; the approved typed preview
+can then demonstrate persistence and label revision invalidation. Start with a small,
+varied independently grouped batch, filling supported positive/negative classes and
+missing-modality examples. The planning floor above is not a model-quality guarantee.
