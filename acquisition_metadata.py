@@ -1,4 +1,9 @@
-"""Dependency-free acquisition-time facts shared by hosted review and model workers."""
+"""Sale-history metadata enrichment for review pages and legacy models.
+
+Uses only the standard library so hosted review does not load the training stack.
+"""
+from __future__ import annotations
+
 from datetime import datetime
 
 

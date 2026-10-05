@@ -8,7 +8,6 @@ from __future__ import annotations
 import math
 from collections import Counter
 from dataclasses import dataclass
-
 from acquisition_metadata import _date, acquisition_time_metadata
 
 import numpy as np
