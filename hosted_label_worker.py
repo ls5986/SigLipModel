@@ -70,8 +70,8 @@ def optional_copilot(store, factory=None):
 
 def optional_openai(store, factory=None):
     limit = int(os.environ.get("STUDIO_OPENAI_MAX_CALLS_PER_DAY", "2"))
-    if not 1 <= limit <= 10:
-        raise ValueError("Hosted OpenAI daily budget must be 1 through 10")
+    if not 1 <= limit <= 500:
+        raise ValueError("Hosted OpenAI daily budget must be 1 through 500")
     os.environ["STUDIO_OPENAI_MAX_CALLS_PER_DAY"] = str(limit)
     if not os.environ.get("OPENAI_API_KEY", "").strip():
         heartbeat(store, "unconfigured", "Add OPENAI_API_KEY to this worker's managed environment; no feature requests processed.",
@@ -132,7 +132,10 @@ def main():
             if paid and getattr(paid, "provider", None) == "openai":
                 from typed_label_assistant import poll
                 try:
-                    poll(store, paid)
+                    from typed_draft_batch import advance, budget_available
+                    if budget_available(store, paid):
+                        advance(store)
+                        poll(store, paid)
                 except Exception:
                     print("Typed draft polling failed; inspect request status before retrying.", flush=True)
             STOP.wait(5)
