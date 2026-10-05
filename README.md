@@ -708,6 +708,27 @@ service deliberately installs `requirements-hosted.txt` and does not load Torch 
 Setting an OpenAI key alone does not start the SigLIP worker. The UI reports a missing room worker.
 To keep a legacy room-only setup, set `STUDIO_AUTOLABEL_PROVIDER=siglip` on both runtimes.
 
+Workbench property detail uses `acquisition_metadata.py` for deterministic prior-sale facts,
+not the ML module `v1_models.py`. The latter re-exports the helper for existing worker callers.
+This boundary keeps NumPy, SciPy and scikit-learn out of the hosted property-open path;
+installing NumPy alone would only expose the next missing training dependency.
+
+Before publishing hosted changes, run the synthetic HTTP smoke test in a **fresh** environment,
+not the full model-development environment:
+
+```powershell
+python -m venv .venv-hosted
+.\.venv-hosted\Scripts\python.exe -m pip install -r requirements-hosted.txt
+.\.venv-hosted\Scripts\python.exe test_hosted_runtime.py -v
+```
+
+This standard-library test runner requires no pytest install. It verifies hosted startup
+without a paid key, authenticated queue/property detail, acquisition-time facts, images,
+thumbnails, v2 labels and stale revisions with synthetic storage, plus operator restrictions.
+It refuses a standalone run if ML packages are installed, so a full development environment
+cannot mask missing hosted-runtime dependencies. It does not connect to a real database,
+start training, or call a provider.
+
 Photo thumbnails now have **Use photo** checkboxes. Confident floor plans, documents/maps, unrelated
 images and shared amenities are automatically unchecked; uncertain photos stay selected for review.
 The checkbox is a human override and does not approve any room or condition label.
