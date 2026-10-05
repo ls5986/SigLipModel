@@ -69,12 +69,28 @@ def result(store, detail):
         "notice":"Drafts need explicit human verification; opening this page sends no model request."}
 
 
+def anchor_text_spans(items, remarks):
+    """Derive offsets from unique verbatim spans; never invent or fuzzy-match evidence."""
+    for item in items:
+        snippet = item.get("snippet")
+        if item.get("state") not in {"PRESENT", "ABSENT"} or not isinstance(snippet, str) or not snippet:
+            continue
+        start, end = item.get("start"), item.get("end")
+        if type(start) is int and type(end) is int and 0 <= start < end <= len(remarks) and remarks[start:end] == snippet:
+            continue
+        first = remarks.find(snippet)
+        if first >= 0 and remarks.find(snippet, first + 1) < 0:
+            item["start"], item["end"] = first, first + len(snippet)
+    return items
+
+
 def process(store, request, classifier):
     """Worker CAS claim; interrupted paid requests never automatically retry."""
     key = "typed-label-request:" + request["property_id"]
     if request.get("status") != "queued" or request.get("mode") != "single" or request.get("policy") != POLICY:
         return False
     active = store.save_document(key, {**request, "status":"running", "at":now()}, request["revision"])
+    stage = "source_evidence"
     try:
         detail = store.property(request["property_id"])
         if evidence(detail) != request["label_evidence_id"] or (detail.get("historical_source") or {}).get("blocked"):
@@ -98,7 +114,9 @@ def process(store, request, classifier):
             raise ValueError("No usable evidence")
         if len(inputs["remarks"]) > 16000:
             raise ValueError("Remarks exceed bounded analysis limit")
+        stage = "daily_budget"
         classifier.reserve_call()  # Shares the existing bounded daily OpenAI budget.
+        stage = "provider_request"
         response = classifier.client.post("https://api.openai.com/v1/responses",
             headers={"Authorization":"Bearer " + classifier.key}, json={
                 "model":classifier.model, "store":False, "max_output_tokens":6000,
@@ -106,6 +124,7 @@ def process(store, request, classifier):
                 "text":{"format":{"type":"json_schema","name":"typed_property_draft","strict":True,"schema":schema()}},
             })
         response.raise_for_status()
+        stage = "provider_response"
         body = response.json()
         if body.get("status") != "completed":
             raise ValueError("Incomplete provider response")
@@ -114,16 +133,22 @@ def process(store, request, classifier):
         proposal = json.loads(content)
         from jsonschema import validate
         from studio_v2 import validate_text_reviews
+        stage = "structured_schema"
         validate(proposal, schema())
+        stage = "text_evidence"
+        anchor_text_spans(proposal["text_signals"], inputs["remarks"])
         validate_text_reviews(proposal["text_signals"], inputs["remarks"])
+        stage = "semantic_coverage"
         if {item["signal"] for item in proposal["text_signals"]} != set(TEXT_SIGNALS):
             raise ValueError("Incomplete semantic tags")
         for item in proposal["text_signals"]:
             if item["state"] == "ABSENT" and not item["snippet"]:
                 raise ValueError("ABSENT requires explicit contrary text evidence")
+        stage = "evidence_recheck"
         latest = store.property(prop["id"])
         if evidence(latest) != request["label_evidence_id"] or (latest.get("historical_source") or {}).get("blocked"):
             raise ValueError("Evidence changed during inference")
+        stage = "proposal_persistence"
         previous = store.document("typed-label-result:" + prop["id"]) or {}
         store.save_document("typed-label-result:" + prop["id"], {**proposal,
             "proposal_id":digest({"proposal":proposal, "input_sha256":digest(inputs),
@@ -132,11 +157,17 @@ def process(store, request, classifier):
             "label_evidence_id":request["label_evidence_id"], "policy":POLICY,
             "model":classifier.model, "input_sha256":digest(inputs), "property_id":prop["id"],
             "requested_by":request["requested_by"], "at":now(), "trained_v2":False}, previous.get("revision", 0))
+        stage = "request_completion"
         store.save_document(key, {**active, "status":"completed", "at":now()}, active["revision"])
         return True
-    except Exception:
+    except Exception as exc:
         # Never persist provider exception bodies, credentials or private evidence.
+        import httpx
+        safe_types = {"ValueError", "RuntimeError", "ValidationError", "JSONDecodeError",
+            "HTTPStatusError", "ReadTimeout", "ConnectTimeout", "ConnectError"}
         store.save_document(key, {**active, "status":"failed", "at":now(),
+            "error_stage":stage, "error_kind":type(exc).__name__ if type(exc).__name__ in safe_types else "UnexpectedError",
+            "provider_status":exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None,
             "error":"Draft request failed or evidence changed; explicit retry required."}, active["revision"])
         return False
 
