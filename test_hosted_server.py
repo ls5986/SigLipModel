@@ -62,22 +62,22 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         cookie=headers['Set-Cookie'].split(';',1)[0]
         status,_,body=request(port,'GET','/',headers={'Cookie':cookie})
         assert status==200 and b'Your property training workspace' in body
-        assert b'/api/studio/review-queue?scope=acquisitions&queue=all' in body
+        assert b'/api/studio/review-queue?scope=all&queue=all' in body
         assert b'No trained v2 fusion bundle is deployed' in body
         status,_,body=request(port,'GET','/mls-validation',headers={'Cookie':cookie})
         assert status==200 and b'Acquisition MLS Validation' in body
         assert request(port,'GET','/mls-validation')[0]==303
         status,_,body=request(port,'GET','/property-review',headers={'Cookie':cookie})
         assert status==200 and b'/status#models' in body and b'Training status' in body
-        status,_,body=request(port,'GET','/workbench',headers={'Cookie':cookie})
-        assert status==200 and b'Model Workbench' in body and b'TRAIN NEW CANDIDATE' in body
+        status,headers,body=request(port,'GET','/workbench',headers={'Cookie':cookie})
+        assert status==303 and headers['Location']=='/status'
         status,headers,_=request(port,'GET','/?property=listing',headers={'Cookie':cookie})
         assert status==303 and headers['Location']=='/property-review?property=listing'
         status,_,body=request(port,'GET','/source-rows',headers={'Cookie':cookie})
-        assert status==200 and b'All workbook rows' in body
+        assert status==200 and b'All imported source records' in body
         assert request(port,'GET','/source-rows')[0]==303
         status,_,body=request(port,'GET','/status',headers={'Cookie':cookie})
-        assert status==200 and b'Training and data status' in body
+        assert status==200 and b'Models and worker readiness' in body
         status,_,body=request(port,'GET','/api/studio/review-queue',headers={'Cookie':cookie})
         assert status==200 and json.loads(body)['token']=='csrf'
         payload=json.dumps({'answer':True})
@@ -97,12 +97,12 @@ def test_review_ui_handles_html_api_responses_and_exposes_tagged_queue():
     assert page.index("contentType.includes('application/json')") < page.index('response.json();')
 
 
-def test_workbench_handles_expired_sessions_before_parsing_json():
-    page = open('workbench_ui.html', encoding='utf-8').read()
-    assert "redirect:'error'" in page
-    assert "contentType.includes('application/json')" in page
-    assert "window.location.assign(data.login||'/login')" in page
-    assert page.index("contentType.includes('application/json')") < page.index('response.json();')
+def test_readiness_handles_expired_sessions_before_parsing_json():
+    page = open('hosted_status.html', encoding='utf-8').read()
+    assert "r.status===401" in page
+    assert "location.assign('/login')" in page
+    assert page.index("includes('application/json')") < page.index('await r.json()')
+    assert 'TRAIN NEW CANDIDATE' not in page
 
 
 def test_authenticated_thumbnail_is_generated_without_studio_api_dispatch(monkeypatch,tmp_path):
@@ -162,3 +162,4 @@ def test_hosted_auth_rejects_weak_or_non_https_configuration(monkeypatch):
     monkeypatch.setenv('STUDIO_LOGIN_PASSWORD','short')
     monkeypatch.setenv('STUDIO_SESSION_SECRET','short')
     with pytest.raises(ValueError): HostedAuth()
+
