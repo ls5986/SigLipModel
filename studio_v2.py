@@ -57,6 +57,9 @@ def get(studio, raw_path):
     args = {k: v[0] for k, v in parse_qs(parsed.query).items()}
     action = parsed.path.removeprefix("/api/studio/v2/")
     cloud = hasattr(studio.store, "database")
+    if action == "label/batch":
+        from typed_draft_batch import status
+        return status(studio.store)
     if action == "samples":
         from sample_selection import listing
         return listing(studio.store)
@@ -112,6 +115,10 @@ def post(studio, path, payload):
         if not cloud: raise ValueError("Hosted sample selection requires cloud storage")
         from sample_selection import change
         return change(studio, payload, identity()["id"])
+    if action == "label/batch":
+        if not cloud: raise ValueError("Hosted batches require cloud storage")
+        from typed_draft_batch import create
+        return create(studio.store, payload, identity()["id"])
     if action == "label/propose":
         if not cloud:
             raise ValueError("Hosted draft requests require cloud storage")
