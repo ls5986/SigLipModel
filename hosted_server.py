@@ -189,7 +189,7 @@ def create_server(port, app, auth):
                     return self.data(401,{"error":"Your session expired. Sign in again.","login":"/login"})
                 return self.reply(303,b"",headers=[("Location","/login")])
             if path=="/" and parse_qs(urlparse(self.path).query).get("property"):
-                return self.reply(303,b"",headers=[("Location","/property-review?"+urlparse(self.path).query)])
+                return self.reply(303,b"",headers=[("Location","/studio?"+urlparse(self.path).query)])
             if path=="/":
                 return self.reply(200,(CODE_ROOT/"studio_home.html").read_bytes(),"text/html; charset=utf-8")
             if path=="/studio":
@@ -201,7 +201,9 @@ def create_server(port, app, auth):
                 return self.reply(200,(CODE_ROOT/page).read_bytes(),"text/html; charset=utf-8")
             if path=="/research":
                 return self.reply(503,b"Prompt-lab research tools require the local research backend. No paid/model action was started.")
-            if path in {"/property-review","/review"}:
+            if path in {"/property-review", "/review"}:
+                return self.reply(303,b"",headers=[("Location","/studio"+("?"+urlparse(self.path).query if urlparse(self.path).query else ""))])
+            if path=="/source-evidence":
                 page=(CODE_ROOT/"review_ui.html").read_bytes().replace(
                     b"Local preview",b"Cloud development"
                 ).replace(
