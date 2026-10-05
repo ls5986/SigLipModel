@@ -1,5 +1,5 @@
 {
-  "audited_at": "2026-10-05T18:46:00Z",
+  "audited_at": "2026-10-05T18:44:35Z",
   "scope": "Read-only existing training workspace; no label/source/era changes",
   "project": "tokcjofzlbjcqkuzhvrd",
   "workspace": "eb653547-fcfa-520b-ab4a-0f7359bda381",
@@ -18,7 +18,12 @@
     "finite": true,
     "oom_events": 0,
     "new_paid_calls": 0,
-    "trained_candidate": false
+    "trained_candidate": false,
+    "heartbeat": {
+      "rooms": "2026-10-05T18:43:53.400920+00:00",
+      "openai_features": "2026-10-05T18:43:56.128493+00:00",
+      "status": "ready"
+    }
   },
   "findings": {
     "approved_legacy_reviews_mapped": 7,
