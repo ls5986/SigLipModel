@@ -191,9 +191,13 @@ def create_server(port, app, auth):
             if path=="/" and parse_qs(urlparse(self.path).query).get("property"):
                 return self.reply(303,b"",headers=[("Location","/property-review?"+urlparse(self.path).query)])
             if path=="/":
+                return self.reply(200,(CODE_ROOT/"studio_home.html").read_bytes(),"text/html; charset=utf-8")
+            if path=="/studio":
                 return self.reply(200,(CODE_ROOT/"training_studio.html").read_bytes(),"text/html; charset=utf-8")
-            if path in {"/advanced", "/mls-validation"}:
-                page = "training_studio.html" if path == "/advanced" else "mls_validation_ui.html"
+            if path in {"/advanced", "/workbench", "/legacy", "/research"}:
+                return self.reply(303,b"",headers=[("Location","/studio")])
+            if path == "/mls-validation":
+                page = "mls_validation_ui.html"
                 return self.reply(200,(CODE_ROOT/page).read_bytes(),"text/html; charset=utf-8")
             if path=="/research":
                 return self.reply(503,b"Prompt-lab research tools require the local research backend. No paid/model action was started.")
@@ -303,3 +307,4 @@ def main():
         server.server_close()
 
 if __name__=="__main__": main()
+
