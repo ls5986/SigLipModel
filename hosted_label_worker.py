@@ -98,6 +98,9 @@ def main():
     expected = os.environ.get("STUDIO_LABEL_WORKER_WORKSPACE")
     if not expected or expected != os.environ.get("STUDIO_WORKSPACE_ID"):
         raise ValueError("Explicit worker workspace binding required")
+    from provision_semantic_encoder import verify
+    checkpoint = verify()
+    print("Semantic text checkpoint verified: " + checkpoint["revision"] + "; no training or scoring enabled.", flush=True)
     os.environ["STUDIO_AUTOLABEL_PROVIDER"] = "hybrid"
     from cloud_runtime import from_env
     from automatic_labels import SiglipLabels, active_policy
