@@ -161,7 +161,7 @@ async function loadQueue(){
  const data=await api('/api/studio/review-queue?scope=all&queue='+encodeURIComponent($('queue-filter').value)+'&search='+encodeURIComponent($('search').value)+'&offset='+state.offset+'&limit=20');
  state.items=data.items;state.total=data.total;renderQueue();$('counts').replaceChildren();
  for(const [title,value] of [['Unlabeled',data.counts.unscored],['Reviewed',data.counts.reviewed],['Missing text labels',data.counts.missing_text],['Source / photo checks',data.counts.photo_match]]){const card=node('div',undefined,'card');card.append(node('span',value??'Unavailable','metric'),node('span',title));$('counts').append(card)}
- if(!state.detail){const wanted=new URLSearchParams(location.search).get('property');if(wanted)await loadProperty(wanted);else if(state.items.length)await loadProperty(state.items[0].id)}
+ if(!state.detail){const wanted=!state.deepLinkUsed&&new URLSearchParams(location.search).get('property');state.deepLinkUsed=true;if(wanted)await loadProperty(wanted);else if(state.items.length)await loadProperty(state.items[0].id)}
 }
 async function loadProperty(id){
  if(state.dirty)throw Error('Save the current property before selecting another.');
@@ -244,7 +244,8 @@ async function boot(){
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{for(const name of ['photos','text','facts'])$(name+'-panel').hidden=name!==b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===b)))});
  $('load-samples').onclick=guard(async()=>{const data=await api('/api/studio/v2/samples');state.samples=data;renderSamples()});
  $('add-sample').onclick=guard(async()=>{if(!state.detail)throw Error('Open a listing first.');const current=await api('/api/studio/v2/samples');state.samples=await api('/api/studio/v2/samples',{action:'add',id:state.detail.property.id,expected_revision:current.revision});renderSamples();message('Added to your review samples. No labels approved or dataset splits changed.',true)});
- $('refresh').onclick=guard(async()=>{state.offset=0;await loadQueue()});$('more').onclick=guard(async()=>{if(state.dirty)throw Error('Save current labels first.');state.offset+=20;await loadQueue()});
+ const searchQueue=guard(async()=>{if(state.dirty&&!window.confirm('Search another listing and discard unsaved edits? Nothing will be approved.'))return;state.dirty=false;state.detail=null;state.offset=0;await loadQueue()});
+ $('refresh').onclick=searchQueue;$('search').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();searchQueue(event)}};$('more').onclick=guard(async()=>{if(state.dirty)throw Error('Save current labels first.');state.offset+=20;await loadQueue()});
  $('skip-property').onclick=guard(async()=>{if(state.busy)return;const index=state.items.findIndex(i=>i.id===state.detail.property.id),next=state.items[index+1];if(!next)throw Error('End of this page. Reload to discard this draft and choose another queue.');if(state.dirty&&!window.confirm('Skip this property and discard unsaved edits? Nothing will be approved.'))return;state.dirty=false;await loadProperty(next.id);message('Skipped. No review was saved.',true)});
  $('label-form').oninput=()=>{state.dirty=true};$('label-form').onsubmit=guard(saveNext);
  $('capture-quote').onclick=guard(()=>{const selection=window.getSelection();if(!selection||!$('text-remarks').contains(selection.anchorNode)||!$('text-remarks').contains(selection.focusNode))throw Error('Select a phrase inside the description first.');$('snippet').value=selection.toString()});
