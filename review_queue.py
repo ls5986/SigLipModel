@@ -6,7 +6,7 @@ from pilot import read_json
 
 def review_queue(studio, args):
     scope = args.get("scope", "acquisitions")
-    if scope not in {"acquisitions", "quarantine", "reference"}:
+    if scope not in {"all", "acquisitions", "quarantine", "reference"}:
         raise ValueError("Unknown dataset scope")
     queue = args.get("queue", "all")
     if queue not in {"all", "ready", "unscored", "reviewed", "photo_match", "missing_text"}:
@@ -77,3 +77,4 @@ def review_queue(studio, args):
     filtered.sort(key=lambda i: (not i["image_count"], priority[i["status"]], i["source_role"] == "comp", i["address"]))
     return {"items": filtered[offset:offset+limit], "counts": counts,
             "total": len(filtered), "offset": offset, "limit": limit, "token": studio.app.token}
+
