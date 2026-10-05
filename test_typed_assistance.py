@@ -219,4 +219,14 @@ def test_text_evidence_failure_reports_stage_without_private_evidence():
     provider,_=classifier(value);assert not process(store,req,provider)
     saved=store.document("typed-label-request:listing")
     assert saved["error_stage"]=="text_evidence"
+    assert saved["error_code"] in {"invalid_span","snippet_not_verbatim"}
     assert "Private invented evidence" not in json.dumps(saved)
+
+
+def test_unknown_span_placeholders_are_rejected_with_safe_diagnostic_code():
+    store=Store();req=request(store);value=proposal()
+    signal=next(item for item in value["text_signals"] if item["state"]=="UNKNOWN")
+    signal.update(snippet=None,start=0,end=0)
+    provider,_=classifier(value);assert not process(store,req,provider)
+    assert store.document("typed-label-request:listing")["error_code"]=="span_without_snippet"
+    assert store.document("typed-label-result:listing") is None
