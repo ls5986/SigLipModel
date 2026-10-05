@@ -7,9 +7,9 @@ services:
     region: ohio
     plan: 1c-2g
     repo: https://github.com/ls5986/SigLipModel
-    branch: codex/hosted-label-worker-20261005
+    branch: codex/hosted-semantic-encoder-20261005
     autoDeployTrigger: off
-    buildCommand: pip install --index-url https://download.pytorch.org/whl/cpu torch==2.6.0 && pip install -r requirements-label-worker.txt
+    buildCommand: python -B build_label_worker.py
     startCommand: python -B hosted_label_worker.py
     maxShutdownDelaySeconds: 300
     envVars:
