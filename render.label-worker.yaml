@@ -1,0 +1,41 @@
+# Standalone worker Blueprint. Do not apply until $25/month cost is approved.
+# Not included in the existing Studio Blueprint; web settings remain separate.
+services:
+  - type: worker
+    name: actvision-dev-label-worker
+    runtime: python
+    region: ohio
+    plan: 1c-2g
+    repo: https://github.com/ls5986/SigLipModel
+    branch: codex/hosted-label-worker-20261005
+    autoDeployTrigger: off
+    buildCommand: pip install --index-url https://download.pytorch.org/whl/cpu torch==2.6.0 && pip install -r requirements-label-worker.txt
+    startCommand: python -B hosted_label_worker.py
+    maxShutdownDelaySeconds: 300
+    envVars:
+      - key: STUDIO_LABEL_WORKER_PAUSED
+        value: "true"
+      - key: STUDIO_COPILOT_ENABLED
+        value: "false"
+      - key: STUDIO_COPILOT_MAX_CALLS_PER_DAY
+        value: "2"
+      - key: STUDIO_DATA_BACKEND
+        value: supabase
+      - key: STUDIO_AUTOLABEL_PROVIDER
+        value: hybrid
+      - key: STUDIO_CACHE_DIR
+        value: /tmp/actvision-worker-cache
+      - key: SUPABASE_PROJECT_REF
+        value: tokcjofzlbjcqkuzhvrd
+      - key: STUDIO_WORKSPACE_ID
+        value: eb653547-fcfa-520b-ab4a-0f7359bda381
+      - key: STUDIO_LABEL_WORKER_WORKSPACE
+        value: eb653547-fcfa-520b-ab4a-0f7359bda381
+      - key: STUDIO_DATABASE_URL
+        sync: false
+      - key: STUDIO_STORAGE_SECRET
+        sync: false
+      - key: COPILOT_GITHUB_TOKEN
+        sync: false
+      - key: STUDIO_COPILOT_MODEL
+        sync: false
