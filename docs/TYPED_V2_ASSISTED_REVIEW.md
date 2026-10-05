@@ -195,3 +195,14 @@ then Use draft for my review, inspect/tweak the evidence and explicitly Save & N
 No new paid request is needed to read this saved draft. Successful draft transport/
 persistence is now verified; trained v2 inference, human-save browser acceptance,
 MLS dev feedback and production deployment remain incomplete.
+
+
+## Clear property review UI, 2026-10-05 23:29 UTC
+
+- User approved replacing manual-first labeling with review of real drafts after screenshots exposed raw JSON and unclear navigation.
+- Published UI commit afa129fe18aa5e7487993650c7b09e5249f89f1d on the existing feature branch. Studio deployment dep-db235mbtqb8s73bsqe60 is in progress; do not call it live until verified.
+- Existing matching drafts load automatically only when no human review exists. Existing revisions/legacy reviews are preserved; replacing with an AI draft is explicit. Opening/refreshing only reads. Pending analysis polls read-only every five seconds, bound to the selected property.
+- Three plain-language judgments and a proposed explanation replace jargon-first labeling. Description snippets are highlighted verbatim. Unknown/unassessed topics remain Unknown and are collapsed. Human reviewers can mark proposals Unknown or correct exact quotes in Advanced; approval is explicit.
+- Approve & Next retains expected revision, evidence identity, assistant identities, reason tags and standout photos. Source quarantine still blocks save and paid requests. Training/freeze/promotion gates unchanged.
+- Added test_review_flow.cjs: DOM-adapter workflow checks passed for auto-draft loading, quote highlighting, no paid calls on open, saved-human preservation, stale-save retention, CAS and Advanced provenance. 21 typed assistance Python tests passed. Existing Playwright regression adapted, but not run: Chromium vendor download was truncated and installation failed. Browser layout/actual human approval remains unverified.
+- Immediately rechecked dev runtime bindings: Training Supabase tokcjofzlbjcqkuzhvrd, workspace eb653547-fcfa-520b-ab4a-0f7359bda381, restricted role acq_studio_runtime.tokcjofzlbjcqkuzhvrd, retained private photo bucket acq-training-private, client TLS true. No DB/storage/migration/worker/MLS changes or paid calls initiated for this UI task.
