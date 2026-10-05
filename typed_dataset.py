@@ -14,7 +14,10 @@ def preview(store, properties=None):
     for prop in properties:
         review = prop.get("review") or {}
         if review.get("status") != "approved" or review.get("label_schema_version") != LABEL_SCHEMA_V2:
-            drafts += bool(review)
+            # Default review envelopes contain revision/legacy fields but no labels.
+            # Count actual persisted or inherited reviews, never empty imported rows.
+            drafts += bool(review.get("legacy") or review.get("revision", 0) > 0
+                or review.get("status") in {"draft", "approved"})
             continue
         reason = prop.get("label_exclusion") or (None if prop.get("timing_verified") else "Acquisition era unverified")
         detail = store.property(prop["id"])
