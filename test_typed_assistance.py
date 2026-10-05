@@ -134,6 +134,17 @@ def test_cohort_and_unapproved_labels_never_become_typed_truth():
     assert preview(store,[p])["approved_review_rows"]==0
 
 
+@pytest.mark.parametrize("review,expected", [
+    ({"revision":0,"legacy":False},0),
+    ({"revision":0,"legacy":True,"target_fit":"target"},1),
+    ({"revision":1,"legacy":False,"status":"draft"},1),
+])
+def test_preview_does_not_count_empty_imported_rows_as_reviews(review,expected):
+    store=Store(); p=row(store);p["review"]=review
+    audit=preview(store,[p])
+    assert audit["draft_or_legacy_reviews"]==expected and audit["approved_review_rows"]==0
+
+
 def test_v2_training_never_routes_to_legacy_target_classifier(monkeypatch):
     import studio_v2
     monkeypatch.setenv("STUDIO_ROLE", "operator")
