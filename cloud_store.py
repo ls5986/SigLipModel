@@ -482,6 +482,10 @@ class SupabaseStore:
                         count(DISTINCT listing_key) FILTER (WHERE match_status='confirmed') AS confirmed_match_listings,
                         count(*) FILTER (WHERE listing_key IS NULL) AS unresolved_rows
                         FROM acq_training.examples WHERE workspace_id=%s''', (self.workspace,)).fetchone())
+                    inventory['human_source_confirmations'] = db.execute('''SELECT count(*) AS count
+                        FROM acq_training.studio_state WHERE workspace_id=%s AND kind='document'
+                        AND item_id LIKE 'mls-validation:%%' AND payload->>'decision'='confirmed'
+                        ''', (self.workspace,)).fetchone()['count']
                     # Compact listing summary only: no full source snapshots, review history, or photo bytes.
                     rows = db.execute('''SELECT e.listing_key,e.source_rows,e.group_id,
                         c.item->'listing'->>'UnparsedAddress' AS address,
@@ -693,7 +697,7 @@ class SupabaseStore:
         limit = min(40, max(1, int(args.get('limit', 20))))
         search = args.get('search', '').strip().casefold()
         state_filter = args.get('status', 'all')
-        if state_filter not in {'all','verified','verify','rematch','missing_photos'}:
+        if state_filter not in {'all','verified','verify','rematch','missing_photos','match_confirmed'}:
             raise ValueError('Unknown source-row status')
         with self.database.connect() as db:
             rows = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,e.source_snapshot,e.match_status,
@@ -722,6 +726,7 @@ class SupabaseStore:
             selected = self._selected(row)
             source = trim_metadata(row['source_snapshot'].get('spreadsheet', {}))
             era = states.get(('era',row['listing_key']),{})
+            validation = states.get(('document','mls-validation:'+str(row['id'])),{})
             attached = by_listing.get(row['listing_key'],{})
             photo_count = len(attached)
             status = 'rematch' if not supported[row['listing_key']] or era.get('decision')=='wrong_era' else (
@@ -733,6 +738,8 @@ class SupabaseStore:
             for source_row in row['source_rows']:
                 note = states.get(('document','source-row:'+str(source_row)),{})
                 items.append({'source_row':source_row,'listing_key':row['listing_key'],'import_match_status':row['match_status'],
+                    'validation_record_id':str(row['id']),'validation_decision':validation.get('decision'),
+                    'match_confirmed':row['match_status']=='confirmed' or validation.get('decision')=='confirmed',
                     'address':source.get('Address') or source.get('UnparsedAddress') or selected.get('listing',{}).get('UnparsedAddress') or 'Unresolved source row',
                     'source':source,'status':status,'photo_count':photo_count,
                     'photo_coverage':era.get('photo_coverage','unknown') if status=='verified' else 'unknown',
@@ -744,8 +751,9 @@ class SupabaseStore:
         unique = {item['source_row']:item for item in items}
         items = sorted(unique.values(),key=lambda item:item['source_row'])
         counts = {state:sum(i['status']==state for i in items) for state in ('verified','verify','rematch','missing_photos')}
+        counts['match_confirmed'] = sum(i['match_confirmed'] for i in items)
         total_rows = len(items)
-        items = [i for i in items if (state_filter=='all' or i['status']==state_filter)
+        items = [i for i in items if (state_filter=='all' or i['status']==state_filter or state_filter=='match_confirmed' and i['match_confirmed'])
                  and (not search or search in (str(i['source_row'])+' '+i['address']+' '+str(i['listing_key'])).casefold())]
         return {'items':items[offset:offset+limit],'counts':counts,'source_rows':total_rows,
                 'total':len(items),'offset':offset,'limit':limit}
