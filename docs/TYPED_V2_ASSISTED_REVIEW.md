@@ -153,3 +153,45 @@ the reviewer verifies/tweaks and explicitly approves it; the approved typed prev
 can then demonstrate persistence and label revision invalidation. Start with a small,
 varied independently grouped batch, filling supported positive/negative classes and
 missing-modality examples. The planning floor above is not a model-quality guarantee.
+
+## Follow-up: user-authorized daily cap increase and successful real draft
+
+The user explicitly requested raising the app's own daily cap on 2026-10-05.
+`STUDIO_OPENAI_MAX_CALLS_PER_DAY` is now `10` on the existing staging worker,
+verified in the running process. This is an application guard, not an OpenAI account
+quota. The update merged only this non-secret setting; credentials, plan, infrastructure,
+production and canonical MLS fields were unchanged. Queue checks found no pending bulk
+requests; increasing the cap does not enqueue properties.
+
+The first retry identified a `text_evidence` validation failure; the next identified
+`invalid_span`. The worker's provider schema now requires exactly 17 rows, null evidence
+for UNKNOWN, and nonempty snippets/nonnegative integer offsets for supported states.
+Unique verbatim snippets are anchored to retained remarks; invented or ambiguous
+evidence still fails closed. Safe diagnostics retain only stage/code/signal/state/
+lengths, never provider bodies, keys or private snippets. This tightens the output
+contract; it does not bypass evidence validation or approve machine labels.
+
+Final worker: commit `2bbf75c8aaaff64e0d590fcd4bdd2450fbe7fd2b`, deploy
+`dep-db20p20m7kps73d1ubvg`, live and running commit verified, daily limit 10.
+Studio remains at `a1566b85b205eb1ed066245c2bda0e99208d7158`.
+The final typed-assistance suite passed 21 tests. The prior broader worker/contract
+verification passed 115 tests before the final provider-schema refinement.
+
+Real listing `1145875648` subsequently completed and saved a `gpt-4.1-mini` draft
+with all 17 semantic tags. It proposes C5_REHAB_NEEDED, ORIGINAL and TARGET; these are
+machine suggestions requiring human verification, not established truth. Two separate
+authenticated Studio reads returned 200 with identical proposal/input identities and
+current matching evidence; exact source-text validation passed on both reads.
+Proposal `d6ec81337cfcba7f0e5f07ecbcdb3dd60f8453170dec0e0ccabd1eef069baef5`;
+input `c92039f9ddfbbba6ca6f7da8b2237031ff10f830677492caa3f9f5c70c46ca01`.
+The state is `draft`, `trained_v2=false`. No human approval was written: property
+approvals and review_events remain 0. Existing counts remain 618 examples/13,271 photos.
+Five shared daily slots are reserved/used as of this check, leaving five under the
+new cap. Earlier cap-exhaustion/wait-until-reset statements above describe the initial
+test and are superseded by this follow-up.
+
+The next human step is to find this listing in Training Studio, choose Check result,
+then Use draft for my review, inspect/tweak the evidence and explicitly Save & Next.
+No new paid request is needed to read this saved draft. Successful draft transport/
+persistence is now verified; trained v2 inference, human-save browser acceptance,
+MLS dev feedback and production deployment remain incomplete.
