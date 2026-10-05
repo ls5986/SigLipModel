@@ -75,6 +75,10 @@ def get(studio, raw_path):
         prop = detail["property"]
         detail["label_evidence_id"] = label_evidence(prop["id"], prop.get("mls_remarks") or "", detail["images"], prop.get("metadata"))
         return detail
+    if action == "label/proposal":
+        from typed_label_assistant import result
+        detail = get(studio, "/api/studio/v2/property?id=" + quote(args.get("id", ""), safe=""))
+        return result(studio.store, detail)
     if action == "feedback":
         if not cloud:
             return {"items": [], "unavailable": "Production feedback requires the reviewed Supabase v2 migration"}
@@ -101,6 +105,12 @@ def get(studio, raw_path):
 def post(studio, path, payload):
     action = path.removeprefix("/api/studio/v2/")
     cloud = hasattr(studio.store, "database")
+    if action == "label/propose":
+        if not cloud:
+            raise ValueError("Hosted draft requests require cloud storage")
+        from typed_label_assistant import queue
+        detail = get(studio, "/api/studio/v2/property?id=" + quote(str(payload.get("id", "")), safe=""))
+        return queue(studio.store, detail, payload, identity()["id"])
     if action == "label":
         detail = get(studio, "/api/studio/v2/property?id=" + quote(str(payload.get("id", "")), safe=""))
         if payload.get("label_evidence_id") != detail["label_evidence_id"]:
@@ -108,9 +118,16 @@ def post(studio, path, payload):
         if (detail.get("historical_source") or {}).get("blocked"):
             raise ValueError("Acquisition evidence is quarantined; verify the source/era first")
         validate_text_reviews(payload.get("text_signals", []), detail["property"].get("mls_remarks") or "")
+        assisted = None
+        if payload.get("assistant_input_sha256"):
+            from typed_label_assistant import result
+            proposal = result(studio.store, detail)["proposal"]
+            if not proposal or proposal.get("input_sha256") != payload["assistant_input_sha256"]:
+                raise RuntimeError("Model draft changed; reload before approving")
+            assisted = {k:proposal[k] for k in ("proposal_id", "input_sha256", "model", "policy", "label_evidence_id")}
         return studio.post("/api/studio/review", {
             **payload, "kind": "property", "label_schema_version": LABEL_SCHEMA_V2,
-            "reviewer": identity()["id"],
+            "reviewer": identity()["id"], "assistant_proposal":assisted,
         })
     if action == "feedback/review":
         if not cloud:
@@ -121,10 +138,8 @@ def post(studio, path, payload):
         if not cloud:
             raise ValueError("Explicit frozen-dataset training requires the cloud worker")
         require_operator()
-        from model_workbench import dataset_preview, freeze_dataset, queue_training
         if action == "dataset/preview":
-            return dataset_preview(studio.store)
-        if payload.get("confirmed") is not True:
-            raise ValueError("Explicit confirmation required")
-        return freeze_dataset(studio.store, payload) if action == "dataset/freeze" else queue_training(studio.store, payload)
+            from typed_dataset import preview
+            return preview(studio.store)
+        raise ValueError("V2 freeze/training requires grouped orchestration and durable bundles; legacy training is not a v2 candidate")
     raise ValueError("Unknown Studio v2 action")
