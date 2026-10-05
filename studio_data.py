@@ -97,6 +97,13 @@ def validate_review(payload, source):
             raise ValueError("Typed labels require the original evidence identity")
         record.update(label_schema_version=LABEL_SCHEMA_V2, text_signals=text_signals,
                       label_evidence_id=payload.get("label_evidence_id"))
+        if payload.get("assistant_proposal"):
+            proposal = payload["assistant_proposal"]
+            if not isinstance(proposal, dict) or set(proposal) != {"proposal_id", "input_sha256", "model", "policy", "label_evidence_id"}:
+                raise ValueError("Invalid assistant provenance")
+            if any(not isinstance(value, str) or len(value) > 200 for value in proposal.values()):
+                raise ValueError("Invalid assistant provenance")
+            record["assistant_proposal"] = proposal
     if not isinstance(record["notes"], str) or len(record["notes"]) > 4000:
         raise ValueError("Notes too long")
     if source is None:
