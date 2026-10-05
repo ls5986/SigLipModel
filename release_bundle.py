@@ -42,7 +42,7 @@ def load_release_bundle(manifest_path, *, expected_release_id=None, allowed_stat
             raise ValueError(f"Unsupported {name} framework/version")
         uri = artifact["uri"]
         relative = Path(uri)
-        if ":" in uri or relative.is_absolute() or ".." in relative.parts:
+        if ":" in uri or relative.is_absolute() or ".." in uri.replace("\\", "/").split("/"):
             raise ValueError("Artifact URI must be a local relative path within the trusted bundle")
         file = (path.parent / relative).resolve(strict=True)
         if not file.is_relative_to(path.parent):
