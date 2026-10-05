@@ -23,13 +23,13 @@ class TextModel:
     feature_schema_version: str = FEATURE_SCHEMA_VERSION
 
     @classmethod
-    def fit(cls, remarks, labels):
+    def fit(cls, remarks, labels, *, encoder=None):
         if len(remarks) != len(labels) or any(not isinstance(text, str) for text in remarks):
             raise ValueError("Text-only evidence and labels must align")
         indices = [i for i, text in enumerate(remarks) if text.strip()]
         if not indices:
             raise ValueError("No listing remarks to train")
-        vectorizer = text_vectorizer()
+        vectorizer = encoder if encoder is not None else text_vectorizer()
         matrix = vectorizer.fit_transform([remarks[i] for i in indices])
         reviews = [labels[i] for i in indices]
         for review in reviews:
@@ -55,7 +55,7 @@ class TextModel:
             )
         if not heads and not signals:
             raise ValueError("Text training needs explicit reviewed positive AND negative classes; UNKNOWN is unassessed")
-        return cls(vectorizer, heads, signals)
+        return cls(vectorizer, heads, signals, getattr(vectorizer, "feature_schema_version", FEATURE_SCHEMA_VERSION))
 
     def predict(self, remarks):
         if any(not isinstance(text, str) for text in remarks):
@@ -69,3 +69,4 @@ class TextModel:
                     "probability": float(probability), "snippet": None, "start": None, "end": None,
                 })
         return [result if text.strip() else unknown_result() for text, result in zip(remarks, results)]
+

@@ -91,10 +91,10 @@ class MetadataClassifier:
     model: LogisticRegression
 
     @classmethod
-    def fit(cls,metadata,remarks,y,weights=None):
+    def fit(cls,metadata,remarks,y,weights=None,*,text_encoder=None):
         vectorizer = DictVectorizer(sparse=True)
         structured = vectorizer.fit_transform([metadata_row(row) for row in metadata])
-        text = TfidfVectorizer(
+        text = text_encoder if text_encoder is not None else TfidfVectorizer(
             max_features=2000,ngram_range=(1,2),min_df=1,strip_accents="unicode",
         )
         language = text.fit_transform([value or "__missing__" for value in remarks])
