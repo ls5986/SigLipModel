@@ -174,7 +174,7 @@ async function loadProperty(id){
  $('confidence').value=r.confidence||'';$('reason').value=r.reason||'';$('fit-basis').value=r.fit_basis||'unknown';$('evidence-source').value=r.evidence_source||'';
  $('facts').replaceChildren(...structuredKeys.filter(k=>p.metadata?.[k]!==undefined).map(k=>{const row=node('tr');row.append(node('th',k),node('td',String(p.metadata[k])));return row}));
  $('thumbnails').replaceChildren(...detail.images.map((image,index)=>{const b=node('button');b.type='button';b.setAttribute('aria-label',`Photo ${index+1}`);const img=node('img');img.src='/api/studio/image?id='+encodeURIComponent(image.id);img.alt=`Photo ${index+1}`;b.append(img);b.onclick=()=>{state.photo=index;renderPhoto()};return b}));
- renderPhoto();renderSignals();state.proposal=null;state.assistantInput=null;$("proposal-result").replaceChildren();$("confirm-proposal").checked=false;$("use-proposal").disabled=true;
+ renderPhoto();renderSignals();state.proposal=null;state.assistantInput=null;state.assistantProposalId=null;$("proposal-result").replaceChildren();$("confirm-proposal").checked=false;$("use-proposal").disabled=true;
 }
 function renderPhoto(){
  const image=state.detail.images[state.photo];$('hero').hidden=!image;$('no-photos').hidden=!!image;$('photo-form').hidden=!image;
@@ -191,7 +191,7 @@ function renderSignals(){
 async function saveNext(event){
  event.preventDefault();if(state.busy||!state.detail)return;state.busy=true;$('save-next').disabled=true;
  try{
-  const p=state.detail.property;const saved=await api('/api/studio/v2/label',{id:p.id,expected_revision:p.review?.revision||0,label_evidence_id:state.detail.label_evidence_id,assistant_input_sha256:state.assistantInput||null,status:'approved',physical_condition:$('physical').value,modernization_state:$('modernization').value,target_fit:{TARGET:'target',NOT_TARGET:'not_target',UNKNOWN:'unsure'}[$('fit').value],target_score:null,condition_label:'unknown',confidence:$('confidence').value||null,evidence_source:$('evidence-source').value||null,fit_basis:$('fit-basis').value,reason:$('reason').value,text_signals:state.signals,reason_tags:p.review?.reason_tags||[],standout_image_ids:p.review?.standout_image_ids||[],notes:p.review?.notes||''});p.review=saved;
+  const p=state.detail.property;const saved=await api('/api/studio/v2/label',{id:p.id,expected_revision:p.review?.revision||0,label_evidence_id:state.detail.label_evidence_id,assistant_input_sha256:state.assistantInput||null,assistant_proposal_id:state.assistantProposalId||null,status:'approved',physical_condition:$('physical').value,modernization_state:$('modernization').value,target_fit:{TARGET:'target',NOT_TARGET:'not_target',UNKNOWN:'unsure'}[$('fit').value],target_score:null,condition_label:'unknown',confidence:$('confidence').value||null,evidence_source:$('evidence-source').value||null,fit_basis:$('fit-basis').value,reason:$('reason').value,text_signals:state.signals,reason_tags:p.review?.reason_tags||[],standout_image_ids:p.review?.standout_image_ids||[],notes:p.review?.notes||''});p.review=saved;
   state.dirty=false;const index=state.items.findIndex(i=>i.id===p.id),next=state.items[index+1];
   if(next)await loadProperty(next.id);else{state.detail=null;$('property').hidden=true;$('empty').hidden=false;state.offset=0;await loadQueue()}
   message('Review saved. No training or promotion was started.',true);
@@ -211,7 +211,7 @@ async function boot(){
  state.caps=await api('/api/studio/v2/capabilities');$('actor').textContent=state.caps.actor.id+' | '+state.caps.actor.role;
  options('physical',state.caps.taxonomy.physical_condition);options('modernization',state.caps.taxonomy.modernization);options('fit',state.caps.taxonomy.acquisition_fit);options('signal',state.caps.taxonomy.text_signals);
  options('photo-physical',state.caps.taxonomy.physical_condition);options('photo-modernization',state.caps.taxonomy.modernization);
- $('preview').disabled=!state.caps.training;$('load-errors').disabled=!state.caps.cloud;
+ $('preview').disabled=!state.caps.cloud;$('load-errors').disabled=!state.caps.cloud;
  document.querySelectorAll('[data-page]').forEach(b=>b.onclick=guard(async()=>{showPage(b.dataset.page);if(b.dataset.page==='operations'){const status=await api('/api/studio/v2/operations');renderJson('operation-content',{...status,blockers:state.caps.blockers})}}));
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{for(const name of ['photos','text','facts'])$(name+'-panel').hidden=name!==b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===b)))});
  $('refresh').onclick=guard(async()=>{state.offset=0;await loadQueue()});$('more').onclick=guard(async()=>{if(state.dirty)throw Error('Save current labels first.');state.offset+=20;await loadQueue()});
@@ -233,7 +233,7 @@ async function boot(){
  $('freeze').disabled=true;$('train-candidate').disabled=true;
  $('request-proposal').onclick=guard(async()=>{if(!$('confirm-proposal').checked)throw Error('Confirm the single-property draft request.');if(state.dirty)throw Error('Save or reload edits before requesting drafts.');const p=state.detail.property;const request=await api('/api/studio/v2/label/propose',{id:p.id,label_evidence_id:state.detail.label_evidence_id,confirmed:true});renderJson('proposal-result',request);$('confirm-proposal').checked=false});
  $('refresh-proposal').onclick=guard(async()=>{const data=await api('/api/studio/v2/label/proposal?id='+encodeURIComponent(state.detail.property.id));state.proposal=data.proposal;renderJson('proposal-result',data);$('use-proposal').disabled=!data.proposal});
- $('use-proposal').onclick=guard(async()=>{if(state.dirty)throw Error('Save or reload edits before loading a draft.');const draft=state.proposal;if(!draft||draft.label_evidence_id!==state.detail.label_evidence_id)throw Error('Reload current evidence and draft.');state.assistantInput=draft.input_sha256;$('physical').value=draft.physical_condition;$('modernization').value=draft.modernization_state;$('fit').value=draft.acquisition_fit;$('reason').value=draft.reason;state.signals=structuredClone(draft.text_signals);state.dirty=true;renderSignals();message('Draft loaded. Verify the evidence and tweak answers before Save & Next.');});
+ $('use-proposal').onclick=guard(async()=>{if(state.dirty)throw Error('Save or reload edits before loading a draft.');const draft=state.proposal;if(!draft||draft.label_evidence_id!==state.detail.label_evidence_id)throw Error('Reload current evidence and draft.');state.assistantInput=draft.input_sha256;state.assistantProposalId=draft.proposal_id;$('physical').value=draft.physical_condition;$('modernization').value=draft.modernization_state;$('fit').value=draft.acquisition_fit;$('reason').value=draft.reason;state.signals=structuredClone(draft.text_signals);state.dirty=true;renderSignals();message('Draft loaded. Verify the evidence and tweak answers before Save & Next.');});
  $('load-releases').onclick=guard(async()=>renderJson('release-content',await api('/api/studio/v2/releases')));
  $('load-candidates').disabled=!state.caps.cloud;
  $('load-candidates').onclick=guard(async()=>{
