@@ -120,6 +120,7 @@ def main():
         if paid:
             classifiers.append(paid)
         last_heartbeat = 0
+        last_experiment = 0
         while not STOP.is_set():
             if time.monotonic() - last_heartbeat >= 30:
                 for classifier in classifiers:
@@ -138,6 +139,14 @@ def main():
                         poll(store, paid)
                 except Exception:
                     print("Typed draft polling failed; inspect request status before retrying.", flush=True)
+            if time.monotonic() - last_experiment >= 60:
+                from experimental_candidate import poll_training, poll_prediction
+                try:
+                    poll_training(store)
+                    poll_prediction(store)
+                except Exception:
+                    print("Experimental candidate failed; inspect saved non-secret status.", flush=True)
+                last_experiment = time.monotonic()
             STOP.wait(5)
     finally:
         if paid:
