@@ -89,7 +89,7 @@ const path=require('node:path');
   assert.equal(await page.locator('#fit').inputValue(),'UNKNOWN');
   assert.equal(calls.filter(c=>c.method==='POST').length,1);
   await page.locator('[data-page="train"]').click();
-  assert.equal(await page.locator('#preview').isDisabled(),true);
+  assert.equal(await page.locator('#preview').isDisabled(),false);
   assert.equal(await page.locator('#train-candidate').isDisabled(),true);
   await page.locator('[data-page="releases"]').click();
   await page.locator('#load-releases').click();
