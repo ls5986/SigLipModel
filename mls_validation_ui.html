@@ -69,7 +69,7 @@ html[data-theme="dark"] {
 </style>
 </head>
 <body>
-<header><div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span class="badge">Development</span></div><div class="header-links"><a href="/workbench">Model Workbench</a><a href="/property-review">Detailed property review</a><a href="/source-rows">All workbook rows</a><button id="reviewer">Your name</button></div></header>
+<header><div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span class="badge">Development</span></div><div class="header-links"><a href="/">Overview</a><a href="/status">Model readiness</a><a href="/property-review">Detailed property review</a><a href="/source-rows">All source records</a><button id="reviewer">Your name</button></div></header>
 <section class="status"><div><span class="eyebrow">Acquisition MLS Validation</span><strong id="progress">Connecting…</strong><div class="progressbar"><span id="progress-fill"></span></div></div><div class="small muted"><span class="key">Y</span> confirm · <span class="key">W</span> wrong MLS · <span class="key">E</span> wrong era · <span class="key">U</span> unsure</div></section>
 <div id="message" class="notice" hidden></div>
 <div class="workspace">
@@ -104,7 +104,7 @@ html[data-theme="dark"] {
  function withName(decision){if(S.name)return save(decision);S.pendingDecision=decision;$('name-input').value='';$('name-dialog').showModal();}
  function drawProgress(){$('progress').textContent=`${S.counts.reviewed} / ${S.counts.total} reviewed · ${S.counts.remaining} remaining`;$('progress-fill').style.width=(S.counts.total?S.counts.reviewed/S.counts.total*100:0)+'%';}
  function drawQueue(){
-  $('queue-list').replaceChildren(...S.items.map(item=>{const button=document.createElement('button');button.className='queue-item';button.dataset.id=item.id;button.setAttribute('aria-current',String(S.detail?.id===item.id));button.onclick=()=>open(item.id);const title=document.createElement('strong');title.textContent=item.source_address;const apn=document.createElement('small');apn.textContent='APN '+item.apn;const proposed=document.createElement('small');proposed.textContent=item.listing_id?'Proposed MLS '+item.listing_id:'No MLS ID';const badge=document.createElement('span');badge.className='badge';badge.textContent=item.match_status;button.append(title,apn,proposed,badge);return button;}));
+  $('queue-list').replaceChildren(...S.items.map(item=>{const button=document.createElement('button');button.className='queue-item';button.dataset.id=item.id;button.setAttribute('aria-current',String(S.detail?.id===item.id));button.onclick=()=>open(item.id);const title=document.createElement('strong');title.textContent=item.source_address;const apn=document.createElement('small');apn.textContent='APN '+item.apn;const proposed=document.createElement('small');proposed.textContent=item.listing_id?'Proposed MLS '+item.listing_id:'No MLS ID';const badge=document.createElement('span');badge.className='badge';badge.textContent=item.decision?('Saved review: '+item.decision):('Imported: '+item.match_status);button.append(title,apn,proposed,badge);return button;}));
   $('page').textContent=S.total?`${S.offset+1}–${Math.min(S.offset+S.limit,S.total)} of ${S.total}`:'0';
   drawControls();
  }
@@ -132,8 +132,9 @@ html[data-theme="dark"] {
  $('reviewer').onclick=()=>{$('name-input').value=S.name;$('name-dialog').showModal();};$('name-cancel').onclick=()=>$('name-dialog').close();$('name-form').onsubmit=event=>{event.preventDefault();S.name=$('name-input').value.trim();if(!S.name)return;remember();$('name-dialog').close();const decision=S.pendingDecision;S.pendingDecision=null;if(decision)save(decision);};
  $('search').oninput=()=>{clearTimeout(S.searchTimer);S.searchTimer=setTimeout(()=>{S.offset=0;load();},250);};for(const button of document.querySelectorAll('.queue-tabs button'))button.onclick=()=>{S.status=button.dataset.status;S.offset=0;for(const tab of document.querySelectorAll('.queue-tabs button'))tab.setAttribute('aria-pressed',String(tab===button));load();};$('prev').onclick=()=>{S.offset=Math.max(0,S.offset-S.limit);load();};$('next').onclick=()=>{S.offset+=S.limit;load();};
  window.addEventListener('keydown',event=>{if(event.ctrlKey||event.metaKey||event.altKey||document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName))return;const key=event.key.toLowerCase(),map={y:'confirmed',w:'wrong_listing',e:'wrong_era',u:'unsure'};if(map[key]){event.preventDefault();withName(map[key]);}});
- try{S.name=localStorage.getItem('acq-mls-validator')||'';}catch{}remember();load();
+ try{S.name=localStorage.getItem('acq-mls-validator')||'';}catch{}remember();load().then(()=>{const record=new URLSearchParams(location.search).get('record');if(record)return open(record);});
 })();
 </script>
 </body>
 </html>
+
