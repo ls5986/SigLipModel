@@ -122,7 +122,7 @@ def post(studio, path, payload):
         if payload.get("assistant_input_sha256"):
             from typed_label_assistant import result
             proposal = result(studio.store, detail)["proposal"]
-            if not proposal or proposal.get("input_sha256") != payload["assistant_input_sha256"]:
+            if not proposal or proposal.get("input_sha256") != payload["assistant_input_sha256"] or proposal.get("proposal_id") != payload.get("assistant_proposal_id"):
                 raise RuntimeError("Model draft changed; reload before approving")
             assisted = {k:proposal[k] for k in ("proposal_id", "input_sha256", "model", "policy", "label_evidence_id")}
         return studio.post("/api/studio/review", {
@@ -137,9 +137,9 @@ def post(studio, path, payload):
     if action in {"dataset/preview", "dataset/freeze", "train"}:
         if not cloud:
             raise ValueError("Explicit frozen-dataset training requires the cloud worker")
-        require_operator()
         if action == "dataset/preview":
             from typed_dataset import preview
             return preview(studio.store)
+        require_operator()
         raise ValueError("V2 freeze/training requires grouped orchestration and durable bundles; legacy training is not a v2 candidate")
     raise ValueError("Unknown Studio v2 action")
