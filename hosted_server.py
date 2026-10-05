@@ -160,10 +160,8 @@ def create_server(port, app, auth):
                 return self.reply(
                     200,(CODE_ROOT/"hosted_status.html").read_bytes(),"text/html; charset=utf-8"
                 )
-            if path=="/workbench":
-                return self.reply(
-                    200,(CODE_ROOT/"workbench_ui.html").read_bytes(),"text/html; charset=utf-8"
-                )
+            if path in {"/workbench","/advanced","/legacy","/research"}:
+                return self.reply(303,b"",headers=[("Location","/status")])
             if path.startswith("/api/studio/"):
                 try:
                     if path=="/api/studio/workbench/challenge-image":
@@ -240,3 +238,4 @@ def main():
         server.server_close()
 
 if __name__=="__main__": main()
+
