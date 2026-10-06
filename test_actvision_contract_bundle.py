@@ -14,18 +14,18 @@ from tools.check_actvision_contract_bundle import build_manifest, check_manifest
 REPO_ROOT = Path(__file__).resolve().parent
 SOURCE_COMMIT = "68a91e86c13018fed86bb5538cf44002d55cc1fe"
 EXPECTED_FILES = {
-    "contracts/actvision-v2.schema.json": "8b58809a7261ce33edbc4b590980273b12146dbc4086ea9e4be4252787aaef2f",
-    "actvision_contract.py": "7e60fdeed7e178fe2a31280c494e157c1a8f268f4d075a75adc00ca3d47cbfef",
-    "tools/export_actvision_fixtures.py": "d6e89db286fe44e14b1a8dd7027bebb0e86027ef71321e50a39e1a270d27f44a",
+    "contracts/actvision-v2.schema.json": "d118dd865852280e04a00b031e04f0daf128d95f8e4887b1741578af559d7f8d",
+    "actvision_contract.py": "4f5dcdc8e83b8061dd978aaa1b969a1a62176c9a0339835eac003574446e3227",
+    "tools/export_actvision_fixtures.py": "53fa3332e7b48705c42c661f1e57094c68a21bc81d9ebb918123548608ec048c",
 }
 EXPECTED_FIXTURES = {
-    "contracts/fixtures/feedback.json": "4b451931e5d443c9fa293d944eb65d9ef5b72b57dde1f4b958ff803c02f900af",
-    "contracts/fixtures/inference-request-multimodal.json": "f7dde09a5508a358e31e470e2a8a76cd79d7fcd7b4dfec480879d4c860e9d9a7",
-    "contracts/fixtures/inference-request.json": "b9f4f137c040b92b6b61975d7cd0493415da7dfae8d119886c51a31bc65995d1",
-    "contracts/fixtures/prediction-complete.json": "48700d2d21895f28647ebf279920e697e69ad33dec7a3d44cc76790d1e8fe3e3",
-    "contracts/fixtures/prediction-unavailable.json": "e260bee009471acd9ce2bd61fe7ed5dd4406b295fbe8d794da03bf0bb92a4962",
-    "contracts/fixtures/release-candidate.json": "fa93e0f670198f45e284c5f9d0a8a5d17429aac18af416725dac7c6fcfcab5d6",
-    "contracts/fixtures/release-shadow.json": "b78bfae61553f2c358dcd84f655503f19cba34798941a5944b8393002ab3bb92",
+    "contracts/fixtures/feedback.json": "3bc77a42aafedd00900ef609b24a27fa91ccaa699843397a0319018a8fcf64dd",
+    "contracts/fixtures/inference-request-multimodal.json": "545a8bcd3b59be0eaa06643082fd0e36e9cb57c0f846c65a0e3682c0400622d5",
+    "contracts/fixtures/inference-request.json": "478672a5ea1bfb47f9ee937b090efdba6db8b89aa72f7160fa374abaf96c8084",
+    "contracts/fixtures/prediction-complete.json": "4952672cd41e0774e0283d9fe6ce48142e6080cd624314b6aed5346f1d0dafa7",
+    "contracts/fixtures/prediction-unavailable.json": "0bf73a378218b48b8e7ad7ff49605d49023d573d8e4b0c96caa531ea4b53b83b",
+    "contracts/fixtures/release-candidate.json": "34692ae264ac91e648c18acfdf032da5ed9c4c112f3ce28983210fd380fd02c2",
+    "contracts/fixtures/release-shadow.json": "b3161b3d7b75bdaddeb027318a33189b71bd5d3f41961b314846d83ca511353f",
 }
 
 
@@ -86,6 +86,37 @@ def test_manifest_hashes_raw_authoritative_bytes_and_lists_each_fixture_once():
         *manifest["fixtures"],
     ]:
         assert hashlib.sha256((REPO_ROOT / entry["path"]).read_bytes()).hexdigest() == entry["sha256"]
+
+
+def test_manifest_hashes_match_canonical_lf_bytes_at_source_commit():
+    manifest = _manifest()
+    entries = [
+        manifest["schema"],
+        manifest["semantic_validator"],
+        manifest["generator"],
+        *manifest["fixtures"],
+    ]
+
+    attributes = subprocess.run(
+        ["git", "check-attr", "eol", "--", *(entry["path"] for entry in entries)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+    assert all(line.endswith(": eol: lf") for line in attributes), attributes
+
+    for entry in entries:
+        source_bytes = subprocess.run(
+            ["git", "show", f"{manifest['source_commit']}:{entry['path']}"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            check=True,
+        ).stdout
+        checkout_bytes = (REPO_ROOT / entry["path"]).read_bytes()
+        assert b"\r\n" not in checkout_bytes, entry["path"]
+        assert checkout_bytes == source_bytes, entry["path"]
+        assert hashlib.sha256(source_bytes).hexdigest() == entry["sha256"]
 
 
 def test_build_manifest_is_deterministic_with_sorted_relative_posix_paths():
