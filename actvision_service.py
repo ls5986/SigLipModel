@@ -41,6 +41,8 @@ def _model_worker_online(store, threshold_seconds=90):
 
 
 def approved_manifest(store, release_id):
+    if store is None:
+        raise UnavailableError("ActVision cloud training store is unavailable")
     active = os.environ.get("ACTVISION_ACTIVE_RELEASE_ID", "").strip()
     if not active:
         raise UnavailableError("No approved ActVision release is active")
