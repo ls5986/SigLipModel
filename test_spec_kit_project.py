@@ -12,8 +12,7 @@ def test_spec_kit_provider_project_is_initialized():
     github_root = PROJECT_ROOT / ".github"
     assert any(
         path.is_file()
-        and "speckit" in path.relative_to(github_root).as_posix().lower()
-        for path in github_root.rglob("*")
+        for path in (github_root / "skills").glob("speckit-*/SKILL.md")
     )
 
     assert (
