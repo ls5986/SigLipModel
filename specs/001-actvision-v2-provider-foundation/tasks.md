@@ -48,14 +48,15 @@ isolation, fixture semantics, and legacy compatibility offline.
 **Goal**: Evaluate provisional semantic text and structured evidence behavior
 without photographs, fusion, release approval, or production claims.
 
-- [ ] T006 Add tests that experimental snapshots admit only declared human labels or explicitly selected draft provenance, mask UNKNOWN, and exclude conflicts/protected groups (`ML-001`, `DATA-001`).
+- [ ] T006 Add tests that unreviewed drafts serve as labels only for explicitly isolated experimental/non-release candidates with declared provenance, mask UNKNOWN, exclude conflicts/protected groups, and remain ineligible for candidate, shadow, or production release status (`ML-001`, `ML-002`, `DATA-001`).
 - [ ] T007 Pin and verify the frozen semantic encoder bytes, revision, chunking policy, and local-files-only behavior before fitting supervised text heads (`ML-002`, `SEC-002`).
 - [ ] T008 Add acquisition-time structured-feature policy tests that reject arbitrary fields, current/later closes, later resale outcomes, identifiers, and future facts (`TIME-001`, `ML-002`).
 - [ ] T009 Report grouped validation agreement, class/group coverage, unsupported classes, missing modalities, and uncalibrated status without labeling draft agreement as human accuracy (`ML-003`, `ML-005`).
-- [ ] T010 Keep experimental predictions separate from LabelRevision, Release, canonical MLS fields, and automatic training/promotion paths (`REL-002`, `OPS-003`, `OPS-004`).
+- [ ] T010 Keep experimental training data, artifacts, and predictions separate from approved LabelRevision provenance, the release registry, canonical MLS fields, and automatic training/promotion paths (`ML-002`, `REL-002`, `OPS-003`, `OPS-004`).
 
 **Phase gate**: Results are labeled experimental text/metadata only. No task in
-this phase creates a shadow or production release.
+this phase creates a release-registry candidate, shadow, or production release,
+and no result from this phase satisfies release-eligible training provenance.
 
 ## Phase 3: Full Multimodal Release (Future Work)
 
@@ -63,7 +64,7 @@ this phase creates a shadow or production release.
 structured, fusion, and calibration components required by a full v2 release.
 
 - [ ] T011 Resolve OD-001 through OD-005 with reviewed human coverage, pre-register numeric criteria, and record the supported first-release class/mode scope before protected evaluation (`ML-003`, `REL-003`).
-- [ ] T012 Implement a point-in-time DatasetVersion freeze that pins eligible label/evidence revisions, groups, splits, exclusions, slice definitions, and policy identity (`DATA-001`, `DATA-003`, `TIME-002`).
+- [ ] T012 Implement a release-eligible point-in-time DatasetVersion freeze that pins only human-approved current label/evidence revisions with verified source/era provenance, groups, splits, exclusions, slice definitions, and policy identity (`ML-002`, `DATA-001`, `DATA-003`, `TIME-002`).
 - [ ] T013 Compare declared frozen SigLIP2 property-bag aggregations using grouped train/validation only and persist exact backbone and aggregation identities (`ML-002`, `ML-004`).
 - [ ] T014 Train supervised semantic-text heads only for adequately covered PRESENT/ABSENT classes, retain exact span provenance, and abstain for unsupported tags (`ML-001`, `ML-004`, `ML-005`).
 - [ ] T015 Train allowlisted structured heads from the same frozen dataset and record per-axis supported-class coverage (`ML-002`, `TIME-001`).

@@ -144,10 +144,15 @@ verify that no flow writes canonical MLS economics, condition, score, or rank.
   physical condition, modernization, acquisition fit, and each semantic text
   signal. UNKNOWN MUST be valid for every unsupported judgment and MUST NOT be
   treated as a negative.
-- **ML-002 — Training**: Training MUST consume only an immutable frozen dataset,
-  declared code/configuration/dependency identities, and approved labels. It MUST
-  preserve physical-property groups and MUST NOT read protected labels while
-  fitting components, fusion, calibration, thresholds, or model selection.
+- **ML-002 — Training**: All training MUST consume only an immutable frozen
+  dataset and declared code/configuration/dependency identities. Unreviewed
+  drafts MAY serve as labels only for explicitly isolated experimental/non-release
+  candidates that remain outside the release registry. Release-eligible training,
+  including training for candidate, shadow, or production release status, MUST
+  use human-approved labels with current evidence and verified source/era
+  provenance. All training MUST preserve physical-property groups and MUST NOT
+  read protected labels while fitting components, fusion, calibration,
+  thresholds, or model selection.
 - **ML-003 — Evaluation**: Evaluation MUST report human-per-axis metrics,
   supported-class coverage, calibration where applicable, and independently
   declared protected slices. Aggregate performance MUST NOT mask a failed or
@@ -256,12 +261,14 @@ verify that no flow writes canonical MLS economics, condition, score, or rank.
 The existing hosted experimental candidate is limited to supervised semantic
 text and allowlisted acquisition metadata using a pinned frozen encoder and
 logistic heads. It may use explicitly selected unreviewed AI drafts while keeping
-human corrections higher priority. It does **not** use photographs as inputs,
-train SigLIP2, calibrate probabilities, train late fusion, provide a compatible
-full v2 physical release, or satisfy production promotion criteria. Its
-predictions remain experimental and separate from approved reviews and releases.
-This specification records those limitations; it does not approve or promote the
-candidate.
+human corrections higher priority under the isolated experimental/non-release
+permission in ML-002. Its training data and outputs remain outside the release
+registry and cannot qualify for candidate, shadow, or production release status.
+It does **not** use photographs as inputs, train SigLIP2, calibrate
+probabilities, train late fusion, provide a compatible full v2 physical release,
+or satisfy production promotion criteria. Its predictions remain experimental
+and separate from approved reviews and releases. This specification records
+those limitations; it does not approve or promote the candidate.
 
 ## Non-Goals
 

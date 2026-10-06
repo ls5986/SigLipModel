@@ -22,6 +22,7 @@ Represents the exact point-in-time evidence offered to a reviewer or model.
 | Field | Meaning |
 |---|---|
 | `evidence_id` | Content identity over the complete canonical snapshot |
+| `release_id` | Exact release identity included in the canonical evidence |
 | `workspace_id` | Authorized data boundary |
 | `property_id` / `property_group_id` | Source property and deduplicated physical group |
 | `listing_id` / `source_snapshot_at` | Listing/era and temporal boundary |
@@ -36,6 +37,8 @@ Represents the exact point-in-time evidence offered to a reviewer or model.
 
 - Changed selected order, bytes, remarks, structured facts, source time, or
   exclusions creates a new `evidence_id`.
+- Release changes create a new `evidence_id`; evidence for one release cannot be
+  reused as evidence for another release identity.
 - URI identity does not substitute for an image-byte hash.
 - Later events cannot be added to an earlier snapshot.
 

@@ -85,9 +85,14 @@ information for operators.
 
 ## Provider Quality Gates
 
-- Labels used for training MUST be explicit human approvals with current evidence
-  and verified source/era identity. Drafts and experimental AI labels remain
-  distinguishable from approved truth.
+- Unreviewed drafts MAY serve as labels only for explicitly isolated
+  experimental/non-release candidates with declared draft provenance. Those
+  experiments MUST remain outside the release registry and MUST NOT qualify for
+  candidate, shadow, or production release status.
+- Release-eligible training, including training for a release-registry candidate,
+  shadow, or production release, MUST use explicit human approvals with current
+  evidence and verified source/era identity. Drafts and experimental AI labels
+  remain distinguishable from approved truth.
 - Dataset freezes MUST record inclusion/exclusion reasons, group assignments,
   split identities, label revisions, evidence hashes, and protected-slice hashes.
 - Training MUST use only the frozen dataset and declared dependencies. Evaluation
@@ -135,4 +140,4 @@ begins and again after design. Exceptions are time-bounded, documented with an
 owner and expiry, and MUST NOT waive temporal, evidence, group-isolation,
 contract-integrity, or explicit-promotion safeguards.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-06 | **Last Amended**: 2026-10-06
+**Version**: 1.1.0 | **Ratified**: 2026-10-06 | **Last Amended**: 2026-10-06

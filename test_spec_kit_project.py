@@ -79,6 +79,37 @@ def test_foundation_spec_defines_stable_provider_requirements():
         assert subject in specification.lower()
 
 
+def test_training_provenance_distinguishes_isolated_experiments_from_releases():
+    constitution = (
+        PROJECT_ROOT / ".specify" / "memory" / "constitution.md"
+    ).read_text(encoding="utf-8").lower()
+    specification = (FEATURE_DIRECTORY / "spec.md").read_text(encoding="utf-8")
+    research = (FEATURE_DIRECTORY / "research.md").read_text(encoding="utf-8")
+    tasks = (FEATURE_DIRECTORY / "tasks.md").read_text(encoding="utf-8")
+
+    assert "experimental/non-release candidates" in constitution
+    ml_002 = " ".join(
+        specification.split("**ML-002", 1)[1].split("**ML-003", 1)[0].lower().split()
+    )
+    assert "experimental/non-release candidates" in ml_002
+    assert "release-eligible training" in ml_002
+    assert "experimental/non-release candidates" in research.lower()
+    assert "experimental/non-release candidates" in tasks.lower()
+
+
+def test_evidence_snapshot_identity_includes_release():
+    data_model = (FEATURE_DIRECTORY / "data-model.md").read_text(encoding="utf-8")
+    evidence_snapshot = " ".join(
+        data_model.split("### EvidenceSnapshot", 1)[1]
+        .split("### LabelRevision", 1)[0]
+        .lower()
+        .split()
+    )
+
+    assert "`release_id`" in evidence_snapshot
+    assert "release changes create a new `evidence_id`" in evidence_snapshot
+
+
 def test_requirements_checklist_is_owned_by_reviewers():
     checklist = (
         FEATURE_DIRECTORY / "checklists" / "requirements.md"
@@ -89,6 +120,7 @@ def test_requirements_checklist_is_owned_by_reviewers():
 
     assert checklist_items
     assert all("[Reviewer]" in item for item in checklist_items)
+    assert not re.search(r"(?m)^- \[[xX]\]", checklist)
 
 
 def test_future_tasks_separate_experiment_from_multimodal_release():

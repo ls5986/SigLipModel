@@ -60,9 +60,12 @@ encoder identities. It does not use photos, train SigLIP2, calibrate
 probabilities, fit multimodal fusion, or create an approved v2 release.
 
 **Decision**: Keep this path labeled **experimental text/metadata candidate**.
-Its predictions remain separate from labels and the release registry. No metric
-from that path may be presented as evidence that the full multimodal provider is
-approved.
+Unreviewed drafts MAY serve as labels only for explicitly isolated
+experimental/non-release candidates with declared provenance. Their training data,
+artifacts, and predictions remain separate from approved labels and the release
+registry and cannot qualify for candidate, shadow, or production release status.
+No metric from that path may be presented as release evidence or as evidence that
+the full multimodal provider is approved.
 
 ## Adopted Foundation Decisions
 
@@ -110,12 +113,15 @@ photo-level splits would leak the same property across stages.
 
 ### D-006 — Human-per-axis release evidence
 
-**Decision**: Draft agreement, imported cohort labels, and aggregate metrics are
-insufficient for promotion. Numeric thresholds are pre-registered per supported
-axis and protected slice before protected evaluation.
+**Decision**: Release-eligible training for candidate, shadow, or production
+status uses human-approved labels with current evidence and verified source/era
+provenance. Draft agreement, imported cohort labels, and aggregate metrics are
+insufficient for release eligibility or promotion. Numeric thresholds are
+pre-registered per supported axis and protected slice before protected evaluation.
 
-**Reason**: Current experimental labels and sparse classes cannot support honest
-release claims.
+**Reason**: The explicit experimental/non-release exception permits isolated
+learning from drafts without allowing current experimental labels or sparse
+classes to support release claims.
 
 ### D-007 — Provider-first contract rollout
 
