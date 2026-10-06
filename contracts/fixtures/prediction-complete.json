@@ -43,7 +43,12 @@
         },
         "value_add_score": 0.6,
         "confidence": 0.7,
-        "text_signals": []
+        "text_signals": [],
+        "acquisition_fit": "TARGET",
+        "acquisition_fit_probabilities": {
+          "TARGET": 0.6,
+          "NOT_TARGET": 0.4
+        }
       },
       "reason": null
     },
@@ -73,7 +78,12 @@
             "start": 0,
             "end": 17
           }
-        ]
+        ],
+        "acquisition_fit": "TARGET",
+        "acquisition_fit_probabilities": {
+          "TARGET": 0.6,
+          "NOT_TARGET": 0.4
+        }
       },
       "reason": null
     },
@@ -94,7 +104,12 @@
         },
         "value_add_score": 0.6,
         "confidence": 0.7,
-        "text_signals": []
+        "text_signals": [],
+        "acquisition_fit": "TARGET",
+        "acquisition_fit_probabilities": {
+          "TARGET": 0.6,
+          "NOT_TARGET": 0.4
+        }
       },
       "reason": null
     },
@@ -115,7 +130,12 @@
         },
         "value_add_score": 0.6,
         "confidence": 0.7,
-        "text_signals": []
+        "text_signals": [],
+        "acquisition_fit": "TARGET",
+        "acquisition_fit_probabilities": {
+          "TARGET": 0.6,
+          "NOT_TARGET": 0.4
+        }
       },
       "reason": null
     }
@@ -133,7 +153,12 @@
     },
     "value_add_score": 0.6,
     "confidence": 0.7,
-    "text_signals": []
+    "text_signals": [],
+    "acquisition_fit": "TARGET",
+    "acquisition_fit_probabilities": {
+      "TARGET": 0.6,
+      "NOT_TARGET": 0.4
+    }
   },
   "modalities_used": [
     "vision",
