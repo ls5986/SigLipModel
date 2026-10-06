@@ -129,6 +129,13 @@ def main():
         if os.environ.get("STUDIO_V2_MODEL_ENABLED", "false").lower() == "true":
             from v2_training import heartbeat as v2_heartbeat
             v2_heartbeat(store, "ready", detail={"lane": "model"})
+            from v2_auto_bootstrap import maybe_enqueue
+            try:
+                bootstrap = maybe_enqueue(store)
+                if bootstrap.get("status") != "disabled":
+                    print("ActVision v2 auto-bootstrap: " + str(bootstrap.get("status")), flush=True)
+            except Exception:
+                print("ActVision v2 auto-bootstrap could not queue; inspect saved marker.", flush=True)
         while not STOP.is_set():
             if time.monotonic() - last_heartbeat >= 30:
                 for classifier in classifiers:
@@ -180,6 +187,8 @@ def main():
                         helper = threading.Thread(target=keep_model_heartbeat, daemon=True)
                         helper.start()
                     poll_training(store, rooms)
+                    from v2_auto_bootstrap import reconcile as reconcile_v2_bootstrap
+                    reconcile_v2_bootstrap(store)
                     from v2_inference import poll as poll_v2_inference
                     from v2_property_prediction import poll as poll_v2_property
                     inference_ran = poll_v2_inference(store, rooms)
