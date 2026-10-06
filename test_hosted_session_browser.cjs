@@ -72,6 +72,14 @@ const files = ['studio_home.html', 'training_studio.html', 'mls_validation_ui.ht
         const box = await button.boundingBox();
         assert.ok(box && box.width > 0 && box.height >= 40, `${file}: accessible logout target`);
         assert.ok(box.x >= 0 && box.x + box.width <= width + 1, `${file}: logout within viewport at ${width}`);
+        for (const selector of ['.acq-session-account', 'button']) {
+          const unobscured = await bar.locator(selector).evaluate(element => {
+            const rect = element.getBoundingClientRect();
+            const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+            return Boolean(hit && element.contains(hit));
+          });
+          assert.ok(unobscured, `${file}: ${selector} must not be obscured at ${width}px`);
+        }
         assert.equal(await bar.locator('form').getAttribute('method'), 'post');
         assert.equal(await bar.locator('form').getAttribute('action'), '/logout');
         apiMode = 'storage';
