@@ -86,7 +86,9 @@ def snapshot(store, *, include_legacy=True):
         photos = db.execute('''SELECT p.*,e.id AS example_id,e.listing_key,e.group_id
             FROM acq_training.photos p
             JOIN acq_training.examples e ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
-            WHERE p.workspace_id=%s AND p.revoked_at IS NULL
+            WHERE p.workspace_id=%s
+            AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
+            AND p.revoked_at IS NULL
             AND (p.retention_until IS NULL OR p.retention_until>now()) ORDER BY p.id''',
             (store.workspace,)).fetchall()
         photos = [dict(photo) for photo in photos]
