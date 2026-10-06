@@ -84,3 +84,8 @@ def test_active_training_lease_does_not_run_a_second_fit():
  s=Store();s.docs[REQUEST]={'id':'active','status':'running','revision':2,'at':now()}
  assert poll_training(s) is False
  assert s.document(REQUEST)['revision']==2
+
+def test_source_only_confirmation_without_typed_labels_never_loads_property():
+ s=Store()
+ selected,excluded=select_rows(s,[{'id':'source-only','group_id':'g','split':'train','timing_verified':True}])
+ assert selected==[] and excluded=={'no_current_draft':1}

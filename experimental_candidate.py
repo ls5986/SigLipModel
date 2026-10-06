@@ -41,6 +41,10 @@ def select_rows(store, properties):
     for prop in properties[:MAX_GROUPS]:
         if prop.get('split')=='test': exclusions['protected_group']+=1;continue
         if not prop.get('timing_verified') or prop.get('label_exclusion'): exclusions['source_era']+=1;continue
+        draft=store.document('typed-label-result:'+prop['id']) or {}
+        if (prop.get('review') or {}).get('status')!='approved' and (
+                draft.get('status')!='draft' or draft.get('policy')!=POLICY):
+            exclusions['no_current_draft']+=1;continue
         detail=store.property(prop['id']); current=detail['property']
         if (detail.get('historical_source') or {}).get('blocked'): exclusions['source_era']+=1;continue
         evidence=label_evidence(prop['id'],current.get('mls_remarks') or '',detail['images'],current.get('metadata'))
@@ -50,7 +54,7 @@ def select_rows(store, properties):
                 exclusions['invalid_human_review']+=1;continue
             label=human; origin='approved_human'; proposal_id=None
         else:
-            label=store.document('typed-label-result:'+prop['id']) or {}
+            label=draft
             if label.get('status')!='draft' or label.get('policy')!=POLICY or label.get('label_evidence_id')!=evidence:
                 exclusions['no_current_draft']+=1;continue
             origin='unreviewed_ai_draft';proposal_id=label.get('proposal_id')
