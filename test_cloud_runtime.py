@@ -581,3 +581,29 @@ def test_source_only_acquisition_is_resolved_without_visual_training():
     assert history["timing_verified"] is False
     assert history["sale_policy"]["supported"] is True
     assert history["sale_policy"]["selected_close_date"] is None
+
+
+
+def test_event_media_recovery_done_handles_zero_photo_listing():
+    from event_media_recovery import media_recovery_done
+
+    assert media_recovery_done({
+        "status": "complete",
+        "reported_photo_count": 0,
+        "images": [],
+    })
+    assert media_recovery_done({
+        "status": "sampled",
+        "reported_photo_count": 5,
+        "images": [{"provider_media_key": "one"}],
+    })
+    assert not media_recovery_done({
+        "status": "running",
+        "reported_photo_count": 0,
+        "images": [],
+    })
+    assert not media_recovery_done({
+        "status": "complete",
+        "reported_photo_count": 5,
+        "images": [],
+    })
