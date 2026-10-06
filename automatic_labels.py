@@ -90,6 +90,20 @@ class SiglipLabels:
             logits = self.model(**inputs).logits_per_image.float().cpu().tolist()
         return [{**resolve(row), "backbone_revision": self.revision} for row in logits]
 
+    def embed(self, paths):
+        """Return normalized frozen SigLIP2 image embeddings using this loaded backbone."""
+        from PIL import Image, ImageOps
+        images = []
+        for path in paths:
+            with Image.open(path) as image:
+                images.append(ImageOps.exif_transpose(image).convert("RGB"))
+        inputs = self.processor(images=images, return_tensors="pt")
+        with self.torch.inference_mode():
+            vectors = self.model.get_image_features(pixel_values=inputs["pixel_values"]).float()
+            vectors = self.torch.nn.functional.normalize(vectors, dim=-1)
+        return vectors.cpu().numpy()
+
+
 
 def active_policy():
     import os
