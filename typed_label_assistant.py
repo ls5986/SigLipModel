@@ -127,6 +127,22 @@ def anchor_text_spans(items, remarks):
     return items
 
 
+
+def provider_diagnostic(exc):
+    """Classify provider failures without saving response text or private evidence."""
+    import httpx
+    if not isinstance(exc,httpx.HTTPStatusError):return None
+    try:
+        error=exc.response.json().get('error',{})
+        message=str(error.get('message','')).casefold()
+        code=error.get('code')
+        known={'invalid_json_schema','context_length_exceeded','invalid_value','unsupported_parameter','invalid_request_error'}
+        hints=[word for word in ('schema','enum','grammar','token','context','unsupported','duplicate','invalid','complex') if word in message]
+        return {'code':code if code in known else 'provider_rejection','hints':hints}
+    except (ValueError,AttributeError,TypeError):
+        return {'code':'provider_rejection','hints':[]}
+
+
 def process(store, request, classifier):
     """Worker CAS claim; interrupted paid requests never automatically retry."""
     key = "typed-label-request:" + request["property_id"]
@@ -233,6 +249,7 @@ def process(store, request, classifier):
             "error_code":evidence_errors.get(str(exc)) if stage == "text_evidence" else None,
             "evidence_failure":evidence_failure,
             "provider_status":exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None,
+            "provider_diagnostic":provider_diagnostic(exc),
             "error":"Draft request failed or evidence changed; explicit retry required."}, active["revision"])
         return False
 

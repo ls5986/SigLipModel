@@ -285,3 +285,14 @@ def test_repeated_source_sentences_use_unique_context_without_guessing():
 def test_newline_separated_source_quotes_are_not_lost():
     from typed_label_assistant import evidence_quotes
     assert evidence_quotes("Needs TLC\nOriginal fixtures") == ["Needs TLC", "Original fixtures"]
+
+
+def test_provider_diagnostic_never_saves_response_text_or_unrecognized_codes():
+    import httpx
+    from typed_label_assistant import provider_diagnostic
+    req=httpx.Request('POST','https://api.openai.com/v1/responses')
+    response=httpx.Response(400,request=req,json={'error':{'code':'private-source-text','message':'Invalid schema grammar for private listing text and secret-key'}})
+    error=httpx.HTTPStatusError('secret-body',request=req,response=response)
+    result=provider_diagnostic(error)
+    assert result=={'code':'provider_rejection','hints':['schema','grammar','invalid']}
+    assert 'secret' not in json.dumps(result) and 'private' not in json.dumps(result)
