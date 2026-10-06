@@ -41,18 +41,19 @@ def _model_worker_online(store, threshold_seconds=90):
 
 
 def approved_manifest(store, release_id):
+    """Resolve one explicitly requested immutable approved release.
+
+    MLS pins the exact release ID and independently verifies its manifest. Keeping
+    older approved releases queryable makes rollback a configuration switch, not
+    a destructive model mutation.
+    """
     if store is None:
         raise UnavailableError("ActVision cloud training store is unavailable")
-    active = os.environ.get("ACTVISION_ACTIVE_RELEASE_ID", "").strip()
-    if not active:
-        raise UnavailableError("No approved ActVision release is active")
-    if active != release_id:
-        raise UnavailableError("Requested release is not the configured active ActVision release")
     from v2_runtime import release_manifest
     try:
         return release_manifest(store, release_id, allowed_statuses=("shadow", "production"))
     except (ValueError, OSError) as exc:
-        raise UnavailableError("Active ActVision release is unavailable or incompatible") from exc
+        raise UnavailableError("Requested ActVision release is unavailable or incompatible") from exc
 
 
 def infer(store, payload):
