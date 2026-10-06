@@ -218,9 +218,8 @@ def test_text_evidence_failure_reports_stage_without_private_evidence():
     signal["snippet"]="Private invented evidence"
     provider,_=classifier(value);assert not process(store,req,provider)
     saved=store.document("typed-label-request:listing")
-    assert saved["error_stage"]=="text_evidence"
-    assert saved["error_code"] in {"invalid_span","snippet_not_verbatim"}
-    assert saved["evidence_failure"]["signal"]=="needs_tlc"
+    assert saved["error_stage"]=="structured_schema"
+    assert saved["error_kind"]=="ValidationError"
     assert "Private invented evidence" not in json.dumps(saved)
 
 
@@ -240,3 +239,49 @@ def test_supported_tags_cannot_claim_present_without_a_snippet():
     provider,_=classifier(value);assert not process(store,req,provider)
     assert store.document("typed-label-request:listing")["error_stage"]=="structured_schema"
     assert store.document("typed-label-result:listing") is None
+
+
+def test_constrained_quotes_preserve_unicode_and_derive_provider_null_offsets():
+    from typed_label_assistant import evidence_quotes, schema, evidence
+    from jsonschema import validate, ValidationError
+    store=Store();store.detail['property']['mls_remarks']='A café. Needs TLC — original fixtures!'
+    remarks=store.detail['property']['mls_remarks']
+    quotes=evidence_quotes(remarks)
+    assert quotes==['A café.', 'Needs TLC — original fixtures!']
+    value=proposal()
+    signal=next(i for i in value['text_signals'] if i['signal']=='needs_tlc')
+    signal.update(snippet=quotes[1],start=None,end=None)
+    validate(value,schema(remarks))
+    req=queue(store,store.detail,{'confirmed':True,'label_evidence_id':evidence(store.detail)},'reviewer')
+    provider,calls=classifier(value)
+    assert process(store,req,provider) and len(calls)==1
+    saved=store.document('typed-label-result:listing')
+    tag=next(i for i in saved['text_signals'] if i['signal']=='needs_tlc')
+    assert remarks[tag['start']:tag['end']]==quotes[1]
+    assert saved['quotation_policy']=='source-quote-enum-v1'
+    signal['snippet']='Needs TLC - original fixtures!'
+    with pytest.raises(ValidationError):validate(value,schema(remarks))
+
+
+def test_empty_remarks_force_all_description_signals_unknown():
+    from typed_label_assistant import schema
+    from jsonschema import validate, ValidationError
+    value=proposal()
+    with pytest.raises(ValidationError):validate(value,schema(''))
+    for item in value['text_signals']:
+        item.update(state='UNKNOWN',snippet=None,start=None,end=None)
+    validate(value,schema(''))
+
+
+def test_repeated_source_sentences_use_unique_context_without_guessing():
+    from typed_label_assistant import evidence_quotes,anchor_text_spans
+    remarks='Needs TLC. Needs TLC.'
+    quotes=evidence_quotes(remarks)
+    assert quotes==[remarks]
+    item={'state':'PRESENT','snippet':quotes[0],'start':None,'end':None}
+    assert anchor_text_spans([item],remarks)[0]['end']==len(remarks)
+
+
+def test_newline_separated_source_quotes_are_not_lost():
+    from typed_label_assistant import evidence_quotes
+    assert evidence_quotes("Needs TLC\nOriginal fixtures") == ["Needs TLC", "Original fixtures"]
