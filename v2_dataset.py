@@ -298,14 +298,46 @@ def build(store):
             "available_modalities": available,
         })
 
-    # Every alias in the same merged group must have one split.
-    split_by_group = defaultdict(set)
+    # One physical home is one supervised sample. Aliases stay in the same split
+    # and cannot silently multiply a property's influence.
+    grouped_rows = defaultdict(list)
     for row in rows:
-        split_by_group[row["split_group_id"]].add(row["split"])
-    if any(len(splits) != 1 for splits in split_by_group.values()):
-        raise ValueError("Merged physical group leaked across dataset splits")
+        grouped_rows[row["split_group_id"]].append(row)
+    canonical_rows = []
+    for split_group, members in sorted(grouped_rows.items()):
+        splits = {row["split"] for row in members}
+        if len(splits) != 1:
+            raise ValueError("Merged physical group leaked across dataset splits")
+        # Conflicting human-approved values are never auto-resolved.
+        conflict = False
+        for axis in AXES:
+            human_values = {
+                row["labels"][axis] for row in members
+                if row["labels"][axis] != "UNKNOWN"
+                and (row["provenance"].get(axis) or {}).get("origin") == "HUMAN_APPROVED"
+            }
+            if len(human_values) > 1:
+                conflict = True
+        if conflict:
+            exclusions["conflicting_human_group"] += 1
+            continue
+        def rank(row):
+            provenance_strength = sum(
+                PROVENANCE_PRIORITY.get(value.get("origin"), 0)
+                for value in row["provenance"].values()
+            )
+            return (
+                provenance_strength,
+                len(row["available_modalities"]),
+                len(row["photos"]),
+                bool(row["remarks"]),
+                len(row["structured"]),
+                row["property_id"],
+            )
+        canonical_rows.append(max(members, key=rank))
 
-    canonical_rows = sorted(rows, key=lambda row: (row["split_group_id"], row["property_id"]))
+    split_by_group = {row["split_group_id"]: {row["split"]} for row in canonical_rows}
+    canonical_rows = sorted(canonical_rows, key=lambda row: (row["split_group_id"], row["property_id"]))
     fingerprint = digest({
         "policy": LABEL_POLICY_VERSION,
         "split_policy": SPLIT_POLICY_VERSION,
