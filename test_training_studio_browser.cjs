@@ -25,7 +25,8 @@ const path=require('node:path');
    if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:html});
    if(url.pathname==='/api/studio/v2/capabilities')return route.fulfill({json:caps});
    if(url.pathname==='/api/studio/image')return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=','base64')});
-   if(url.pathname==='/api/studio/review-queue')return route.fulfill({json:{items:[{id:'first',address:'Example',status:'unscored'},{id:'second',address:'Next property',status:'unscored'}],total:2,counts:{unscored:2,reviewed:0,photo_match:1,missing_text:2}}});
+   if(url.pathname==='/api/studio/review-queue')return route.fulfill({json:{items:[{id:'first',address:'Example',status:'unscored'},{id:'second',address:'Next property',status:'unscored'}],total:2,counts:{all:2,unscored:2,reviewed:0,photo_match:1,missing_text:2}}});
+   if(url.pathname==='/api/studio/v2/inventory/status')return route.fulfill({json:{counts:{target_properties:2,acquisition_mls_listings:2,source_only_acquisitions:0,unresolved_source_issues:0,current_acquisition_ai_drafts:1,missing_acquisition_ai_drafts:1,human_reviewed:0}}});
    if(url.pathname==='/api/studio/v2/property')return route.fulfill({json:details[url.searchParams.get('id')]});
    if(url.pathname==='/api/studio/v2/label'){
     assert.equal(request.headers()['x-review-token'],'test-csrf');
@@ -60,6 +61,9 @@ const path=require('node:path');
   assert.equal(await page.locator('#fit').inputValue(),'TARGET');
   assert.equal(await page.locator('#address script').count(),0);
   assert.match(await page.locator('#address').innerText(),/<script>/);
+  assert.equal(await page.locator('#counts .card').count(),6);
+  assert.deepEqual(await page.locator('#counts .metric').allTextContents(),['2','2','0','1','1','0']);
+  assert.match(await page.locator('#counts').innerText(),/AI drafts missing/);
   assert.equal(await page.locator('#no-photos').isVisible(),false);
   await page.locator('[data-tab="facts"]').click();
   assert.match(await page.locator('#facts').innerText(),/1963/);
@@ -153,6 +157,6 @@ const path=require('node:path');
   assert.equal(await page.locator('#physical').inputValue(),'C4_AVERAGE_FUNCTIONAL');
   assert.equal(saved.length,previousSaved);
   assert.deepEqual(errors,[]);
-  console.log('PASS: review safety, explicit AI drafts, v2 preview/freeze/train state, saved candidate surfaces, release safety, mobile layout.');
+  console.log('PASS: review safety, canonical inventory counters, explicit AI drafts, v2 preview/freeze/train state, saved candidate surfaces, release safety, mobile layout.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1});

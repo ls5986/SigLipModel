@@ -69,10 +69,12 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         status,_,body=request(port,'GET','/property-review',headers={'Cookie':cookie})
         assert status==303
         status,_,body=request(port,'GET','/source-evidence',headers={'Cookie':cookie})
-        assert status==200 and b'Verify listing / photos' in body
+        assert status==200 and b'Review acquisition cohort' in body
         status,_,body=request(port,'GET','/workbench',headers={'Cookie':cookie})
         assert status==303
-        for path in ('/workbench','/advanced','/legacy','/research'):
+        for path in ('/workbench','/advanced','/legacy','research'):
+            if path == 'research':
+                path = '/research'
             status,redirect,_=request(port,'GET',path,headers={'Cookie':cookie})
             assert status==303 and redirect['Location']=='/studio'
         status,headers,_=request(port,'GET','/?property=listing',headers={'Cookie':cookie})

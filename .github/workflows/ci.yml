@@ -28,7 +28,7 @@ jobs:
       - name: Contract fixtures
         run: python tools/export_actvision_fixtures.py --check
       - name: Backend regression suite
-        run: python -m pytest test_actvision_v2.py test_cloud_runtime.py test_hosted_server.py test_model_workbench.py -q
+        run: python -m pytest test_actvision_v2.py test_cloud_runtime.py test_hosted_server.py test_hosted_session.py test_model_workbench.py -q
 
   browser:
     runs-on: ubuntu-latest
@@ -45,3 +45,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Training Studio browser regression
         run: node test_training_studio_browser.cjs
+      - name: Hosted session request regression
+        run: node test_hosted_session_client.cjs
+      - name: Hosted account mobile and desktop regression
+        run: node test_hosted_session_browser.cjs
