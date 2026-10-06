@@ -23,6 +23,27 @@ def status(store):
         for item in pages
     )
     with store.database.connect() as db:
+        cohort = db.execute("""
+          SELECT
+            count(DISTINCT group_id) AS target_properties,
+            count(DISTINCT CASE
+              WHEN source_snapshot->'event_map'->>'recovery_status'='mapped'
+                THEN source_snapshot->'event_map'->>'acquisition_listing_key'
+              WHEN source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                THEN NULL
+              ELSE listing_key
+            END) AS acquisition_mls_listings,
+            count(DISTINCT group_id) FILTER (
+              WHERE source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+            ) AS source_only_acquisitions,
+            count(*) FILTER (
+              WHERE source_snapshot ? 'event_map'
+                AND coalesce(source_snapshot->'event_map'->>'recovery_status','')
+                    NOT IN ('mapped','acquisition_mls_unavailable')
+            ) AS unresolved_event_maps
+          FROM acq_training.examples
+          WHERE workspace_id=%s AND listing_key IS NOT NULL
+        """, (store.workspace,)).fetchone()
         drafts = db.execute("""
           SELECT count(*) AS count
           FROM acq_training.studio_state
@@ -30,6 +51,34 @@ def status(store):
             AND item_id LIKE 'typed-label-result:%%'
             AND payload->>'status'='draft'
         """, (store.workspace,)).fetchone()["count"]
+        current_drafts = db.execute("""
+          WITH acquisition AS (
+            SELECT DISTINCT CASE
+              WHEN source_snapshot->'event_map'->>'recovery_status'='mapped'
+                THEN source_snapshot->'event_map'->>'acquisition_listing_key'
+              WHEN source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                THEN NULL
+              ELSE listing_key
+            END AS listing_key
+            FROM acq_training.examples
+            WHERE workspace_id=%s AND listing_key IS NOT NULL
+          ), drafts AS (
+            SELECT DISTINCT replace(item_id,'typed-label-result:','') AS listing_key
+            FROM acq_training.studio_state
+            WHERE workspace_id=%s AND kind='document'
+              AND item_id LIKE 'typed-label-result:%%'
+              AND payload->>'status'='draft'
+              AND payload->>'label_schema_version'='actvision-labels-v2'
+          )
+          SELECT
+            count(*) FILTER (WHERE acquisition.listing_key IS NOT NULL) AS acquisition_listings,
+            count(*) FILTER (WHERE drafts.listing_key IS NOT NULL) AS ready,
+            count(*) FILTER (
+              WHERE acquisition.listing_key IS NOT NULL AND drafts.listing_key IS NULL
+            ) AS missing
+          FROM acquisition
+          LEFT JOIN drafts USING(listing_key)
+        """, (store.workspace, store.workspace)).fetchone()
         failed_drafts = db.execute("""
           SELECT count(*) AS count
           FROM acq_training.studio_state
@@ -65,11 +114,17 @@ def status(store):
     counts = {
         "imported_source_rows": inventory.get("imported_rows"),
         "physical_properties_groups": inventory.get("physical_groups"),
+        "target_properties": int(cohort["target_properties"]),
+        "acquisition_mls_listings": int(cohort["acquisition_mls_listings"]),
+        "source_only_acquisitions": int(cohort["source_only_acquisitions"]),
+        "unresolved_source_issues": int(cohort["unresolved_event_maps"]),
         "matched_mls_listings": inventory.get("matched_listings"),
         "listings_with_retained_photos": sum((item.get("image_count") or 0) > 0 for item in pages),
         "listings_without_retained_photos": sum((item.get("image_count") or 0) == 0 for item in pages),
         "source_conflicts": sum(bool(item.get("blocked")) for item in pages),
         "ai_drafts": int(drafts),
+        "current_acquisition_ai_drafts": int(current_drafts["ready"]),
+        "missing_acquisition_ai_drafts": int(current_drafts["missing"]),
         "failed_ai_drafts": int(failed_drafts),
         "human_reviewed": sum(item.get("status") == "reviewed" for item in pages),
         "training_eligible": training["eligible_properties"],
@@ -93,5 +148,5 @@ def status(store):
                 "bytes_state": "stored_reference_present" if item.get("image_count") else "not_applicable",
             },
         } for item in pages],
-        "denominator": "distinct matched MLS listing keys for listing-level counts; imported rows and physical groups are reported separately",
+        "denominator": "target_properties is the imported acquisition cohort. acquisition_mls_listings counts current acquisition-event MLS listings. unresolved_source_issues is the current source-recovery denominator. AI draft counts are separate coverage metrics and do not imply human confirmation is required.",
     }
