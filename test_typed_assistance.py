@@ -335,4 +335,10 @@ def test_provider_quote_index_schema_has_no_source_string_enum_or_union():
     value['text_signals'][0]['quote_index']=999
     with pytest.raises(ValidationError):validate(value,response)
     value['text_signals'][0]['quote_index']=0
-    with pytest.raises(ValueError,match='UNKNOWN'):expand_quote_references(value,remarks)
+    expanded=expand_quote_references(value,remarks)
+    assert expanded['text_signals'][0]['state']=='UNKNOWN'
+    assert expanded['text_signals'][0]['snippet'] is None
+    value['text_signals'][0].update(state='PRESENT',quote_index=None)
+    expanded=expand_quote_references(value,remarks)
+    assert expanded['text_signals'][0]['state']=='UNKNOWN'
+    assert expanded['text_signals'][0]['snippet'] is None

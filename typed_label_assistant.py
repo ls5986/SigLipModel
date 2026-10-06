@@ -95,14 +95,16 @@ def expand_quote_references(proposal,remarks):
     result={**proposal,'text_signals':[]}
     for item in proposal['text_signals']:
         index=item['quote_index']
-        if item['state']=='UNKNOWN':
-            if index is not None:raise ValueError('UNKNOWN cannot cite a quote')
+        state=item['state']
+        if state=='UNKNOWN':
+            snippet=None
+        elif type(index) is not int or not 0 <= index < len(quotes):
+            # A proposed conclusion without source support remains unknown.
+            state='UNKNOWN'
             snippet=None
         else:
-            if type(index) is not int or not 0 <= index < len(quotes):
-                raise ValueError('Supported signals require a source quote')
             snippet=quotes[index]
-        result['text_signals'].append({'signal':item['signal'],'state':item['state'],
+        result['text_signals'].append({'signal':item['signal'],'state':state,
             'probability':None,'snippet':snippet,'start':None,'end':None})
     return result
 
