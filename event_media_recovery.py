@@ -154,6 +154,10 @@ def pending(store, limit=1):
             AND e.source_snapshot->'event_map'->>'recovery_status'='mapped'
             AND e.source_snapshot->'event_map'->>'acquisition_listing_key'<>e.listing_key
             AND v.payload->>'certified_for_training'='true'
+            AND NOT (
+              m.payload->>'status'='complete'
+              AND coalesce((m.payload->>'reported_photo_count')::int,0)=0
+            )
             AND coalesce(jsonb_array_length(m.payload->'images'),0)=0
             AND NOT EXISTS (
               SELECT 1 FROM acq_training.photos p
