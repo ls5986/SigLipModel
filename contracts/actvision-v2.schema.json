@@ -102,7 +102,13 @@
         "photo_inputs": {
           "type": "array", "maxItems": 8,
           "items": {"type": "object", "additionalProperties": false, "required": ["photo_id", "uri"],
-            "properties": {"photo_id": {"$ref": "#/$defs/id"}, "uri": {"type": "string", "maxLength": 4000}}}
+            "dependentRequired": {"content_b64": ["content_sha256"]},
+            "properties": {
+              "photo_id": {"$ref": "#/$defs/id"},
+              "uri": {"type": "string", "maxLength": 4000},
+              "content_b64": {"type": "string", "maxLength": 300000},
+              "content_sha256": {"$ref": "#/$defs/sha256"}
+            }}
         }
       }
     },
