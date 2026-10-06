@@ -47,11 +47,12 @@
     },
     "physical_result": {
       "type": "object", "additionalProperties": false,
-      "required": ["physical_condition", "modernization", "condition_probabilities", "modernization_probabilities", "value_add_score", "confidence", "text_signals"],
+      "required": ["physical_condition", "modernization", "acquisition_fit", "condition_probabilities", "modernization_probabilities", "acquisition_fit_probabilities", "value_add_score", "confidence", "text_signals"],
       "properties": {
-        "physical_condition": {"$ref": "#/$defs/condition"}, "modernization": {"$ref": "#/$defs/modernization"},
+        "physical_condition": {"$ref": "#/$defs/condition"}, "modernization": {"$ref": "#/$defs/modernization"}, "acquisition_fit": {"$ref": "#/$defs/acquisition_fit"},
         "condition_probabilities": {"type": "object", "propertyNames": {"$ref": "#/$defs/condition"}, "additionalProperties": {"$ref": "#/$defs/probability"}},
         "modernization_probabilities": {"type": "object", "propertyNames": {"$ref": "#/$defs/modernization"}, "additionalProperties": {"$ref": "#/$defs/probability"}},
+        "acquisition_fit_probabilities": {"type": "object", "propertyNames": {"$ref": "#/$defs/acquisition_fit"}, "additionalProperties": {"$ref": "#/$defs/probability"}},
         "value_add_score": {"oneOf": [{"$ref": "#/$defs/probability"}, {"type": "null"}]},
         "confidence": {"oneOf": [{"$ref": "#/$defs/probability"}, {"type": "null"}]},
         "text_signals": {"type": "array", "maxItems": 17, "items": {"$ref": "#/$defs/text_evidence"}}
