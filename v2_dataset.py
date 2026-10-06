@@ -356,24 +356,21 @@ def build(store):
             exclusions["no_supported_labels"] += 1
             continue
 
-        source_photos = {row["id"]: row for row in photos_by_property.get(prop_id, [])}
+        source_photos = photos_by_property.get(prop_id, [])
         vision = []
         if prop.get("timing_verified"):
-            for image in detail["images"]:
-                source = source_photos.get(image["id"])
-                if not source or source.get("label_exclusion") or not source.get("include_in_similarity"):
+            for source in source_photos:
+                if source.get("label_exclusion") or not source.get("include_in_similarity"):
                     continue
-                context = image.get("effective", {}).get("context", image.get("provider_context"))
-                if context not in {"subject", "subject_interior", "subject_exterior"}:
-                    continue
-                if image.get("synthetic_evidence", {}).get("excluded"):
+                context = source.get("photo_context")
+                if context in {"shared_amenity", "floor_plan", "unrelated"}:
                     continue
                 vision.append({
-                    "photo_id": image["id"],
-                    "sha256": image["sha256"],
+                    "photo_id": source["id"],
+                    "sha256": source["sha256"],
                     "storage_bucket": source["storage_bucket"],
                     "storage_object_key": source["storage_object_key"],
-                    "room": image.get("effective", {}).get("room") or "other",
+                    "room": source.get("room") or source.get("proposed_room") or "other",
                 })
 
         available = []
