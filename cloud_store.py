@@ -247,19 +247,36 @@ class SupabaseStore:
         supported = all(supports_prior(self._selected(e),e['source_snapshot'].get('spreadsheet'),e['source_snapshot'].get('mls_candidates')) for e in examples)
         digest = hashlib.sha256(json.dumps(sorted(p['image_sha256'] for p in photos)).encode()).hexdigest()
         policy = first_sale_policy(self._selected(examples[0]),examples[0]['source_snapshot'].get('spreadsheet'),examples[0]['source_snapshot'].get('mls_candidates'))
-        wrong = review and review.get('decision')=='wrong_era'
+        event_map = examples[0]['source_snapshot'].get('event_map') or {}
+        mapped_at = str(event_map.get('mapped_at') or '')
+        review_at = str((review or {}).get('at') or '')
+        stale_pre_mapping_wrong = bool(
+            review and review.get('decision')=='wrong_era'
+            and event_map.get('recovery_status')=='mapped'
+            and (not review_at or review_at <= mapped_at)
+        )
+        wrong = bool(review and review.get('decision')=='wrong_era' and not stale_pre_mapping_wrong)
+        event_verified = bool(
+            event_map.get('recovery_status')=='mapped' and photos
+            and any(str(e.get('listing_key')) == str(event_map.get('acquisition_listing_key'))
+                    for e in examples)
+        )
         blocked = bool(wrong or not supported)
         return {'sale_policy':policy,
                 'source_rows':sorted({n for e in examples for n in e['source_rows']}),
                 'source':examples[0]['source_snapshot'].get('spreadsheet', {}),
+                'event_map':event_map,
                 'mls_listing':trim_metadata(self._selected(examples[0]).get('listing', {})),
                 'evidence_hash':digest, 'review':review, 'blocked':blocked,
                 'photo_coverage':review.get('photo_coverage','unknown') if review and review.get('evidence_hash')==digest else 'unknown',
                 'acquisition_status':'wrong_era' if wrong else 'prior_acquisition_candidate' if supported else 'needs_prior_listing',
                 'block_reason':'You flagged these photos as the wrong property or era.' if wrong else
                   policy.get('reason') or 'First acquisition listing/photos need rematching.' if blocked else None,
-                'timing_verified':bool(photos and review and review.get('decision')=='correct_era' and
-                                       review.get('evidence_hash')==digest and not blocked),
+                'timing_verified':bool(not blocked and (
+                    event_verified or
+                    photos and review and review.get('decision')=='correct_era'
+                    and review.get('evidence_hash')==digest
+                )),
                 'trainable':False,'training_gate':'Review labels and protected groups remain separate checks'}
 
     def property(self, identifier):
