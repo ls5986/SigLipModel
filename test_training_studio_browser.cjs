@@ -11,6 +11,7 @@ const path=require('node:path');
   const html=fs.readFileSync(path.join(__dirname,'training_studio.html'),'utf8');
   const calls=[],saved=[],errors=[];
   let failSave=false;
+  let frozenDataset={status:'none'};
   page.on('pageerror',error=>errors.push(error.message));
   const caps={token:'test-csrf',cloud:true,training:false,actor:{id:'verified-reviewer',role:'reviewer'},blockers:['Trained v2 artifacts not configured'],taxonomy:{
    physical_condition:schema.$defs.condition.enum,modernization:schema.$defs.modernization.enum,acquisition_fit:schema.$defs.acquisition_fit.enum,text_signals:schema.$defs.text_signal.enum
@@ -32,18 +33,24 @@ const path=require('node:path');
     saved.push(JSON.parse(request.postData()));return route.fulfill({json:{revision:1}});
    }
    if(url.pathname==='/api/studio/v2/feedback')return route.fulfill({json:{items:[],notice:'No training on review'}});
-   if(url.pathname==='/api/studio/v2/releases')return route.fulfill({json:{items:[],promotion_available:false,reason:'No approved v2 bundles'}});
-   if(url.pathname==='/api/studio/v2/operations')return route.fulfill({json:{inference_enabled:false}});
+   if(url.pathname==='/api/studio/v2/releases')return route.fulfill({json:{items:[],promotion_available:caps.actor.role==='operator',reason:'Explicit promotion only'}});
+   if(url.pathname==='/api/studio/v2/operations')return route.fulfill({json:{inference_enabled:false,workers:{actvision_v2_model:{online:false,status:'offline'}}}});
+   if(url.pathname==='/api/studio/v2/experimental/status')return route.fulfill({json:{request:{status:'none'},candidate:null,tasks:{},review_next:[]}});
+   if(url.pathname==='/api/studio/v2/experimental/prediction')return route.fulfill({json:{status:'none'}});
+   if(url.pathname==='/api/studio/v2/actvision/prediction')return route.fulfill({json:{status:'none',release:null}});
+   if(url.pathname==='/api/studio/v2/training/status')return route.fulfill({json:{request:{status:'none'},runs:{},release:null}});
+   if(url.pathname==='/api/studio/v2/dataset/latest')return route.fulfill({json:frozenDataset});
    if(url.pathname==='/api/studio/v2/label/proposal')return route.fulfill({json:{request:{status:'completed'},proposal:{...details.first,label_evidence_id:details.first.label_evidence_id,status:'draft',physical_condition:'C4_AVERAGE_FUNCTIONAL',modernization_state:'ORIGINAL',acquisition_fit:'UNKNOWN',reason:'Draft needs verification',text_signals:[]}}});
    if(url.pathname==='/api/studio/v2/label/propose')return route.fulfill({json:{status:'queued'}});
-   if(url.pathname==='/api/studio/v2/dataset/preview')return route.fulfill({json:{id:'preview-1',protected_groups_unchanged:true,trainable:true,counts:{train:20,validation:4,test:4}}});
+   if(url.pathname==='/api/studio/v2/dataset/preview')return route.fulfill({json:{policy:'actvision-label-provenance-v2',fingerprint:'preview-hash',trainable:true,counts:{properties:28,splits:{train:20,validation:4,test:4}}}});
    if(url.pathname==='/api/studio/v2/dataset/freeze'){
-    assert.deepEqual(JSON.parse(request.postData()),{id:'preview-1',confirmed:true});
-    return route.fulfill({json:{id:'preview-1',fingerprint:'frozen-hash',trainable:true}});
+    assert.deepEqual(JSON.parse(request.postData()),{confirmed:true});
+    frozenDataset={id:'dataset-v2',version:1,fingerprint:'frozen-hash',frozen:true};
+    return route.fulfill({json:frozenDataset});
    }
    if(url.pathname==='/api/studio/v2/train'){
-    assert.deepEqual(JSON.parse(request.postData()),{dataset_fingerprint:'frozen-hash',confirmed:true});
-    return route.fulfill({json:{status:'queued',id:'explicit-training-job'}});
+    assert.deepEqual(JSON.parse(request.postData()),{confirmed:true,dataset_id:'dataset-v2'});
+    return route.fulfill({json:{request:{status:'queued'},runs:{},release:null}});
    }
    return route.fulfill({status:404,json:{error:'Unexpected '+url.pathname}});
   });
@@ -119,13 +126,18 @@ const path=require('node:path');
   await page.reload({waitUntil:'networkidle'});
   await page.locator('[data-page="train"]').click();
   await page.locator('#preview').click();
-  await page.waitForFunction(()=>document.getElementById('training-result').textContent.includes('preview-1'));
-  assert.equal(await page.locator('#freeze').isDisabled(),true);
-  assert.equal(await page.locator('#train-candidate').isDisabled(),true);
+  await page.waitForFunction(()=>document.getElementById('training-result').textContent.includes('preview-hash'));
+  assert.equal(await page.locator('#freeze').isDisabled(),false);
   assert.equal(calls.filter(c=>c.path==='/api/studio/v2/dataset/freeze').length,0);
   assert.equal(calls.filter(c=>c.path==='/api/studio/v2/train').length,0);
+  await page.locator('#freeze').click();
+  await page.waitForFunction(()=>document.getElementById('training-result').textContent.includes('Frozen dataset V1'));
+  assert.equal(calls.filter(c=>c.path==='/api/studio/v2/dataset/freeze').length,1);
+  await page.locator('#confirm-training').check();
+  await page.locator('#train-candidate').click();
+  assert.equal(calls.filter(c=>c.path==='/api/studio/v2/train').length,1);
   await page.locator('[data-page="label"]').click();
-  await page.getByText('Request a new analysis',{exact:true}).click();
+  await page.getByText('Generate a new AI draft',{exact:true}).click();
   await page.locator('#request-proposal').click();
   assert.match(await page.locator('#message').innerText(),/Confirm/);
   assert.equal(calls.filter(c=>c.path==='/api/studio/v2/label/propose').length,0);
@@ -140,6 +152,6 @@ const path=require('node:path');
   assert.equal(await page.locator('#physical').inputValue(),'C4_AVERAGE_FUNCTIONAL');
   assert.equal(saved.length,previousSaved);
   assert.deepEqual(errors,[]);
-  console.log('PASS: property/text review, UNKNOWN, stale saves, Save & Next, role gates, v2 legacy-training denial, explicit machine draft requests, mobile layout.');
+  console.log('PASS: review safety, explicit AI drafts, v2 preview/freeze/train state, saved candidate surfaces, release safety, mobile layout.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1});
