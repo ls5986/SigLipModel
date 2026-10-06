@@ -126,6 +126,7 @@ def main():
         last_heartbeat = 0
         last_experiment = 0
         last_v2_model = 0
+        last_event_recovery = 0
         if os.environ.get("STUDIO_V2_MODEL_ENABLED", "false").lower() == "true":
             from v2_training import heartbeat as v2_heartbeat
             v2_heartbeat(store, "ready", detail={"lane": "model"})
@@ -167,6 +168,17 @@ def main():
                 poll_prediction(store)
             except Exception:
                 print("Experimental prediction failed; inspect saved status.", flush=True)
+
+            if (
+                os.environ.get("STUDIO_EVENT_RECOVERY_ENABLED", "false").lower() == "true"
+                and time.monotonic() - last_event_recovery >= 10
+            ):
+                from event_media_recovery import poll as poll_event_recovery
+                try:
+                    poll_event_recovery(store)
+                except Exception:
+                    print("Acquisition event photo recovery failed; inspect recovery heartbeat.", flush=True)
+                last_event_recovery = time.monotonic()
 
             if (
                 os.environ.get("STUDIO_V2_MODEL_ENABLED", "false").lower() == "true"
