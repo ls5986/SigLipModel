@@ -175,7 +175,9 @@ def session_handler(base_handler, app, auth, cookie_name):
                 type(error).__name__, sqlstate,
             )
             return self.data(503, {
-                "error": "Storage is temporarily unavailable. " + message + " Signing in again will not repair this server error.",
+                "error": "Storage is temporarily unavailable. " + message
+                         + " Operator checks include database connectivity and required Studio/ActVision migrations."
+                         + " Signing in again will not repair this server error.",
                 "code": "actvision_unavailable" if service else "studio_unavailable",
                 "category": category, "request_id": request_id,
             })
