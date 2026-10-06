@@ -139,8 +139,11 @@ class SupabaseStore:
               WHERE sibling.workspace_id=e.workspace_id AND sibling.group_id=e.group_id
               AND sale.key IN ('Prior Sale Date','Last Sale Date') AND sale.value ~ '^2026-[0-9]{2}-[0-9]{2}') AS first_sale_date FROM acq_training.examples e
              JOIN acq_training.property_groups g ON g.workspace_id=e.workspace_id AND g.id=e.group_id
-             WHERE e.workspace_id=%s AND e.listing_key=%s ORDER BY e.id''',
-             (self.workspace, identifier)).fetchall()
+             WHERE e.workspace_id=%s AND (
+               e.listing_key=%s OR
+               e.source_snapshot->'event_map'->>'acquisition_listing_key'=%s
+             ) ORDER BY e.id''',
+             (self.workspace, identifier, identifier)).fetchall()
         if not rows:
             raise ValueError('Unknown property')
         return rows
@@ -178,10 +181,13 @@ class SupabaseStore:
              FROM acq_training.photos p
              JOIN acq_training.examples e ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
              JOIN acq_training.property_groups g ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
-             WHERE e.workspace_id=%s AND e.listing_key=%s
+             WHERE e.workspace_id=%s AND (
+               e.listing_key=%s OR
+               e.source_snapshot->'event_map'->>'acquisition_listing_key'=%s
+             )
                AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
                AND p.revoked_at IS NULL AND (p.retention_until IS NULL OR p.retention_until>now())
-             ORDER BY p.provider_media_key,p.id''', (self.workspace, identifier)).fetchall()
+             ORDER BY p.provider_media_key,p.id''', (self.workspace, identifier, identifier)).fetchall()
         unique = {}
         for row in rows:
             key = identifier+':'+str(row['provider_media_key'])
