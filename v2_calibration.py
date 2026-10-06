@@ -37,7 +37,8 @@ class TemperatureCalibrator:
         for task, probability_key in AXES.items():
             samples = []
             classes = None
-            for result, truth in zip(results, labels):
+            for result, label in zip(results, labels):
+                truth = label.get(task, "UNKNOWN")
                 probabilities = result.get(probability_key) or {}
                 if truth == "UNKNOWN" or truth not in probabilities:
                     continue
@@ -108,7 +109,8 @@ class CalibratedModel:
 def expected_calibration_error(results, labels, task, bins=10):
     probability_key = AXES[task]
     observations = []
-    for result, truth in zip(results, labels):
+    for result, label in zip(results, labels):
+        truth = label.get(task, "UNKNOWN")
         probabilities = result.get(probability_key) or {}
         if truth == "UNKNOWN" or not probabilities:
             continue
