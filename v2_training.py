@@ -419,6 +419,14 @@ def train_candidate(store, request, siglip):
         "release_id": release_id, "status": "candidate",
         "components": artifacts,
         "dataset_sha256": frozen["dataset"]["manifest_sha256"],
+        "code_commit": os.environ.get("RENDER_GIT_COMMIT", "unknown"),
+        "split_policy_version": "actvision-group-split-v2",
+        "backbones": {
+            "vision": "google/siglip2-base-patch16-224",
+            "text": "sentence-transformers/all-MiniLM-L6-v2",
+        },
+        "thresholds": {},
+        "created_at": now(),
         "evaluation": {
             "report_sha256": report_sha,
             "protected_slices_passed": protected_passed,
