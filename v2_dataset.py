@@ -17,6 +17,7 @@ LABEL_POLICY_VERSION = "actvision-label-provenance-v2"
 PROVENANCE_PRIORITY = {
     "IMPORTED_TARGET": 1,
     "AI_DRAFT": 2,
+    "POST_RENOVATION_OUTCOME": 2,
     "PRODUCTION_FEEDBACK": 3,
     "HUMAN_APPROVED": 4,
 }
@@ -194,6 +195,112 @@ def _split(group_id, protected):
     return "validation" if int(digest({"actvision_v2_group": group_id})[:8], 16) / 2**32 < .2 else "train"
 
 
+
+def _after_event_examples(store, acquisition_properties):
+    """Return later-sale NOT_TARGET events without exposing outcome economics as inputs."""
+    by_example = {
+        str(prop["example_id"]): prop for prop in acquisition_properties
+    }
+    if not by_example:
+        return []
+    with store.database.connect() as db:
+        rows = db.execute("""
+          SELECT e.id,e.group_id,e.source_snapshot,
+                 c.item AS candidate,
+                 p.id AS photo_uuid,p.provider_media_key,p.image_sha256,
+                 p.storage_bucket,p.storage_object_key,p.context,p.context_evidence
+          FROM acq_training.examples e
+          JOIN LATERAL (
+            SELECT item
+            FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
+            WHERE item->'listing'->>'ListingKey'=e.source_snapshot->'event_map'->>'after_listing_key'
+            LIMIT 1
+          ) c ON true
+          LEFT JOIN acq_training.photos p
+            ON (p.workspace_id,p.example_id)=(e.workspace_id,e.id)
+           AND p.revoked_at IS NULL
+           AND (p.retention_until IS NULL OR p.retention_until>now())
+           AND p.context_evidence->>'event_role'='after'
+          WHERE e.workspace_id=%s
+            AND e.source_snapshot->'event_map'->>'recovery_status'='mapped'
+            AND nullif(e.source_snapshot->'event_map'->>'after_listing_key','') IS NOT NULL
+          ORDER BY e.id,p.provider_media_key,p.id
+        """, (store.workspace,)).fetchall()
+
+    grouped = defaultdict(lambda: {"photos": []})
+    for row in rows:
+        example_id = str(row["id"])
+        base = by_example.get(example_id)
+        if not base:
+            continue
+        item = grouped[example_id]
+        item.update({
+            "example_id": example_id,
+            "source_group_id": str(row["group_id"]),
+            "split_group_id": str(base["group_id"]),
+            "split": base["split"],
+            "candidate": row["candidate"],
+        })
+        if row["photo_uuid"] is not None:
+            context = row["context"] or "unknown"
+            if context not in {"shared_amenity", "floor_plan", "unrelated"}:
+                item["photos"].append({
+                    "photo_id": str(row["candidate"]["listing"]["ListingKey"]) + ":" + str(row["provider_media_key"]),
+                    "sha256": row["image_sha256"],
+                    "storage_bucket": row["storage_bucket"],
+                    "storage_object_key": row["storage_object_key"],
+                    "room": "other",
+                })
+
+    output = []
+    for item in grouped.values():
+        listing = item["candidate"].get("listing", {})
+        property_id = str(listing.get("ListingKey") or "")
+        if not property_id:
+            continue
+        remarks = __import__("listing_text").remarks(listing)
+        structured = _structured(listing)
+        available = []
+        if item["photos"]:
+            available.append("vision")
+        if remarks.strip():
+            available.append("text")
+        if structured:
+            available.append("structured")
+        if not available:
+            continue
+        output.append({
+            "property_id": property_id,
+            "example_id": item["example_id"],
+            "source_group_id": item["source_group_id"],
+            "split_group_id": item["split_group_id"],
+            "split": item["split"],
+            "event_role": "after",
+            "evidence_id": digest({
+                "property_id": property_id,
+                "remarks_sha256": remarks_digest(remarks),
+                "structured": structured,
+                "photo_hashes": [photo["sha256"] for photo in item["photos"]],
+            }),
+            "labels": {
+                "physical_condition": "UNKNOWN",
+                "modernization": "UNKNOWN",
+                "acquisition_fit": "NOT_TARGET",
+                "text_signals": {name: "UNKNOWN" for name in TEXT_SIGNALS},
+            },
+            "provenance": {
+                "acquisition_fit": {
+                    "origin": "POST_RENOVATION_OUTCOME",
+                    "source_id": "event-map:" + item["example_id"],
+                },
+            },
+            "remarks": remarks if "text" in available else "",
+            "structured": structured if "structured" in available else {},
+            "photos": item["photos"],
+            "available_modalities": available,
+        })
+    return output
+
 def build(store):
     """Create a deterministic, leakage-safe v2 manifest without writing it."""
     from cloud_training import snapshot
@@ -284,6 +391,7 @@ def build(store):
         split = _split(split_group, prop.get("split") == "test")
         rows.append({
             "property_id": prop_id,
+            "event_role": "acquisition",
             "example_id": str(prop["example_id"]),
             "source_group_id": str(prop["source_group_id"]),
             "split_group_id": split_group,
@@ -298,16 +406,22 @@ def build(store):
             "available_modalities": available,
         })
 
-    # One physical home is one supervised sample. Aliases stay in the same split
-    # and cannot silently multiply a property's influence.
+    # Later renovated/resale listings are valid NOT_TARGET examples but remain
+    # in the exact same physical-property split as their acquisition event.
+    rows.extend(_after_event_examples(store, properties))
+
+    # Collapse duplicate aliases within an event, not across different time
+    # states of the same physical property.
     grouped_rows = defaultdict(list)
     for row in rows:
-        grouped_rows[row["split_group_id"]].append(row)
+        grouped_rows[(row["split_group_id"], row.get("event_role", "acquisition"))].append(row)
     canonical_rows = []
-    for split_group, members in sorted(grouped_rows.items()):
+    split_sets = defaultdict(set)
+    for (split_group, event_role), members in sorted(grouped_rows.items()):
         splits = {row["split"] for row in members}
+        split_sets[split_group].update(splits)
         if len(splits) != 1:
-            raise ValueError("Merged physical group leaked across dataset splits")
+            raise ValueError("Merged physical group event leaked across dataset splits")
         # Conflicting human-approved values are never auto-resolved.
         conflict = False
         for axis in AXES:
@@ -336,8 +450,13 @@ def build(store):
             )
         canonical_rows.append(max(members, key=rank))
 
-    split_by_group = {row["split_group_id"]: {row["split"]} for row in canonical_rows}
-    canonical_rows = sorted(canonical_rows, key=lambda row: (row["split_group_id"], row["property_id"]))
+    if any(len(splits) != 1 for splits in split_sets.values()):
+        raise ValueError("Physical property events leaked across dataset splits")
+    split_by_group = {group: splits for group, splits in split_sets.items()}
+    canonical_rows = sorted(
+        canonical_rows,
+        key=lambda row: (row["split_group_id"], row.get("event_role", "acquisition"), row["property_id"]),
+    )
     fingerprint = digest({
         "policy": LABEL_POLICY_VERSION,
         "split_policy": SPLIT_POLICY_VERSION,
@@ -354,6 +473,8 @@ def build(store):
         "counts": {
             "properties": len(canonical_rows),
             "groups": len(split_by_group),
+            "acquisition_events": sum(row.get("event_role") == "acquisition" for row in canonical_rows),
+            "after_events": sum(row.get("event_role") == "after" for row in canonical_rows),
             "splits": dict(Counter(row["split"] for row in canonical_rows)),
             "origins": dict(origins),
             "vision": sum("vision" in row["available_modalities"] for row in canonical_rows),

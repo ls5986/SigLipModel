@@ -13,8 +13,10 @@ from studio_data import FEATURES, StudioStore, now, trim_metadata, validate_revi
 
 
 def validation_candidate(example):
-    candidates = example.get('source_snapshot',{}).get('mls_candidates',[])
-    selected = str(example.get('listing_key') or '')
+    snapshot = example.get('source_snapshot',{})
+    candidates = snapshot.get('mls_candidates',[])
+    event_map = snapshot.get('event_map') or {}
+    selected = str(event_map.get('acquisition_listing_key') or example.get('listing_key') or '')
     if selected:
         match = next((c for c in candidates if str(c.get('listing',{}).get('ListingKey'))==selected),None)
         if match: return match
@@ -137,16 +139,33 @@ class SupabaseStore:
               WHERE sibling.workspace_id=e.workspace_id AND sibling.group_id=e.group_id
               AND sale.key IN ('Prior Sale Date','Last Sale Date') AND sale.value ~ '^2026-[0-9]{2}-[0-9]{2}') AS first_sale_date FROM acq_training.examples e
              JOIN acq_training.property_groups g ON g.workspace_id=e.workspace_id AND g.id=e.group_id
-             WHERE e.workspace_id=%s AND e.listing_key=%s ORDER BY e.id''',
-             (self.workspace, identifier)).fetchall()
+             WHERE e.workspace_id=%s AND (
+               e.listing_key=%s OR
+               e.source_snapshot->'event_map'->>'acquisition_listing_key'=%s
+             ) ORDER BY e.id''',
+             (self.workspace, identifier, identifier)).fetchall()
         if not rows:
             raise ValueError('Unknown property')
         return rows
 
     @staticmethod
     def _selected(example):
-        candidate = next((c for c in example['source_snapshot'].get('mls_candidates', [])
-                     if str(c.get('listing', {}).get('ListingKey')) == example['listing_key']), {})
+        snapshot = example['source_snapshot']
+        event_map = snapshot.get('event_map') or {}
+        selected_key = str(event_map.get('acquisition_listing_key') or example['listing_key'])
+        candidate = next((c for c in snapshot.get('mls_candidates', [])
+                     if str(c.get('listing', {}).get('ListingKey')) == selected_key), {})
+        if candidate and event_map.get('recovery_status') == 'mapped':
+            candidate = {
+                **candidate,
+                'match': {
+                    **candidate.get('match', {}),
+                    'identity_chronology_override': {
+                        'prior_sale_date': event_map.get('prior_sale_date'),
+                        'after_close_date': event_map.get('after_close_date'),
+                    },
+                },
+            }
         if candidate and example.get('first_sale_date'):
             candidate = {**candidate,'match':{**candidate.get('match',{}),'first_actual_sale_date_2026':example['first_sale_date']}}
         return candidate
@@ -162,9 +181,13 @@ class SupabaseStore:
              FROM acq_training.photos p
              JOIN acq_training.examples e ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
              JOIN acq_training.property_groups g ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
-             WHERE e.workspace_id=%s AND e.listing_key=%s
+             WHERE e.workspace_id=%s AND (
+               e.listing_key=%s OR
+               e.source_snapshot->'event_map'->>'acquisition_listing_key'=%s
+             )
+               AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
                AND p.revoked_at IS NULL AND (p.retention_until IS NULL OR p.retention_until>now())
-             ORDER BY p.provider_media_key,p.id''', (self.workspace, identifier)).fetchall()
+             ORDER BY p.provider_media_key,p.id''', (self.workspace, identifier, identifier)).fetchall()
         unique = {}
         for row in rows:
             key = identifier+':'+str(row['provider_media_key'])
@@ -230,19 +253,36 @@ class SupabaseStore:
         supported = all(supports_prior(self._selected(e),e['source_snapshot'].get('spreadsheet'),e['source_snapshot'].get('mls_candidates')) for e in examples)
         digest = hashlib.sha256(json.dumps(sorted(p['image_sha256'] for p in photos)).encode()).hexdigest()
         policy = first_sale_policy(self._selected(examples[0]),examples[0]['source_snapshot'].get('spreadsheet'),examples[0]['source_snapshot'].get('mls_candidates'))
-        wrong = review and review.get('decision')=='wrong_era'
+        event_map = examples[0]['source_snapshot'].get('event_map') or {}
+        mapped_at = str(event_map.get('mapped_at') or '')
+        review_at = str((review or {}).get('at') or '')
+        stale_pre_mapping_wrong = bool(
+            review and review.get('decision')=='wrong_era'
+            and event_map.get('recovery_status')=='mapped'
+            and (not review_at or review_at <= mapped_at)
+        )
+        wrong = bool(review and review.get('decision')=='wrong_era' and not stale_pre_mapping_wrong)
+        event_verified = bool(
+            event_map.get('recovery_status')=='mapped' and photos
+            and any(str(e.get('listing_key')) == str(event_map.get('acquisition_listing_key'))
+                    for e in examples)
+        )
         blocked = bool(wrong or not supported)
         return {'sale_policy':policy,
                 'source_rows':sorted({n for e in examples for n in e['source_rows']}),
                 'source':examples[0]['source_snapshot'].get('spreadsheet', {}),
+                'event_map':event_map,
                 'mls_listing':trim_metadata(self._selected(examples[0]).get('listing', {})),
                 'evidence_hash':digest, 'review':review, 'blocked':blocked,
                 'photo_coverage':review.get('photo_coverage','unknown') if review and review.get('evidence_hash')==digest else 'unknown',
                 'acquisition_status':'wrong_era' if wrong else 'prior_acquisition_candidate' if supported else 'needs_prior_listing',
                 'block_reason':'You flagged these photos as the wrong property or era.' if wrong else
                   policy.get('reason') or 'First acquisition listing/photos need rematching.' if blocked else None,
-                'timing_verified':bool(photos and review and review.get('decision')=='correct_era' and
-                                       review.get('evidence_hash')==digest and not blocked),
+                'timing_verified':bool(not blocked and (
+                    event_verified or
+                    photos and review and review.get('decision')=='correct_era'
+                    and review.get('evidence_hash')==digest
+                )),
                 'trainable':False,'training_gate':'Review labels and protected groups remain separate checks'}
 
     def property(self, identifier):
@@ -566,7 +606,9 @@ class SupabaseStore:
                        SELECT DISTINCT e.listing_key,p.provider_media_key,p.image_sha256
                        FROM acq_training.photos p JOIN acq_training.examples e
                        ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
-                       WHERE e.workspace_id=%s AND p.revoked_at IS NULL
+                       WHERE e.workspace_id=%s
+                       AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
+                       AND p.revoked_at IS NULL
                        AND (p.retention_until IS NULL OR p.retention_until>now()))
                        SELECT listing_key,count(*) AS count,min(listing_key||':'||provider_media_key) AS hero,
                        encode(sha256(convert_to(jsonb_agg(image_sha256 ORDER BY image_sha256)::text,'UTF8')),'hex') AS evidence_hash
@@ -810,7 +852,9 @@ class SupabaseStore:
             photo_rows = db.execute('''SELECT e.listing_key,p.provider_media_key,p.image_sha256
                 FROM acq_training.photos p JOIN acq_training.examples e
                 ON (p.workspace_id,p.example_id)=(e.workspace_id,e.id)
-                WHERE p.workspace_id=%s AND p.revoked_at IS NULL
+                WHERE p.workspace_id=%s
+                AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
+                AND p.revoked_at IS NULL
                 AND (p.retention_until IS NULL OR p.retention_until>now())''',(self.workspace,)).fetchall()
         annotate_first_sales(rows)
         by_listing = {}
