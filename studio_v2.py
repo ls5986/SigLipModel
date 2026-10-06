@@ -1,5 +1,6 @@
 """Task-oriented Studio API layered on the existing evidence and training machinery."""
 import os
+from datetime import UTC, datetime
 from urllib.parse import parse_qs, quote, urlparse
 
 from actvision_contract import digest, remarks_digest, _text_evidence
@@ -23,6 +24,35 @@ def identity():
 def require_operator():
     if identity()["role"] not in {"operator", "admin"}:
         raise PermissionError("Only an operator or administrator may freeze datasets or train candidates")
+
+
+def worker_heartbeat_state(store, key, threshold_seconds=90):
+    """Return truthful runtime state; a saved 'ready' string is not enough."""
+    heartbeat = store.document(key) or {}
+    try:
+        at = datetime.fromisoformat(heartbeat["at"])
+        if at.tzinfo is None:
+            at = at.replace(tzinfo=UTC)
+        age = max(0.0, (datetime.now(UTC) - at).total_seconds())
+    except (KeyError, TypeError, ValueError):
+        age = None
+    saved_status = heartbeat.get("status", "offline")
+    online = age is not None and age < threshold_seconds and saved_status in {
+        "ready", "running", "loading",
+    }
+    public = {
+        "online": online,
+        "actionable": online and saved_status == "ready",
+        "status": saved_status if online or saved_status == "stopped" else "offline",
+        "saved_status": saved_status,
+        "age_seconds": round(age, 1) if age is not None else None,
+        "threshold_seconds": threshold_seconds,
+        "detail": heartbeat.get("detail"),
+    }
+    for field in ("policy", "trained_v2", "daily_limit"):
+        if field in heartbeat:
+            public[field] = heartbeat[field]
+    return public
 
 
 def label_evidence(property_id, remarks, photos, metadata=None):
@@ -109,9 +139,20 @@ def get(studio, raw_path):
     if action == "operations":
         if cloud:
             from model_workbench import summary
-            return {**summary(studio.store), "inference_enabled": False,
-                    "notice": "No training or inference starts when this page opens."}
-        return {"inference_enabled": False, "notice": "Local research backend; cloud training status unavailable"}
+            legacy = summary(studio.store)
+            return {**legacy,
+                    "workers": {
+                        "siglip_room_labels": worker_heartbeat_state(studio.store, "autolabel-room-worker"),
+                        "paid_photo_drafts": worker_heartbeat_state(studio.store, "autolabel-worker"),
+                        "copilot_photo_drafts": worker_heartbeat_state(studio.store, "autolabel-copilot-worker"),
+                        "typed_property_drafts": worker_heartbeat_state(studio.store, "typed-label-worker"),
+                        "legacy_model_worker": legacy["worker"],
+                    },
+                    "inference_enabled": False,
+                    "inference_status": "not_provisioned",
+                    "notice": "Worker status requires a fresh heartbeat. The Text + Metadata Bootstrap runs on the hosted label worker; true ActVision v2 model training/inference is not provisioned yet."}
+        return {"inference_enabled": False, "inference_status": "not_provisioned",
+                "notice": "Local research backend; cloud training status unavailable"}
     raise ValueError("Unknown Studio v2 endpoint")
 
 
