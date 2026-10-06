@@ -90,7 +90,10 @@ def snapshot(store, *, include_legacy=True):
               ) LIMIT 1
             ) c ON true
             WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL
-              AND cardinality(e.source_rows)>0 ORDER BY e.id''', (store.workspace,)).fetchall()
+              AND cardinality(e.source_rows)>0
+              AND coalesce(e.source_snapshot->'event_map'->>'recovery_status','')
+                  <> 'acquisition_mls_unavailable'
+              ORDER BY e.id''', (store.workspace,)).fetchall()
         if validations:
             extra = db.execute('''SELECT e.id,e.group_id,e.source_rows,e.source_snapshot,
                   g.identity_key,g.identity_verified,g.protected_test
