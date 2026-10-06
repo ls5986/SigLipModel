@@ -144,8 +144,11 @@ def poll(store, siglip):
             allowed_statuses=("candidate", "shadow", "production"),
         )
         membership = _training_membership(store, request["release_id"], prop["id"])
+        fresh = store.property(prop["id"])
+        fresh_prop = fresh["property"]
         if label_evidence(
-            prop["id"], prop.get("mls_remarks") or "", store.property(prop["id"])["images"], prop.get("metadata")
+            fresh_prop["id"], fresh_prop.get("mls_remarks") or "",
+            fresh["images"], fresh_prop.get("metadata")
         ) != request["evidence_id"]:
             raise ValueError("Evidence changed")
         store.save_document(row["item_id"], {
