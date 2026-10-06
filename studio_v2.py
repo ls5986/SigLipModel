@@ -148,8 +148,10 @@ def get(studio, raw_path):
             rows = db.execute("""SELECT id,name,version,status,evaluation_summary,bundle_manifest,approved_by,approved_at
                 FROM acq_training.model_releases WHERE workspace_id=%s ORDER BY created_at DESC LIMIT 50""",
                 (studio.store.workspace,)).fetchall()
-        return {"items": [{**dict(row), "id": str(row["id"]), "approved_at": str(row["approved_at"]) if row["approved_at"] else None} for row in rows],
-                "promotion_available": False, "reason": "Operator-reviewed calibrated bundles and protected-slice policy required; no promotion endpoint enabled"}
+        items = [{**dict(row), "id": str(row["id"]), "approved_at": str(row["approved_at"]) if row["approved_at"] else None} for row in rows]
+        return {"items": items,
+                "promotion_available": identity()["role"] in {"operator", "admin"},
+                "reason": "Promotion is explicit and gated. Training completion alone never changes release status."}
     if action == "operations":
         if cloud:
             from model_workbench import summary
@@ -163,8 +165,15 @@ def get(studio, raw_path):
                         "actvision_v2_model": worker_heartbeat_state(studio.store, "actvision-v2-model-worker", threshold_seconds=90),
                         "legacy_model_worker": legacy["worker"],
                     },
-                    "inference_enabled": bool(os.environ.get("ACTVISION_ACTIVE_RELEASE_ID")),
-                    "inference_status": "configured" if os.environ.get("ACTVISION_ACTIVE_RELEASE_ID") else "no_approved_release",
+                    **__import__("v2_release").approved(studio.store) and {
+                        "approved_releases": __import__("v2_release").approved(studio.store),
+                        "inference_enabled": True,
+                        "inference_status": "approved_release_available",
+                    } or {
+                        "approved_releases": [],
+                        "inference_enabled": False,
+                        "inference_status": "no_approved_release",
+                    },
                     "notice": "Worker health requires a fresh heartbeat and deployed commit. Label readiness, model readiness and release readiness are independent."}
         return {"inference_enabled": False, "inference_status": "not_provisioned",
                 "notice": "Local research backend; cloud training status unavailable"}
@@ -224,6 +233,18 @@ def post(studio, path, payload):
             raise ValueError("Feedback review requires cloud storage")
         from actvision_service import decide_feedback
         return decide_feedback(studio.store, payload, identity()["id"])
+    if action == "release/promote":
+        if not cloud:
+            raise ValueError("Release promotion requires the cloud release registry")
+        require_operator()
+        from v2_release import promote
+        return promote(studio.store, payload, identity()["id"])
+    if action == "release/retire":
+        if not cloud:
+            raise ValueError("Release retirement requires the cloud release registry")
+        require_operator()
+        from v2_release import retire
+        return retire(studio.store, payload, identity()["id"])
     if action in {"dataset/preview", "dataset/freeze", "train"}:
         if not cloud:
             raise ValueError("ActVision v2 training requires the cloud training backend")
