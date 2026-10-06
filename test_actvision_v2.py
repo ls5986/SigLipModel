@@ -679,3 +679,63 @@ def test_training_studio_names_bootstrap_and_paid_ai_draft_actions():
     assert "Generate AI draft" in text
     assert "Run model on this property" not in text
     assert ">Analyze property</button>" not in text
+
+
+
+def test_structured_model_trains_acquisition_fit_independently():
+    labels = [
+        {
+            "physical_condition": "C3_WELL_MAINTAINED",
+            "modernization": "ORIGINAL",
+            "acquisition_fit": "TARGET" if i < 4 else "NOT_TARGET",
+        }
+        for i in range(8)
+    ]
+    facts = [
+        {"YearBuilt": 1960 + i, "DaysOnMarket": 80 if i < 4 else 5}
+        for i in range(8)
+    ]
+    model = StructuredModel.fit(facts, labels)
+    result = model.predict([{"YearBuilt": 1962, "DaysOnMarket": 75}])[0]
+    assert result["acquisition_fit"] in {"TARGET", "NOT_TARGET"}
+    assert set(result["acquisition_fit_probabilities"]) == {"TARGET", "NOT_TARGET"}
+    assert abs(sum(result["acquisition_fit_probabilities"].values()) - 1.0) < 1e-6
+    assert result["value_add_score"] == result["acquisition_fit_probabilities"]["TARGET"]
+
+
+def test_acquisition_metadata_does_not_turn_unknown_history_into_zero():
+    from acquisition_metadata import acquisition_time_metadata
+
+    missing_cutoff = acquisition_time_metadata(
+        {"PriorSaleCount": 0, "MostRecentPriorSalePrice": 999999},
+        {"Prior Sale Date": "2018-01-01", "Prior Sale Amount": 500000},
+    )
+    assert missing_cutoff["PriorSaleCount"] is None
+    assert missing_cutoff["MostRecentPriorSalePrice"] is None
+    assert missing_cutoff["PriorSaleFeaturesAsOf"] is None
+
+    unknown_history = acquisition_time_metadata({"ListDate": "2026-01-10"})
+    assert unknown_history["PriorSaleCount"] is None
+    assert unknown_history["PriorSaleFeaturesAsOf"] == "2026-01-10"
+
+    known_empty = acquisition_time_metadata({"ListDate": "2026-01-10", "PriorSales": []})
+    assert known_empty["PriorSaleCount"] == 0
+    assert known_empty["PriorSaleFeaturesAsOf"] == "2026-01-10"
+
+
+def test_acquisition_metadata_excludes_post_listing_sales_and_recomputes_stale_values():
+    from acquisition_metadata import acquisition_time_metadata
+
+    metadata = {
+        "ListDate": "2026-01-10",
+        "PriorSaleCount": 99,
+        "PriorSaleFeaturesAsOf": "2025-01-10",
+        "PriorSales": [
+            {"date": "2020-01-01", "price": 400000},
+            {"date": "2026-02-01", "price": 900000},
+        ],
+    }
+    result = acquisition_time_metadata(metadata)
+    assert result["PriorSaleCount"] == 1
+    assert result["MostRecentPriorSalePrice"] == 400000
+    assert result["PriorSaleFeaturesAsOf"] == "2026-01-10"
