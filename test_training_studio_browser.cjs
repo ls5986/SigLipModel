@@ -103,7 +103,7 @@ const path=require('node:path');
   assert.equal(await page.locator('#train-candidate').isDisabled(),true);
   await page.locator('[data-page="releases"]').click();
   await page.locator('#load-releases').click();
-  await page.waitForFunction(()=>document.getElementById('release-content').textContent.includes('No approved'));
+  await page.waitForFunction(()=>document.getElementById('release-content').textContent.includes('Explicit promotion only'));
   await page.locator('[data-page="review"]').click();
   await page.locator('#load-feedback').click();
   await page.waitForFunction(()=>document.getElementById('review-content').textContent.includes('No production feedback'));
