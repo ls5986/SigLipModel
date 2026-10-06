@@ -70,15 +70,16 @@ def _download(payload, directory):
     warnings = []
     if not payload["photo_inputs"]:
         return photos, observed, warnings
-    with httpx.Client(timeout=30, follow_redirects=False) as client:
-        token = _access_token(client)
+    with httpx.Client(timeout=30, follow_redirects=False, trust_env=False) as client:
+        token = None
         for index, item in enumerate(payload["photo_inputs"]):
             uri = item["uri"]
             if not _trusted_photo_url(uri):
                 raise ValueError("ActVision photo origin is not trusted")
-            response = client.get(
-                uri, headers={"Authorization": "Bearer " + token, "Accept": "image/*"}
-            )
+            # Current provider URLs may already be authorized. Only request an
+            # OAuth token after an explicit 401, so inference does not require a
+            # second auth flow when the selected URI itself is valid.
+            response = client.get(uri, headers={"Accept": "image/*"})
             if response.status_code == 401:
                 global _token
                 _token = None
@@ -132,14 +133,21 @@ def process(store, request, siglip):
                          allowed_statuses=("shadow", "production"))
         with tempfile.TemporaryDirectory(prefix="actvision-infer-") as directory:
             photos, observed, warnings = _download(payload, directory)
+            usable_photos = []
             if photos:
                 room_drafts = siglip.classify([photo["path"] for photo in photos])
                 for photo, room in zip(photos, room_drafts):
                     photo["room"] = room.get("room") or "other"
+                    if room.get("context") == "subject":
+                        usable_photos.append(photo)
+                    else:
+                        warnings.append(
+                            f"Photo {photo['photo_id']} excluded as non-subject or uncertain context"
+                        )
             predicted = predict_local(
                 store, siglip, payload["evidence"]["release_id"],
                 remarks=payload["public_remarks"], structured=payload["structured"],
-                photos=photos, selected_photo_count=len(payload["photo_inputs"]),
+                photos=usable_photos, selected_photo_count=len(payload["photo_inputs"]),
                 allowed_statuses=("shadow", "production"),
             )
         prediction = {
