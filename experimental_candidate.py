@@ -1,6 +1,7 @@
 """Bounded CPU experiment from explicit unreviewed drafts; no release or truth writes."""
 from collections import Counter, defaultdict
 from uuid import uuid4
+from datetime import datetime, timezone
 from actvision_contract import digest
 from condition_schema import LABEL_SCHEMA_V2, TEXT_SIGNALS, TARGET_LABELS, validate_labels
 from studio_data import now
@@ -8,6 +9,11 @@ from studio_data import now
 REQUEST = 'experimental-candidate-request-v1'
 MIN_GROUPS = 20
 MAX_GROUPS = 500
+TASKS = ('physical_condition','modernization','acquisition_fit',*TEXT_SIGNALS)
+
+def supported_classes(rows, task):
+    counts = Counter(r['labels'].get(task,'UNKNOWN') for r in rows)
+    return {label for label,count in counts.items() if label!='UNKNOWN' and count>=3}
 
 def public_status(store):
     request = store.document(REQUEST) or {'status':'none'}
@@ -113,14 +119,17 @@ def train(rows, exclusions, encode, checkpoint):
     metadata,names,scales=metadata_matrix(train_rows)
     text=encode.transform([r['remarks'] for r in train_rows]).toarray()
     matrix=np.column_stack([text,metadata]);heads={}
-    for task in ('physical_condition','modernization','acquisition_fit',*TEXT_SIGNALS):
+    for task in TASKS:
         labels=[r['labels'].get(task,'UNKNOWN') for r in train_rows]
         counts=Counter(v for v in labels if v!='UNKNOWN')
         # A practical experiment floor, not a guarantee of model quality.
-        if len(counts)<2 or min(counts.values())<3:continue
-        indices=[i for i,v in enumerate(labels) if v!='UNKNOWN']
+        supported=supported_classes(train_rows,task)
+        if len(supported)<2:continue
+        indices=[i for i,v in enumerate(labels) if v in supported]
         model=LogisticRegression(max_iter=1000,class_weight='balanced',random_state=20261005).fit(matrix[indices],[labels[i] for i in indices])
-        heads[task]={'classes':model.classes_.tolist(),'coef':model.coef_.tolist(),'intercept':model.intercept_.tolist(),'training_class_counts':dict(counts)}
+        heads[task]={'classes':model.classes_.tolist(),'coef':model.coef_.tolist(),'intercept':model.intercept_.tolist(),
+                    'training_class_counts':{k:v for k,v in counts.items() if k in supported},
+                    'unsupported_class_counts':{k:v for k,v in counts.items() if k not in supported}}
     if not heads: raise ValueError('Need two known classes with at least three independent groups each for a task; UNKNOWN is not negative')
     evaluation={}
     if held:
@@ -144,12 +153,22 @@ def train(rows, exclusions, encode, checkpoint):
 
 def poll_training(store):
     request=store.document(REQUEST) or {}
+    if request.get('status')=='running':
+        # A durable bundle may have saved just before a restart. Otherwise a
+        # bounded CPU job can be retried after its lease, without paid calls.
+        saved=store.document('experimental-candidate:'+request['id'])
+        if saved:
+            store.save_document(REQUEST,{**request,'status':'completed','at':now()},request['revision'])
+            return True
+        if (datetime.now(timezone.utc)-datetime.fromisoformat(request['at'])).total_seconds()<900:
+            return False
+        request=store.save_document(REQUEST,{**request,'status':'queued','at':now()},request['revision'])
     if request.get('status') not in {'queued','waiting_for_labels'}:return False
     from cloud_training import snapshot
     _,properties=snapshot(store);rows,excluded=select_rows(store,properties)
     train_rows=[r for r in rows if r['split']=='train']
     counts={task:dict(Counter(r['labels'].get(task,'UNKNOWN') for r in train_rows)) for task in ('physical_condition','modernization','acquisition_fit')}
-    enough=len(train_rows)>=MIN_GROUPS and any(len([v for k,v in values.items() if k!='UNKNOWN' and v>=3])>=2 and min([v for k,v in values.items() if k!='UNKNOWN'] or [0])>=3 for values in counts.values())
+    enough=len(train_rows)>=MIN_GROUPS and any(len(supported_classes(train_rows,task))>=2 for task in TASKS)
     if not enough:
         from typed_draft_batch import status
         running=status(store)['status']=='running'

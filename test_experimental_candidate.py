@@ -31,6 +31,14 @@ def test_unknown_and_one_class_do_not_create_heads():
  with pytest.raises(ValueError,match='two known classes'):train(sample,{},Encoder(),{})
  with pytest.raises(ValueError,match='20 independent'):train(sample[:3],{},Encoder(),{})
 
+def test_rare_class_does_not_block_supported_classes_or_become_negative():
+ sample=rows();sample[0]['labels']['physical_condition']='C6_SEVERE_DISTRESS'
+ bundle=train(sample,{},Encoder(),{})
+ head=bundle['heads']['physical_condition']
+ assert set(head['classes'])=={'C3_WELL_MAINTAINED','C4_AVERAGE_FUNCTIONAL'}
+ assert head['unsupported_class_counts']=={'C6_SEVERE_DISTRESS':1}
+ assert sum(head['training_class_counts'].values())==23
+
 class Store:
  def __init__(self):self.docs={};self.details={}
  def document(self,key):return deepcopy(self.docs.get(key))
@@ -61,3 +69,18 @@ def test_explicit_idempotent_training_does_not_approve_truth():
  first=enqueue(s,{'confirmed':True,'include_unreviewed_drafts':True},'admin')
  assert enqueue(s,{'confirmed':True,'include_unreviewed_drafts':True},'admin')['request']['id']==first['request']['id']
  assert list(s.docs)==[REQUEST]
+
+def test_worker_recovers_completion_after_bundle_saved_before_restart():
+ from experimental_candidate import poll_training
+ s=Store();s.docs[REQUEST]={'id':'saved','status':'running','revision':2,'at':'2026-01-01T00:00:00+00:00'}
+ s.docs['experimental-candidate:saved']={'id':'saved','heads':{}}
+ assert poll_training(s) is True
+ assert s.document(REQUEST)['status']=='completed'
+ assert s.document(REQUEST)['revision']==3
+
+def test_active_training_lease_does_not_run_a_second_fit():
+ from experimental_candidate import poll_training
+ from studio_data import now
+ s=Store();s.docs[REQUEST]={'id':'active','status':'running','revision':2,'at':now()}
+ assert poll_training(s) is False
+ assert s.document(REQUEST)['revision']==2
