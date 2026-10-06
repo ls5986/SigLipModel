@@ -262,7 +262,8 @@ class SupabaseStore:
         history = self._history(examples,photos,live.get(('era',identifier)))
         mismatched = bool(history['sale_policy']['target_sale_date'] and not history['sale_policy']['supported'])
         images, coverage = [], {r:'unknown' for r in ('kitchen','bathroom','living')}
-        if mismatched: photos = []
+        # Retained photos remain visible as source-review references. Their
+        # acquisition eligibility is enforced separately, not by hiding them.
         for p in photos:
             review = self._review('image',p['image_id'],legacy,live)
             machine = proposed_images.get(p['image_id'],{})
@@ -292,7 +293,8 @@ class SupabaseStore:
                      'suggestions':[machine] if machine else [],'local_model':None,'provider_context':context,'provider_description':description,
                      'provider_context_source':context_source,
                      'sha256':p['image_sha256'],'sequence':provider.get('Order'),
-                     'split':'test' if p['protected_test'] else 'learning','training_allowed':not p['protected_test'],
+                     'split':'test' if p['protected_test'] else 'learning','training_allowed':not p['protected_test'] and not history['blocked'],
+                     'source_quarantined':history['blocked'],
                      'warnings':['Protected test group: evaluation only'] if p['protected_test'] else []}
             image['effective'] = effective_photo(image)
             from photo_selection import selection
@@ -306,7 +308,7 @@ class SupabaseStore:
                  'review':self._review('property',identifier,legacy,live),
                  'mls_remarks':__import__('listing_text').remarks(listing),
                  'synthetic_evidence':__import__('listing_text').image_evidence(listing)},
-                'images':images,'coverage':coverage,'property_suggestions':[], 'assessment':None,
+                'images':images,'stored_photo_count':len(photos),'photo_display_notice':'Stored listing photos are shown for source review only; acquisition-era matching is unresolved.' if history['blocked'] and photos else None,'coverage':coverage,'property_suggestions':[], 'assessment':None,
                 'historical_source':history,
                 'capabilities':{'review':True,'assessment':False,'training':False,'autolabel':not mismatched and any(not i['synthetic_evidence']['excluded'] for i in images),'storage':'supabase'}}
 

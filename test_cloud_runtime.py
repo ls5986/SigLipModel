@@ -364,3 +364,24 @@ def test_cloud_room_suggestions_are_automatic_but_never_human_labels():
     assert image['review'].get('status')!='approved'
     db.states['document','model-proposal:house']['images'][0]['sha256']='b'*64
     assert store.property('house')['images'][0]['room_source']=='Unknown'
+
+
+
+def test_quarantined_retained_gallery_stays_visible_but_is_not_trainable():
+    class ReferenceStore(Store):
+        def _examples(self,db,identifier):
+            selected=candidate()
+            selected['listing']['CloseDate']='2026-09-01'
+            selected['match']['sale_agreements']=[{'source_sale':'prior','sale_date':'2026-01-01'}]
+            return [{'listing_key':'house','source_rows':[1],'source_snapshot':{'mls_candidates':[selected],'spreadsheet':{}},'protected_test':False}]
+        def _photos(self,db,identifier):
+            return [{'image_id':'house:photo','image_sha256':'a'*64,'protected_test':False,'context':'unknown','context_evidence':{}}]
+        def _legacy(self,*args):return {}
+        def _reviews(self,*args):return {}
+    detail=ReferenceStore(MemoryDatabase(),None).property('house')
+    assert detail['historical_source']['blocked']
+    assert len(detail['images'])==1 and detail['stored_photo_count']==1
+    assert detail['images'][0]['source_quarantined']
+    assert detail['images'][0]['training_allowed'] is False
+    assert 'source review only' in detail['photo_display_notice']
+    assert detail['capabilities']['autolabel'] is False

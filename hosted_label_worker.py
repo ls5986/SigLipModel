@@ -70,8 +70,8 @@ def optional_copilot(store, factory=None):
 
 def optional_openai(store, factory=None):
     limit = int(os.environ.get("STUDIO_OPENAI_MAX_CALLS_PER_DAY", "2"))
-    if not 1 <= limit <= 500:
-        raise ValueError("Hosted OpenAI daily budget must be 1 through 500")
+    if limit < 0:
+        raise ValueError("Hosted OpenAI daily budget must be nonnegative; zero disables the cap")
     os.environ["STUDIO_OPENAI_MAX_CALLS_PER_DAY"] = str(limit)
     if not os.environ.get("OPENAI_API_KEY", "").strip():
         heartbeat(store, "unconfigured", "Add OPENAI_API_KEY to this worker's managed environment; no feature requests processed.",
@@ -143,10 +143,15 @@ def main():
                 from experimental_candidate import poll_training, poll_prediction
                 try:
                     poll_training(store)
-                    poll_prediction(store)
                 except Exception:
                     print("Experimental candidate failed; inspect saved non-secret status.", flush=True)
                 last_experiment = time.monotonic()
+            # Predictions should not wait for the 60-second training scheduler.
+            try:
+                from experimental_candidate import poll_prediction
+                poll_prediction(store)
+            except Exception:
+                print("Experimental prediction failed; inspect saved status.", flush=True)
             STOP.wait(5)
     finally:
         if paid:

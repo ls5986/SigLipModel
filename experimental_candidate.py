@@ -218,7 +218,6 @@ def queue_prediction(store,payload,actor):
     if not status['candidate']:raise ValueError('No experimental candidate trained yet')
     identifier=str(payload.get('id',''));detail=store.property(identifier)
     from typed_label_assistant import evidence
-    if (detail.get('historical_source') or {}).get('blocked'):raise ValueError('Source/era conflict; prediction unavailable')
     key='experimental-prediction:'+identifier;prior=store.document(key) or {}
     if prior.get('status') in {'queued','running'}:return prior
     return store.save_document(key,{'id':identifier,'candidate_id':status['candidate']['id'],'status':'queued',
@@ -229,7 +228,7 @@ def prediction(store,identifier):
     if not record:return {'status':'none'}
     from typed_label_assistant import evidence
     detail=store.property(identifier)
-    if (detail.get('historical_source') or {}).get('blocked') or evidence(detail)!=record.get('evidence_id'):return {'status':'stale','reason':'Evidence changed; analyze again'}
+    if evidence(detail)!=record.get('evidence_id'):return {'status':'stale','reason':'Evidence changed; analyze again'}
     return record
 
 def poll_prediction(store):
@@ -241,7 +240,7 @@ def poll_prediction(store):
         import numpy as np
         from typed_label_assistant import evidence
         detail=store.property(request['id'])
-        if (detail.get('historical_source') or {}).get('blocked') or evidence(detail)!=request['evidence_id']:raise ValueError('Evidence changed')
+        if evidence(detail)!=request['evidence_id']:raise ValueError('Evidence changed')
         bundle=store.document('experimental-candidate:'+request['candidate_id']);enc,checkpoint=encoder()
         if checkpoint!=bundle['encoder']:raise ValueError('Encoder identity changed')
         prop=detail['property']
@@ -259,7 +258,8 @@ def poll_prediction(store):
         group=next((r['group_id'] for r in properties if r['id']==request['id']),None)
         trained_on=next((r['split'] for r in bundle['provenance'] if r['group_id']==group),None)
         store.save_document(item['item_id'],{**active,'status':'completed','at':now(),'results':results,
-            'training_membership':trained_on,'notice':'Experimental text + metadata prediction; not human truth, calibrated confidence, vision analysis or production inference'},active['revision'])
+            'training_membership':trained_on,'source_quarantined':bool((detail.get('historical_source') or {}).get('blocked')),
+            'notice':('This prediction describes the stored listing, whose acquisition source is unresolved. Excluded from acquisition training. ' if (detail.get('historical_source') or {}).get('blocked') else '')+'Experimental text + metadata prediction; not human truth, calibrated confidence, vision analysis or production inference'},active['revision'])
     except Exception:
         store.save_document(item['item_id'],{**active,'status':'failed','at':now(),'reason':'Experimental prediction failed; inspect evidence and encoder'},active['revision']);raise
     return True

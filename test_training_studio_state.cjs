@@ -36,5 +36,19 @@ vm.createContext(sandbox);vm.runInContext(script,sandbox);
  await refreshPropertyPrediction(state.load);
  if($('property-prediction').children!==before)throw Error('Stale prediction replaced current property');
  })()`,sandbox);
+ await vm.runInContext(`(async()=>{
+ state.load=0;
+ api=async(path,payload)=>{
+  if(payload){if($('property-prediction').children[0].textContent!=='Submitting model analysis…')throw Error('No immediate click feedback');return {status:'queued'}};
+  return {status:'queued'};
+ };
+ await runPropertyModel();
+ if(!$('property-prediction').children[0].textContent.includes('queued'))throw Error('No visible queued status');
+ api=async()=>{throw Error('Fixture rejection')};
+ try{await runPropertyModel()}catch{}
+ if($('property-prediction').children[0].textContent!=='Could not run the model')throw Error('Error hidden away from button');
+ if($('property-predict').disabled)throw Error('Button stayed disabled after rejection');
+ })()`,sandbox);
+ assert.match(JSON.stringify(get('property-prediction')),/Fixture rejection/);
  console.log('PASS: automatic draft navigation, explicit edits, saved human correction preservation, inline model results, uncalibrated wording, stale response protection');
 })().catch(e=>{console.error(e);process.exitCode=1});

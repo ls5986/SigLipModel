@@ -47,3 +47,4 @@ def test_budget_stays_queued_without_retry():
  from types import SimpleNamespace
  s=Store();key='autolabel-budget:'+datetime.now(timezone.utc).date().isoformat();s.save_document(key,{'calls':500},0)
  assert not budget_available(s,SimpleNamespace(limit=500))
+ assert budget_available(s,SimpleNamespace(limit=0))

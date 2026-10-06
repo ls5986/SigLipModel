@@ -55,7 +55,7 @@ class OpenAILabels:
         self.policy = policy()
         self.client = client or httpx.Client(timeout=90, follow_redirects=False)
         self.limit = int(os.environ.get('STUDIO_OPENAI_MAX_CALLS_PER_DAY','100'))
-        if not 1 <= self.limit <= 10000: raise ValueError('Invalid daily call limit')
+        if self.limit < 0: raise ValueError('Invalid daily call limit; zero disables the cap')
 
     def close(self): self.client.close()
 
@@ -65,7 +65,7 @@ class OpenAILabels:
         key = 'autolabel-budget:'+ (getattr(self,'budget_provider')+':' if hasattr(self,'budget_provider') else '')+day
         current = self.store.document(key) or {}
         count = current.get('calls',0)
-        if count >= self.limit: raise ValueError('Daily labeling call limit reached')
+        if self.limit and count >= self.limit: raise ValueError('Daily labeling call limit reached')
         self.store.save_document(key, {'calls':count+1,'at':now()},current.get('revision',0))
 
     def classify(self, paths, room_tags=None):
@@ -174,3 +174,4 @@ def start_hosted_worker(store):
     thread = threading.Thread(target=run,daemon=True,name='openai-photo-tags')
     thread.start()
     return stop
+

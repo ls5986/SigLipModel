@@ -18,7 +18,9 @@ def test_openai_key_gate_and_bounded_hybrid_provider(monkeypatch):
     assert not eligible_request({"stage":"features","mode":"test","label_provider":"copilot"}, "features", classifier.provider)
     monkeypatch.setenv("STUDIO_OPENAI_MAX_CALLS_PER_DAY", "500")
     assert optional_openai(object(), lambda store: SimpleNamespace()).provider == "openai"
-    monkeypatch.setenv("STUDIO_OPENAI_MAX_CALLS_PER_DAY", "501")
+    monkeypatch.setenv("STUDIO_OPENAI_MAX_CALLS_PER_DAY", "0")
+    assert optional_openai(object(), lambda store: SimpleNamespace()).provider == "openai"
+    monkeypatch.setenv("STUDIO_OPENAI_MAX_CALLS_PER_DAY", "-1")
     with pytest.raises(ValueError, match="daily budget"):
         optional_openai(object())
 

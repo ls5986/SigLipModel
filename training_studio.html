@@ -110,7 +110,7 @@ main{margin:0 0 0 236px;padding:26px 28px 48px;max-width:1680px}h1{font-size:26p
   </details><label>Why these answers? <small class="muted">AI explanation is filled in when available. Correct it if needed.</small><textarea id="reason" maxlength="2000" required></textarea></label><div class="row save-bar"><button class="primary" type="submit" id="save-next">Approve &amp; Next</button><button id="skip-property" type="button">Skip for now</button><small class="muted">Ctrl+Enter to approve. This never trains or promotes a model.</small></div></form>
   <div class="evidence-tabs" aria-label="Property evidence"><button data-tab="photos" aria-pressed="true">Photos</button><button data-tab="text">Description evidence</button><button data-tab="facts">Listing facts</button></div>
   <div id="photos-panel" class="evidence">
-   <div><img id="hero" class="hero" alt="Selected property evidence" hidden><p id="no-photos">No photos available. Physical evidence remains unknown unless supported by other reviewed evidence.</p><div id="thumbnails" class="thumbs"></div><p id="photo-status" class="muted"></p>
+   <div><p id="photo-source-notice" class="warning" hidden></p><img id="hero" class="hero" alt="Selected property evidence" hidden><p id="no-photos">No photos available. Physical evidence remains unknown unless supported by other reviewed evidence.</p><div id="thumbnails" class="thumbs"></div><p id="photo-status" class="muted"></p>
     <details><summary>Review this photo</summary><form id="photo-form"><div class="row"><label>Context<select id="photo-context"><option>unknown</option><option>subject</option><option>subject_interior</option><option>subject_exterior</option><option>shared_amenity</option><option>floor_plan</option><option>unrelated</option></select></label><label>Room<select id="photo-room"><option>other</option><option>kitchen</option><option>bathroom</option><option>living</option><option>bedroom</option><option>exterior</option><option>outdoor</option></select></label></div><div class="row"><label>Photo condition<select id="photo-physical"></select></label><label>Photo modernization<select id="photo-modernization"></select></label></div><label>Exclude from evidence<select id="photo-exclusion"><option value="">Keep existing selection</option><option value="amenity">Shared amenity</option><option value="floor_plan">Floor plan</option><option value="virtual_staging">Virtual staging</option><option value="duplicate">Duplicate</option><option value="unrelated">Unrelated</option><option value="unusable">Unusable</option></select></label><p class="muted">Subject-interior condition only. Use Unknown for excluded or insufficient photos. Detailed feature labels remain in Advanced.</p><button type="submit">Save photo review</button></form></details>
    </div><div><h3>Listing remarks</h3><div id="remarks" class="remarks"></div><p class="muted">Highlighted quotes support the description suggestions. Check them in context; missing information stays Unknown.</p></div>
   </div>
@@ -149,7 +149,7 @@ function showPage(name){
  document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===name);if(b.dataset.page===name)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
 }
 async function refreshBatch(){
- const data=await api('/api/studio/v2/label/batch');const names={waiting:'Waiting to be checked',queued:'Queued',running:'Analyzing',completed:'Drafts saved',reused:'Existing drafts reused',blocked_source:'Source / era conflict',failed:'Failed: explicit retry needed',unavailable:'Listing unavailable'};const rows=Object.entries(data.counts||{}).map(([key,count])=>node('p',(names[key]||key)+': '+count));$('draft-batch-progress').replaceChildren(node('strong',data.status==='none'?'No batch queued':data.status==='running'?'Batch in progress · '+data.total+' listings':'Batch finished · '+data.total+' listings'),...rows,node('p','Shared daily requests used: '+(data.budget_calls_used??0)+(data.daily_limit?' / '+data.daily_limit:''),'muted'));if(data.needs_attention?.length){const attention=node('details');attention.append(node('summary','Listings needing attention: '+data.needs_attention.length));for(const item of data.needs_attention){const button=node('button','MLS '+item.id+' · '+(names[item.status]||item.status));button.type='button';button.onclick=guard(()=>loadProperty(item.id));attention.append(button)}$('draft-batch-progress').append(attention)}if(state.batchPoll)clearTimeout(state.batchPoll);if(data.status==='running')state.batchPoll=setTimeout(()=>refreshBatch().catch(e=>message(e.message)),10000);
+ const data=await api('/api/studio/v2/label/batch');const names={waiting:'Waiting to be checked',queued:'Queued',running:'Analyzing',completed:'Drafts saved',reused:'Existing drafts reused',blocked_source:'Source / era conflict',failed:'Failed: explicit retry needed',unavailable:'Listing unavailable'};const rows=Object.entries(data.counts||{}).map(([key,count])=>node('p',(names[key]||key)+': '+count));$('draft-batch-progress').replaceChildren(node('strong',data.status==='none'?'No batch queued':data.status==='running'?'Batch in progress · '+data.total+' listings':'Batch finished · '+data.total+' listings'),...rows,node('p','OpenAI requests used today: '+(data.budget_calls_used??0)+(data.daily_limit?' / '+data.daily_limit:' · no daily cap'),'muted'));if(data.needs_attention?.length){const attention=node('details');attention.append(node('summary','Listings needing attention: '+data.needs_attention.length));for(const item of data.needs_attention){const button=node('button','MLS '+item.id+' · '+(names[item.status]||item.status));button.type='button';button.onclick=guard(()=>loadProperty(item.id));attention.append(button)}$('draft-batch-progress').append(attention)}if(state.batchPoll)clearTimeout(state.batchPoll);if(data.status==='running')state.batchPoll=setTimeout(()=>refreshBatch().catch(e=>message(e.message)),10000);
 }
 function renderSamples(){
  $('sample-list').replaceChildren(...state.samples.items.map(item=>{const row=node('div',undefined,'row');const open=node('button',item.address+' · MLS '+item.id);open.type='button';open.onclick=guard(()=>loadProperty(item.id));const remove=node('button','Remove from my list');remove.type='button';remove.onclick=guard(async()=>{state.samples=await api('/api/studio/v2/samples',{action:'remove',id:item.id,expected_revision:state.samples.revision});renderSamples()});row.append(open,remove);return row}));if(!state.samples.items.length)$('sample-list').textContent='No samples selected yet. Open a property and add it above.';
@@ -184,6 +184,7 @@ async function loadProperty(id){
  $('confidence').value=r.confidence||'';$('reason').value=r.reason||'';$('fit-basis').value=r.fit_basis||'unknown';$('evidence-source').value=r.evidence_source||'';
  $('facts').replaceChildren(...structuredKeys.filter(k=>p.metadata?.[k]!==undefined).map(k=>{const row=node('tr');row.append(node('th',k),node('td',String(p.metadata[k])));return row}));
  $('thumbnails').replaceChildren(...detail.images.map((image,index)=>{const b=node('button');b.type='button';b.setAttribute('aria-label',`Photo ${index+1}`);const img=node('img');img.src='/api/studio/image?id='+encodeURIComponent(image.id);img.alt=`Photo ${index+1}`;b.append(img);b.onclick=()=>{state.photo=index;renderPhoto()};return b}));
+ $('photo-source-notice').textContent=detail.photo_display_notice||'';$('photo-source-notice').hidden=!detail.photo_display_notice;
  renderPhoto();renderSignals();state.proposal=null;state.assistantInput=null;state.assistantProposalId=null;$("proposal-result").replaceChildren();$("confirm-proposal").checked=false;$("use-proposal").disabled=true;
  $('draft-status').textContent='Loading saved analysis…';$('draft-help').textContent='Existing results load automatically. No paid analysis starts here.';
  try{await refreshDraft(request,true)}catch(error){if(request===state.load){$('draft-status').textContent='Could not load saved analysis';$('draft-help').textContent=error.message}}
@@ -193,7 +194,8 @@ function renderPhoto(){
  const image=state.detail.images[state.photo];$('hero').hidden=!image;$('no-photos').hidden=!!image;$('photo-form').hidden=!image;
  if(!image){$('hero').removeAttribute('src');$('photo-status').textContent='';return}
  $('hero').src='/api/studio/image?id='+encodeURIComponent(image.id);
- $('photo-status').textContent=`Photo ${state.photo+1} of ${state.detail.images.length} | ${image.selection?.included===false?'Excluded: '+image.selection.reason:'Subject relevance still requires review'} | ${image.split==='test'?'Protected test group':'Review evidence'}`;
+ $('no-photos').textContent=state.detail.photo_display_notice||'No retained listing photos are stored for this property.';
+ $('photo-status').textContent=`Photo ${state.photo+1} of ${state.detail.images.length} | ${image.source_quarantined?'Source unresolved · shown for reference only':image.selection?.included===false?'Excluded: '+image.selection.reason:'Subject relevance still requires review'} | ${image.split==='test'?'Protected test group':'Review evidence'}`;
  $('photo-context').value=image.review?.context||image.effective?.context||'unknown';$('photo-room').value=image.review?.room||image.effective?.room||'other';$('photo-exclusion').value='';
  $('photo-physical').value=image.review?.physical_condition||'UNKNOWN';$('photo-modernization').value=image.review?.modernization_state||'UNKNOWN';
  [...$('thumbnails').children].forEach((b,i)=>b.setAttribute('aria-pressed',String(i===state.photo)));
@@ -246,7 +248,7 @@ async function refreshPropertyPrediction(request=state.load){
  const id=state.detail.property.id;
  const pred=await api('/api/studio/v2/experimental/prediction?id='+encodeURIComponent(id));
  if(request!==state.load||id!==state.detail?.property.id)return;
- const statuses={none:'No saved prediction yet',queued:'Model analysis queued',running:'Model analysis in progress',completed:'Saved model prediction',failed:'Model analysis failed',blocked:'Model analysis blocked'};
+ const statuses={none:'No saved prediction yet',queued:'Model analysis queued',running:'Model analysis in progress',completed:'Saved model prediction',failed:'Model analysis failed',blocked:'Model analysis blocked',stale:'Saved prediction needs updating'};
  for(const target of ['property-prediction','experimental-prediction']){
   const out=[node('strong','MLS '+id+' · '+(statuses[pred.status]||pred.status))];
   if(pred.results){
@@ -266,6 +268,21 @@ async function refreshPropertyPrediction(request=state.load){
  $('property-predict').disabled=['queued','running'].includes(pred.status);
  if(state.predictionPoll)clearTimeout(state.predictionPoll);
  if(['queued','running'].includes(pred.status))state.predictionPoll=setTimeout(()=>refreshPropertyPrediction(request).catch(e=>message(e.message)),5000);
+}
+async function runPropertyModel(){
+ if(!state.detail)throw Error('Open a property first.');
+ const id=state.detail.property.id,request=state.load;
+ for(const target of ['property-prediction','experimental-prediction'])$(target).replaceChildren(node('strong','Submitting model analysis…'));
+ $('property-predict').disabled=true;$('experimental-predict').disabled=true;
+ try{
+  const queued=await api('/api/studio/v2/experimental/predict',{id});
+  if(request!==state.load)return;
+  for(const target of ['property-prediction','experimental-prediction'])$(target).replaceChildren(node('strong',queued.status==='completed'?'Saved prediction ready':'Model analysis queued'),node('p','The hosted worker will save the result here automatically. No OpenAI request is used.','muted'));
+  await refreshPropertyPrediction(request);
+ }catch(error){
+  if(request===state.load)for(const target of ['property-prediction','experimental-prediction'])$(target).replaceChildren(node('strong','Could not run the model'),node('p',error.message,'warning'));
+  throw error;
+ }finally{if(request===state.load){$('property-predict').disabled=false;$('experimental-predict').disabled=false}}
 }
 async function boot(){
  state.caps=await api('/api/studio/v2/capabilities');$('actor').textContent=state.caps.actor.id+' | '+state.caps.actor.role;
@@ -304,8 +321,8 @@ async function boot(){
  }
  $('experimental-refresh').onclick=guard(refreshExperiment);
  $('experimental-train').onclick=guard(async()=>{if(!$('include-drafts').checked)throw Error('Confirm using unreviewed AI drafts for the experiment.');await api('/api/studio/v2/experimental/train',{confirmed:true,include_unreviewed_drafts:true});await refreshExperiment();message('Experimental training request saved. The worker starts when valid class coverage is ready.',true)});
- $('property-predict').onclick=guard(async()=>{if(!state.detail)throw Error('Open a property first.');await api('/api/studio/v2/experimental/predict',{id:state.detail.property.id});await refreshPropertyPrediction()});
- $('experimental-predict').onclick=guard(async()=>{if(!state.detail)throw Error('Open a property first.');await api('/api/studio/v2/experimental/predict',{id:state.detail.property.id});await refreshExperiment()});
+ $('property-predict').onclick=guard(runPropertyModel);
+ $('experimental-predict').onclick=guard(runPropertyModel);
  $('preview').onclick=guard(async()=>{state.preview=await api('/api/studio/v2/dataset/preview',{});renderJson('training-result',state.preview)});
  $('freeze').disabled=true;$('train-candidate').disabled=true;
  $('request-proposal').onclick=guard(async()=>{if(!$('confirm-proposal').checked)throw Error('Confirm the single-property draft request.');if(state.dirty)throw Error('Save or reload edits before requesting drafts.');const p=state.detail.property;const request=await api('/api/studio/v2/label/propose',{id:p.id,label_evidence_id:state.detail.label_evidence_id,confirmed:true});$('draft-status').textContent='Analysis queued';$('draft-help').textContent='The hosted worker will prepare suggestions. Refresh status to check progress.';$('confirm-proposal').checked=false});

@@ -97,3 +97,15 @@ def test_source_only_confirmation_without_typed_labels_never_loads_property():
  s=Store()
  selected,excluded=select_rows(s,[{'id':'source-only','group_id':'g','split':'train','timing_verified':True}])
  assert selected==[] and excluded=={'no_current_draft':1}
+
+
+def test_reference_listing_prediction_does_not_remove_training_quarantine():
+ from experimental_candidate import queue_prediction,prediction
+ s=Store();s.details['reference']={'property':{'id':'reference','mls_remarks':'Updated home','metadata':{}},'images':[],'historical_source':{'blocked':True}}
+ s.docs[REQUEST]={'id':'candidate','status':'completed'}
+ s.docs['experimental-candidate:candidate']={'id':'candidate','created_at':'fixture','policy':'fixture','counts':{},'evaluation':{},'encoder':{},'dataset_fingerprint':'fixture','limitations':[],'heads':{}}
+ queued=queue_prediction(s,{'id':'reference'},'reviewer')
+ assert queued['status']=='queued'
+ assert prediction(s,'reference')['status']=='queued'
+ assert s.details['reference']['historical_source']['blocked'] is True
+ assert not any(k.startswith('typed-label-result:') for k in s.docs)

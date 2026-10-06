@@ -101,3 +101,12 @@ def test_failed_openai_request_requires_explicit_retry(monkeypatch):
     db.states['document','autolabel-request:house']['status']='failed'
     assert store.request_autolabel({'property_id':'house'})['status']=='failed'
     assert store.request_autolabel({'property_id':'house','retry':True})['status']=='queued'
+
+
+
+def test_explicit_unlimited_budget_still_counts_calls(monkeypatch,tmp_path):
+    monkeypatch.setenv('STUDIO_OPENAI_MAX_CALLS_PER_DAY','0')
+    store,classifier,paths,calls=setup(monkeypatch,tmp_path)
+    classifier.reserve_call();classifier.reserve_call()
+    assert classifier.limit==0
+    assert next(v for k,v in store.docs.items() if k.startswith('autolabel-budget:'))['calls']==2

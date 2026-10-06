@@ -85,5 +85,6 @@ def advance(store):
     return dispatched
 
 def budget_available(store, classifier):
+    if classifier.limit == 0: return True
     key='autolabel-budget:'+datetime.now(timezone.utc).date().isoformat()
     return (store.document(key) or {}).get('calls',0)<classifier.limit
