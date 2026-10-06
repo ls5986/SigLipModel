@@ -7,6 +7,56 @@ classification-head training, historical-listing safeguards, and regression test
 **Code lives here. Photos, MLS records, human reviews, trained weights, database
 backups, and credentials do not.** Existing copies are not deleted by this project.
 
+## Provider Spec Kit project and contract bundle
+
+The active Spec Kit feature is
+[`specs/001-actvision-v2-provider-foundation`](specs/001-actvision-v2-provider-foundation/spec.md);
+the checkout-local [feature pointer](.specify/feature.json) selects it. This
+foundation records stable provider requirements and plans. It does not authorize
+training, deployment, migrations, paid calls, promotion, or external-system
+writes.
+
+SigLipModel owns the ActVision physical-evidence provider: label, evidence,
+component-status, inference, feedback, and release semantics, plus the
+authoritative schema, semantic validator, and synthetic fixtures. MLSSourcing is
+the consumer. It independently pins and validates the provider contract, keeps
+results in shadow until approval, and owns economics, qualification, ranking, and
+canonical MLS product writes. See the feature's
+[ownership contract](specs/001-actvision-v2-provider-foundation/contracts/README.md).
+
+The current independently versioned contract bundle is **1.0.0**. Its
+[`manifest.json`](contracts/manifest.json) pins the provider, source commit,
+compatibility policy, and raw-byte SHA-256 values for every authoritative file;
+[`contracts/VERSION`](contracts/VERSION) carries the same bundle identity.
+Validate fixture semantics and complete bundle consistency offline:
+
+```powershell
+python tools\export_actvision_fixtures.py --check
+python tools\check_actvision_contract_bundle.py
+```
+
+The [full production Spec Kit workflow](specs/001-actvision-v2-provider-foundation/quickstart.md)
+is:
+
+1. Confirm the SigLipModel/MLSSourcing ownership boundary, exact evidence-time
+   boundary, affected contracts and legacy behavior, and prohibited side effects.
+2. Create or explicitly select the active feature. Run `speckit-specify`,
+   `speckit-clarify`, `speckit-plan`, `speckit-checklist`, `speckit-tasks`, and
+   `speckit-analyze` in order.
+3. Pass the provider Constitution Check for leakage, immutable evidence,
+   UNKNOWN/missing modalities, provenance, protected groups, exact release
+   identity, explicit promotion, legacy compatibility, and offline operation.
+4. Implement every task RED/GREEN with synthetic offline checks. Separate
+   experiments from releases, satisfy dataset, evaluation, artifact, adapter,
+   authorization, and operational gates, then run `speckit-converge`.
+5. Roll out provider-first: publish and validate the authoritative bundle, verify
+   the provider release, have MLSSourcing independently approve and pin the exact
+   manifest, enable consumer shadow explicitly, and enable product behavior only
+   under separate MLSSourcing approval.
+6. Roll back consumer enablement first, then pin a previously approved compatible
+   provider release and bundle without rewriting historical evidence, requests,
+   predictions, feedback, or releases.
+
 ## ActVision first rebuild (v2, not production-ready)
 
 The primary local/hosted root is now **Label | Review | Train | Releases |

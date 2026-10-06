@@ -27,6 +27,12 @@ jobs:
         run: python -m compileall -q .
       - name: Contract fixtures
         run: python tools/export_actvision_fixtures.py --check
+      - name: Provider Spec Kit project
+        run: python -m pytest test_spec_kit_project.py -q
+      - name: Contract bundle
+        run: |
+          python tools/check_actvision_contract_bundle.py
+          python -m pytest test_actvision_contract_bundle.py -q
       - name: Backend regression suite
         run: python -m pytest test_actvision_v2.py test_cloud_runtime.py test_hosted_server.py test_hosted_session.py test_model_workbench.py test_bootstrap_diagnostics.py test_v2_startup_recovery.py test_v2_inventory_nonblocking.py test_v2_training_io.py -q
 

@@ -129,3 +129,18 @@ def test_future_tasks_separate_experiment_from_multimodal_release():
     assert "Experimental Text/Metadata Candidate (No Release)" in tasks
     assert "Full Multimodal Release (Future Work)" in tasks
     assert "- [x]" not in tasks.lower()
+
+
+def test_ci_enforces_provider_project_and_bundle_before_backend_regressions():
+    workflow = (
+        PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
+    ).read_text(encoding="utf-8")
+    backend_regression = workflow.index("Backend regression suite")
+
+    for required_check in (
+        "tools/check_actvision_contract_bundle.py",
+        "test_spec_kit_project.py",
+        "test_actvision_contract_bundle.py",
+    ):
+        assert required_check in workflow
+        assert workflow.index(required_check) < backend_regression
