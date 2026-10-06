@@ -206,6 +206,7 @@ def snapshot(store, *, include_legacy=True):
             'mls_remarks':__import__('listing_text').remarks(metadata),
             'synthetic_evidence':__import__('listing_text').image_evidence(metadata),
             'human_review_revision':review.get('revision',0), 'timing_verified':verified,
+            'text_source_valid':not history['blocked'],
             'photo_coverage':'no_interior' if manually_certified and not photo_rows else history['photo_coverage'],
             'known_target':verified, 'target_origin':'human-certified-mls-validation'
                 if manually_certified else 'user-confirmed-workbook-cohort',

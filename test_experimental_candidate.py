@@ -62,6 +62,14 @@ def test_source_protection_human_priority_and_group_conflicts():
  assert len(selected)==1;assert selected[0]['id']=='human';assert selected[0]['origin']=='approved_human';assert selected[0]['labels']['acquisition_fit']=='NOT_TARGET'
  assert excluded=={'protected_group':1,'source_era':1,'no_current_draft':1}
  assert s.docs['typed-label-result:alias']['status']=='draft'
+ # Supported text/facts remain usable without manually certified photographs.
+ props[1]['timing_verified']=False;props[1]['label_exclusion']='Photo era pending'
+ props[1]['text_source_valid']=True
+ selected,_=select_rows(s,[props[1]])
+ assert selected[0]['id']=='alias' and selected[0]['photo_era_verified'] is False
+ assert s.details['alias']['property']['review']=={}
+ props[1]['text_source_valid']=False
+ assert select_rows(s,[props[1]])==([] ,{'source_era':1})
 
 def test_explicit_idempotent_training_does_not_approve_truth():
  s=Store()

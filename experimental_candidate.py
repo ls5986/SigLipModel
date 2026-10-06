@@ -40,7 +40,10 @@ def select_rows(store, properties):
     groups = defaultdict(list); exclusions=Counter()
     for prop in properties[:MAX_GROUPS]:
         if prop.get('split')=='test': exclusions['protected_group']+=1;continue
-        if not prop.get('timing_verified') or prop.get('label_exclusion'): exclusions['source_era']+=1;continue
+        # This candidate has no image inputs. A supported acquisition listing's
+        # description/facts can be used before its photographs are certified.
+        if not prop.get('text_source_valid',prop.get('timing_verified') and not prop.get('label_exclusion')):
+            exclusions['source_era']+=1;continue
         draft=store.document('typed-label-result:'+prop['id']) or {}
         if (prop.get('review') or {}).get('status')!='approved' and (
                 draft.get('status')!='draft' or draft.get('policy')!=POLICY):
@@ -73,6 +76,7 @@ def select_rows(store, properties):
         groups[group].append({'id':prop['id'],'group_id':group,'origin':origin,'labels':labels,
             'remarks':current.get('mls_remarks') or '', 'metadata':current.get('metadata') or {},
             'evidence_id':evidence,'proposal_id':proposal_id,'review_revision':human.get('revision',0),
+            'photo_era_verified':bool(prop.get('timing_verified')),
             'split':'validation' if int(digest({'experimental_group':group})[:8],16)/2**32 < .2 else 'train'})
     rows=[]
     for members in groups.values():
@@ -145,13 +149,15 @@ def train(rows, exclusions, encode, checkpoint):
                 pairs=[(pred,r['labels'].get(task,'UNKNOWN')) for pred,r in zip(predictions,held) if r['origin']==origin and r['labels'].get(task,'UNKNOWN')!='UNKNOWN']
                 evaluation[task+':'+origin]={'groups':len(pairs),'agreement':sum(a==b for a,b in pairs)/len(pairs) if pairs else None,
                     'meaning':'Held-out agreement with AI drafts; NOT human accuracy' if origin=='unreviewed_ai_draft' else 'Held-out human agreement; small provisional sample'}
-    provenance=[{k:r[k] for k in ('id','group_id','origin','labels','evidence_id','proposal_id','review_revision','split')} for r in rows]
+    provenance=[{k:r[k] for k in ('id','group_id','origin','labels','evidence_id','proposal_id','review_revision','split')} |
+                {'photo_era_verified':r.get('photo_era_verified',False)} for r in rows]
     return {'created_at':now(),'policy':'experimental-unreviewed-drafts-v1','encoder':checkpoint,
         'metadata_names':names,'metadata_scales':scales,'text_dimension':text.shape[1],'heads':heads,'evaluation':evaluation,
         'counts':{'train_groups':len(train_rows),'validation_groups':len(held),'origins':dict(Counter(r['origin'] for r in rows)),'excluded':exclusions},
         'dataset_fingerprint':digest(provenance),'provenance':provenance,
         'limitations':['Experimental, uncalibrated; unreviewed AI labels are not human truth',
                        'Description and metadata early combination; no newly trained vision or calibrated late fusion',
+                       'Supported listing descriptions/facts can be used while photo-era certification is pending; no photographs are training inputs',
                        'Protected groups excluded from fitting and experiment evaluation',
                        'Not approved for /api/actvision/v2/infer, MLS shadow or production']}
 
