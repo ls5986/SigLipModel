@@ -193,16 +193,30 @@ def _fusion_inputs(rows, calibrated, available, calibrators):
 
 
 def _fit_final_components(train_rows, siglip, semantic_encoder, calibrators):
+    """Fit every supported modality without making one sparse modality fatal."""
     models = {}
+    unavailable = {}
     for name in ("vision", "text", "structured"):
-        model, _ = _fit_component(name, train_rows, siglip, semantic_encoder)
+        try:
+            model, _ = _fit_component(name, train_rows, siglip, semantic_encoder)
+        except ValueError as exc:
+            unavailable[name] = type(exc).__name__
+            continue
         models[name] = CalibratedModel.wrap(model, calibrators[name])
-    return models
+    if not models:
+        raise ValueError("No ActVision v2 component has sufficient supervised class support")
+    return models, unavailable
 
 
 def _predict_final_components(models, rows, siglip):
-    results = {}
-    available = {}
+    results = {
+        name: [unknown_result() for _ in rows]
+        for name in ("vision", "text", "structured")
+    }
+    available = {
+        name: [False for _ in rows]
+        for name in ("vision", "text", "structured")
+    }
     for name, model in models.items():
         predictions = _predict_component(name, model.model, rows, siglip)
         predictions = [model.calibrator.apply(value) for value in predictions]
@@ -331,7 +345,7 @@ def train_candidate(store, request, siglip):
         prediction_source="grouped_oof_training",
     )
 
-    final_components = _fit_final_components(
+    final_components, unavailable_components = _fit_final_components(
         train_rows, siglip, encoder, component_calibrators
     )
     validation_raw, validation_available = _predict_final_components(
@@ -349,13 +363,21 @@ def train_candidate(store, request, siglip):
     calibrated_fusion = CalibratedModel.wrap(fusion, fusion_calibrator)
 
     release_id = str(uuid4())
-    artifacts = {}
+    artifacts = {name: None for name in COMPONENTS}
     component_metrics = {}
-    for name, model in final_components.items():
+    release_run_ids = {name: request["run_ids"][name] for name in COMPONENTS}
+    for name in ("vision", "text", "structured"):
+        if name not in final_components:
+            component_metrics[name] = {
+                "status": "unavailable",
+                "reason": "insufficient_class_support",
+            }
+            _fail_run(store, request["run_ids"][name], "insufficient_class_support")
+            release_run_ids[name] = None
+            continue
+        model = final_components[name]
         artifacts[name] = _upload_component(store, release_id, name, model)
-        predictions = (
-            validation_raw[name] if validation_rows else []
-        )
+        predictions = validation_raw[name] if validation_rows else []
         component_metrics[name] = {
             "validation": _metrics(predictions, validation_rows) if validation_rows else {},
             "calibration_version": model.calibrator.version,
@@ -395,9 +417,11 @@ def train_candidate(store, request, siglip):
         "modernization_macro_f1": (protected.get("modernization", {}).get("macro_f1") or 0) >= .70,
         "acquisition_fit_auroc": (protected.get("acquisition_fit", {}).get("auroc") or 0) >= .75,
         "ece": all(
-            entry.get("ece") is not None and entry["ece"] <= .10
-            for entry in protected.values() if entry.get("n", 0) >= 10
-        ) if protected else False,
+            protected.get(axis, {}).get("n", 0) >= 10
+            and protected.get(axis, {}).get("ece") is not None
+            and protected[axis]["ece"] <= .10
+            for axis in ("physical_condition", "modernization", "acquisition_fit")
+        ),
     }
     protected_passed = all(gates.values())
 
@@ -446,8 +470,8 @@ def train_candidate(store, request, siglip):
             "SELECT acq_training.create_candidate_release_v2(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (
                 store.workspace, release_id, "actvision-v2", release_version,
-                request["run_ids"]["vision"], request["run_ids"]["text"],
-                request["run_ids"]["structured"], request["run_ids"]["fusion"],
+                release_run_ids["vision"], release_run_ids["text"],
+                release_run_ids["structured"], release_run_ids["fusion"],
                 Jsonb(evaluation), Jsonb(manifest), bundle_sha, fusion_calibrator.version,
             ),
         )
