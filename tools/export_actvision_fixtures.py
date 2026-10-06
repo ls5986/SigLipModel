@@ -50,6 +50,11 @@ def fixtures():
         "release_id": evidence["release_id"], "status": "candidate",
         "components": dict.fromkeys(("vision", "text", "structured", "fusion")),
         "dataset_sha256": digest({"fixture": "dataset"}),
+        "code_commit": "fixture-commit",
+        "split_policy_version": "fixture-group-split-v2",
+        "backbones": {"vision": "google/siglip2-base-patch16-224", "text": "sentence-transformers/all-MiniLM-L6-v2"},
+        "thresholds": {},
+        "created_at": "2026-10-02T00:00:00Z",
         "evaluation": {"report_sha256": digest({"fixture": "evaluation"}), "protected_slices_passed": False},
         "approved_by": None, "approved_at": None,
     }

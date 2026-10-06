@@ -102,7 +102,13 @@
         "photo_inputs": {
           "type": "array", "maxItems": 8,
           "items": {"type": "object", "additionalProperties": false, "required": ["photo_id", "uri"],
-            "properties": {"photo_id": {"$ref": "#/$defs/id"}, "uri": {"type": "string", "maxLength": 4000}}}
+            "dependentRequired": {"content_b64": ["content_sha256"]},
+            "properties": {
+              "photo_id": {"$ref": "#/$defs/id"},
+              "uri": {"type": "string", "maxLength": 4000},
+              "content_b64": {"type": "string", "maxLength": 300000},
+              "content_sha256": {"$ref": "#/$defs/sha256"}
+            }}
         }
       }
     },
@@ -170,7 +176,7 @@
     },
     "release": {
       "type": "object", "additionalProperties": false,
-      "required": ["kind", "schema_version", "label_schema_version", "release_id", "status", "components", "dataset_sha256", "evaluation", "approved_by", "approved_at"],
+      "required": ["kind", "schema_version", "label_schema_version", "release_id", "status", "components", "dataset_sha256", "code_commit", "split_policy_version", "backbones", "thresholds", "created_at", "evaluation", "approved_by", "approved_at"],
       "properties": {
         "kind": {"const": "release"}, "schema_version": {"const": "actvision-v2"}, "label_schema_version": {"const": "actvision-labels-v2"},
         "release_id": {"$ref": "#/$defs/id"}, "status": {"enum": ["candidate", "shadow", "production", "retired"]},
@@ -184,6 +190,12 @@
           }
         },
         "dataset_sha256": {"$ref": "#/$defs/sha256"},
+        "code_commit": {"type": "string", "minLength": 7, "maxLength": 64},
+        "split_policy_version": {"$ref": "#/$defs/id"},
+        "backbones": {"type": "object", "additionalProperties": false, "required": ["vision", "text"],
+          "properties": {"vision": {"$ref": "#/$defs/id"}, "text": {"$ref": "#/$defs/id"}}},
+        "thresholds": {"type": "object", "additionalProperties": true},
+        "created_at": {"type": "string", "format": "date-time"},
         "evaluation": {"type": "object", "additionalProperties": false, "required": ["report_sha256", "protected_slices_passed"],
           "properties": {"report_sha256": {"$ref": "#/$defs/sha256"}, "protected_slices_passed": {"type": "boolean"}}},
         "approved_by": {"type": ["string", "null"]}, "approved_at": {"type": ["string", "null"], "format": "date-time"}

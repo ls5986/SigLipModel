@@ -385,3 +385,18 @@ def test_quarantined_retained_gallery_stays_visible_but_is_not_trainable():
     assert detail['images'][0]['training_allowed'] is False
     assert 'source review only' in detail['photo_display_notice']
     assert detail['capabilities']['autolabel'] is False
+
+
+
+def test_private_storage_artifact_upload_is_immutable_and_hashed(tmp_path):
+    body = b"candidate-artifact"
+    client, calls = storage(tmp_path, b"", status=201)
+    result = client.put("acq-training-private", "models/actvision-v2/release/vision.joblib", body)
+    assert result["sha256"] == hashlib.sha256(body).hexdigest()
+    assert calls[0].method == "POST"
+    assert calls[0].content == body
+    assert "/storage/v1/object/acq-training-private/models/actvision-v2/release/vision.joblib" in str(calls[0].url)
+
+    duplicate, _ = storage(tmp_path / "duplicate", b"", status=409)
+    with pytest.raises(FileExistsError):
+        duplicate.put("acq-training-private", "models/actvision-v2/release/vision.joblib", body)

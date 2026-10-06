@@ -496,7 +496,6 @@ def test_freeze_rejects_first_typed_review_after_legacy_preview(monkeypatch, tar
     "release?#%+reserved", "literal%2Fnot-a-slash",
 ])
 def test_hosted_release_lookup_decodes_id_exactly_once(monkeypatch, release_id):
-    from types import SimpleNamespace
     from urllib.parse import quote
     from hosted_server import create_server
     from test_hosted_server import App, auth, request
@@ -504,7 +503,12 @@ def test_hosted_release_lookup_decodes_id_exactly_once(monkeypatch, release_id):
     manifest = fixtures()["release-shadow"]
     manifest["release_id"] = release_id
     validate_contract(manifest, "release")
-    monkeypatch.setattr("actvision_service.configured_bundle", lambda: SimpleNamespace(manifest=manifest))
+    from actvision_service import UnavailableError
+    def lookup(_store, requested):
+        if requested != release_id:
+            raise UnavailableError("Release not found")
+        return manifest
+    monkeypatch.setattr("actvision_service.approved_manifest", lookup)
     monkeypatch.setenv("ACTVISION_SERVICE_TOKEN", "x" * 32)
     server = create_server(0, App(), auth(monkeypatch))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -655,7 +659,7 @@ def test_worker_heartbeat_state_rejects_stale_ready_status():
     fresh = worker_heartbeat_state(Store({
         "status": "ready", "at": datetime.now(UTC).isoformat(),
         "policy": "openai-property-typed-draft-v2", "daily_limit": 0,
-    }))
+    }), "worker")
     assert fresh["online"] is True
     assert fresh["actionable"] is True
     assert fresh["status"] == "ready"
@@ -663,7 +667,7 @@ def test_worker_heartbeat_state_rejects_stale_ready_status():
 
     stale = worker_heartbeat_state(Store({
         "status": "ready", "at": (datetime.now(UTC) - timedelta(hours=2)).isoformat(),
-    }))
+    }), "worker")
     assert stale["online"] is False
     assert stale["actionable"] is False
     assert stale["status"] == "offline"
@@ -739,3 +743,117 @@ def test_acquisition_metadata_excludes_post_listing_sales_and_recomputes_stale_v
     assert result["PriorSaleCount"] == 1
     assert result["MostRecentPriorSalePrice"] == 400000
     assert result["PriorSaleFeaturesAsOf"] == "2026-01-10"
+
+
+
+def test_room_balanced_vision_aggregation_preserves_room_influence():
+    import numpy as np
+    from property_models import vision_vector
+
+    base = [
+        {"vector": np.array([1.0, 0.0]), "room": "kitchen"},
+        {"vector": np.array([0.0, 1.0]), "room": "bathroom"},
+        {"vector": np.array([0.5, 0.5]), "room": "living"},
+    ]
+    duplicated = base + [
+        {"vector": np.array([0.5, 0.5]), "room": "living"}
+        for _ in range(10)
+    ]
+    first = vision_vector(base)
+    second = vision_vector(duplicated)
+    assert first is not None and second is not None
+    # Layout is global mean, room-balanced mean, max, then coverage features.
+    np.testing.assert_allclose(first[2:4], second[2:4])
+    assert first[-13] != second[-13]  # total-photo coverage remains explicit
+
+
+def test_v2_label_provenance_is_field_level_and_human_wins():
+    from v2_dataset import _apply
+
+    labels = {
+        "physical_condition": "UNKNOWN",
+        "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
+        "text_signals": {"needs_tlc": "UNKNOWN"},
+    }
+    provenance = {}
+    _apply(labels, provenance, {
+        "physical_condition": "C4_AVERAGE_FUNCTIONAL",
+        "modernization": "ORIGINAL",
+        "acquisition_fit": "TARGET",
+        "text_signals": {"needs_tlc": "PRESENT"},
+        "source_id": "proposal:1",
+    }, "AI_DRAFT")
+    _apply(labels, provenance, {
+        "physical_condition": "C3_WELL_MAINTAINED",
+        "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
+        "text_signals": {},
+        "source_id": "review:1",
+    }, "HUMAN_APPROVED")
+    assert labels["physical_condition"] == "C3_WELL_MAINTAINED"
+    assert labels["modernization"] == "ORIGINAL"
+    assert labels["acquisition_fit"] == "TARGET"
+    assert labels["text_signals"]["needs_tlc"] == "PRESENT"
+    assert provenance["physical_condition"]["origin"] == "HUMAN_APPROVED"
+    assert provenance["modernization"]["origin"] == "AI_DRAFT"
+
+
+def test_temperature_calibration_preserves_probability_contract():
+    from v2_calibration import TemperatureCalibrator
+
+    rows = []
+    labels = []
+    for i in range(12):
+        target = "C3_WELL_MAINTAINED" if i < 6 else "C4_AVERAGE_FUNCTIONAL"
+        other = "C4_AVERAGE_FUNCTIONAL" if i < 6 else "C3_WELL_MAINTAINED"
+        rows.append({
+            **unknown_result(),
+            "physical_condition": target,
+            "condition_probabilities": {target: .8, other: .2},
+        })
+        labels.append({"physical_condition": target, "modernization": "UNKNOWN", "acquisition_fit": "UNKNOWN"})
+    calibrator = TemperatureCalibrator.fit(rows, labels, identity="a" * 64)
+    result = calibrator.apply(rows[0])
+    assert abs(sum(result["condition_probabilities"].values()) - 1.0) < 1e-9
+    assert result["confidence"] is not None
+    assert calibrator.version.startswith("temperature-v1:")
+
+
+def test_release_control_migrations_never_grant_worker_promotion():
+    sql = "\n".join(
+        path.read_text()
+        for path in sorted((Path("supabase") / "migrations").glob("*actvision*v2*release*.sql"))
+    )
+    assert "promote_release_v2" in sql
+    assert "to acq_training_reviewer" in sql
+    assert "to acq_training_worker" not in "\n".join(
+        line for line in sql.splitlines() if "promote_release_v2" in line or "grant execute" in line
+    )
+
+
+
+def test_v2_auto_bootstrap_is_explicit_and_never_retries_failed(monkeypatch):
+    from v2_auto_bootstrap import MARKER, maybe_enqueue
+
+    class Store:
+        def __init__(self):
+            self.docs = {}
+            self.writes = 0
+        def document(self, key):
+            return self.docs.get(key)
+        def save_document(self, key, payload, expected):
+            self.writes += 1
+            saved = {**payload, "revision": expected + 1}
+            self.docs[key] = saved
+            return saved
+
+    store = Store()
+    monkeypatch.delenv("STUDIO_V2_AUTO_BOOTSTRAP_ONCE", raising=False)
+    assert maybe_enqueue(store)["status"] == "disabled"
+    assert store.writes == 0
+
+    monkeypatch.setenv("STUDIO_V2_AUTO_BOOTSTRAP_ONCE", "true")
+    store.docs[MARKER] = {"status": "failed", "reason": "prior failure", "revision": 1}
+    assert maybe_enqueue(store)["status"] == "failed"
+    assert store.writes == 0

@@ -64,6 +64,33 @@ class PrivateStorage:
                 if temporary:
                     temporary.unlink(missing_ok=True)
 
+
+    def put(self, bucket, key, data, *, content_type="application/octet-stream"):
+        """Upload immutable worker artifacts to the private training bucket."""
+        if bucket != 'acq-training-private' or not key or any(
+            part in {'..', '.', ''} for part in key.split('/')
+        ) or '\\' in key:
+            raise ValueError('Invalid private Storage reference')
+        if not isinstance(data, (bytes, bytearray)) or not data:
+            raise ValueError('Artifact bytes are required')
+        try:
+            response = self.client.post(
+                self.base.replace('/object/authenticated/', '/object/') +
+                quote(bucket, safe='') + '/' + quote(key, safe='/'),
+                headers={**self.headers, 'Content-Type':content_type},
+                content=bytes(data),
+            )
+        except httpx.HTTPError:
+            raise OSError('Private Storage upload unavailable; retry later') from None
+        if response.status_code not in {200, 201}:
+            if response.status_code in {400, 409}:
+                raise FileExistsError('Private artifact path already exists')
+            raise OSError('Private Storage upload failed')
+        return {
+            'bucket':bucket, 'key':key,
+            'sha256':hashlib.sha256(data).hexdigest(), 'bytes':len(data),
+        }
+
     def _prune(self, keep):
         files = sorted((p for p in self.cache.iterdir() if p.is_file() and
                         re.fullmatch(r'[a-f0-9]{64}', p.name)), key=lambda p:p.stat().st_mtime)

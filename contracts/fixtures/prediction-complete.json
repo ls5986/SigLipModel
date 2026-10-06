@@ -33,6 +33,7 @@
       "result": {
         "physical_condition": "C3_WELL_MAINTAINED",
         "modernization": "ORIGINAL",
+        "acquisition_fit": "TARGET",
         "condition_probabilities": {
           "C3_WELL_MAINTAINED": 0.75,
           "C4_AVERAGE_FUNCTIONAL": 0.25
@@ -41,14 +42,13 @@
           "ORIGINAL": 0.8,
           "PARTIALLY_UPDATED": 0.2
         },
-        "value_add_score": 0.6,
-        "confidence": 0.7,
-        "text_signals": [],
-        "acquisition_fit": "TARGET",
         "acquisition_fit_probabilities": {
           "TARGET": 0.6,
           "NOT_TARGET": 0.4
-        }
+        },
+        "value_add_score": 0.6,
+        "confidence": 0.7,
+        "text_signals": []
       },
       "reason": null
     },
@@ -59,6 +59,7 @@
       "result": {
         "physical_condition": "C3_WELL_MAINTAINED",
         "modernization": "ORIGINAL",
+        "acquisition_fit": "TARGET",
         "condition_probabilities": {
           "C3_WELL_MAINTAINED": 0.75,
           "C4_AVERAGE_FUNCTIONAL": 0.25
@@ -66,6 +67,10 @@
         "modernization_probabilities": {
           "ORIGINAL": 0.8,
           "PARTIALLY_UPDATED": 0.2
+        },
+        "acquisition_fit_probabilities": {
+          "TARGET": 0.6,
+          "NOT_TARGET": 0.4
         },
         "value_add_score": 0.6,
         "confidence": 0.7,
@@ -78,12 +83,7 @@
             "start": 0,
             "end": 17
           }
-        ],
-        "acquisition_fit": "TARGET",
-        "acquisition_fit_probabilities": {
-          "TARGET": 0.6,
-          "NOT_TARGET": 0.4
-        }
+        ]
       },
       "reason": null
     },
@@ -94,6 +94,7 @@
       "result": {
         "physical_condition": "C3_WELL_MAINTAINED",
         "modernization": "ORIGINAL",
+        "acquisition_fit": "TARGET",
         "condition_probabilities": {
           "C3_WELL_MAINTAINED": 0.75,
           "C4_AVERAGE_FUNCTIONAL": 0.25
@@ -102,14 +103,13 @@
           "ORIGINAL": 0.8,
           "PARTIALLY_UPDATED": 0.2
         },
-        "value_add_score": 0.6,
-        "confidence": 0.7,
-        "text_signals": [],
-        "acquisition_fit": "TARGET",
         "acquisition_fit_probabilities": {
           "TARGET": 0.6,
           "NOT_TARGET": 0.4
-        }
+        },
+        "value_add_score": 0.6,
+        "confidence": 0.7,
+        "text_signals": []
       },
       "reason": null
     },
@@ -120,6 +120,7 @@
       "result": {
         "physical_condition": "C3_WELL_MAINTAINED",
         "modernization": "ORIGINAL",
+        "acquisition_fit": "TARGET",
         "condition_probabilities": {
           "C3_WELL_MAINTAINED": 0.75,
           "C4_AVERAGE_FUNCTIONAL": 0.25
@@ -128,14 +129,13 @@
           "ORIGINAL": 0.8,
           "PARTIALLY_UPDATED": 0.2
         },
-        "value_add_score": 0.6,
-        "confidence": 0.7,
-        "text_signals": [],
-        "acquisition_fit": "TARGET",
         "acquisition_fit_probabilities": {
           "TARGET": 0.6,
           "NOT_TARGET": 0.4
-        }
+        },
+        "value_add_score": 0.6,
+        "confidence": 0.7,
+        "text_signals": []
       },
       "reason": null
     }
@@ -143,6 +143,7 @@
   "result": {
     "physical_condition": "C3_WELL_MAINTAINED",
     "modernization": "ORIGINAL",
+    "acquisition_fit": "TARGET",
     "condition_probabilities": {
       "C3_WELL_MAINTAINED": 0.75,
       "C4_AVERAGE_FUNCTIONAL": 0.25
@@ -151,14 +152,13 @@
       "ORIGINAL": 0.8,
       "PARTIALLY_UPDATED": 0.2
     },
-    "value_add_score": 0.6,
-    "confidence": 0.7,
-    "text_signals": [],
-    "acquisition_fit": "TARGET",
     "acquisition_fit_probabilities": {
       "TARGET": 0.6,
       "NOT_TARGET": 0.4
-    }
+    },
+    "value_add_score": 0.6,
+    "confidence": 0.7,
+    "text_signals": []
   },
   "modalities_used": [
     "vision",

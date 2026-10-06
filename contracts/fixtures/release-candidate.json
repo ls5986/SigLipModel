@@ -11,6 +11,14 @@
     "fusion": null
   },
   "dataset_sha256": "fbf470908cafd856560b0c8bdbb9ca8d3068b475def541b8736a72c1aeb6176e",
+  "code_commit": "fixture-commit",
+  "split_policy_version": "fixture-group-split-v2",
+  "backbones": {
+    "vision": "google/siglip2-base-patch16-224",
+    "text": "sentence-transformers/all-MiniLM-L6-v2"
+  },
+  "thresholds": {},
+  "created_at": "2026-10-02T00:00:00Z",
   "evaluation": {
     "report_sha256": "741eef1cc9946ab861b80421c75d1de098f37b0b412d363e3e64489530482dc4",
     "protected_slices_passed": false
