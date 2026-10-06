@@ -111,4 +111,4 @@ product ranking behavior.
 
 - [ ] T031 Run Spec Kit analysis and resolve contradictions in the originating artifact; do not weaken a constitution or stable requirement to make tasks appear complete.
 - [ ] T032 Run all offline provider, contract, legacy, and browser regressions required by the implemented phases and record every skipped external acceptance check explicitly.
-- [ ] T033 Run Spec Kit convergence; append concrete missing tasks rather than claiming convergence when any release, deployment, migration, or consumer gate remains open.
+- [ ] T033 Run Spec Kit convergence and append tasks for any concrete untracked provider-foundation gaps; a converged result means all foundation gaps are tracked and MUST NOT be interpreted as completion of unchecked release, deployment, migration, or consumer backlog items.
