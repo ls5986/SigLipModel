@@ -6,7 +6,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from cloud_storage import PrivateStorage
-from cloud_store import Database, SupabaseStore
+from cloud_store import Database
+from validated_listing_store import ValidatedListingStore as SupabaseStore
 from config import DATA_ROOT
 
 
