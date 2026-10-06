@@ -180,8 +180,13 @@ def main():
                         helper = threading.Thread(target=keep_model_heartbeat, daemon=True)
                         helper.start()
                     poll_training(store, rooms)
+                    from v2_inference import poll as poll_v2_inference
+                    inference_ran = poll_v2_inference(store, rooms)
                     if request.get("status") not in {"queued", "running"}:
-                        v2_heartbeat(store, "ready", detail={"lane": "model"})
+                        v2_heartbeat(store, "ready", detail={
+                            "lane": "model",
+                            "latest_operation": "inference" if inference_ran else "idle",
+                        })
                 except Exception:
                     print("ActVision v2 training failed; inspect saved run states.", flush=True)
                 finally:
