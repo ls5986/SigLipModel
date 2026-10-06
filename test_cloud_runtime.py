@@ -504,3 +504,80 @@ def test_validation_candidate_uses_event_mapped_acquisition():
         },
     }
     assert validation_candidate(example)["listing"]["ListingKey"] == "before"
+
+
+
+def test_source_only_acquisition_never_falls_back_to_resale():
+    after = {
+        "listing": {
+            "ListingKey": "after",
+            "ListingId": "AFTER",
+            "StandardStatus": "Closed",
+            "CloseDate": "2026-08-20",
+            "PhotosCount": 51,
+            "PublicRemarks": "Completely renovated.",
+        },
+        "match": {
+            "exact_apn": True,
+            "street_number_matches": True,
+            "unit_conflict": False,
+        },
+    }
+    example = {
+        "listing_key": "after",
+        "source_rows": [458],
+        "source_snapshot": {
+            "spreadsheet": {
+                "Address": "28148 Mountain Meadow Rd",
+                "City": "Escondido",
+                "Zip": "92026",
+                "Bedrooms": 3,
+                "Total Bathrooms": 3,
+                "Building Sqft": 2410,
+                "Effective Year Built": 1990,
+                "Property Type": "Single Family Residential",
+                "Prior Sale Date": "2025-07-24",
+            },
+            "event_map": {
+                "recovery_status": "acquisition_mls_unavailable",
+                "prior_sale_date": "2025-07-24",
+                "after_listing_key": "after",
+            },
+            "mls_candidates": [after],
+        },
+    }
+    selected = SupabaseStore._selected(example)
+    assert selected["listing"]["ListingKey"] is None
+    assert selected["listing"]["UnparsedAddress"] == "28148 Mountain Meadow Rd"
+    assert selected["listing"]["PublicRemarks"] == ""
+    assert selected["listing"]["PhotosCount"] == 0
+    assert selected["match"]["source_transaction_only"] is True
+    assert validation_candidate(example)["listing"]["ListingKey"] is None
+
+
+def test_source_only_acquisition_is_resolved_without_visual_training():
+    example = {
+        "listing_key": "after",
+        "source_rows": [491],
+        "source_snapshot": {
+            "spreadsheet": {
+                "Address": "5236 Nutmeg St",
+                "City": "San Diego",
+                "Zip": "92105",
+                "Prior Sale Date": "2025-08-14",
+            },
+            "event_map": {
+                "recovery_status": "acquisition_mls_unavailable",
+                "prior_sale_date": "2025-08-14",
+                "after_listing_key": "after",
+            },
+            "mls_candidates": [],
+        },
+    }
+    history = Store(MemoryDatabase(), None)._history([example], [], None)
+    assert history["blocked"] is False
+    assert history["acquisition_status"] == "acquisition_mls_unavailable"
+    assert history["photo_coverage"] == "no_interior"
+    assert history["timing_verified"] is False
+    assert history["sale_policy"]["supported"] is True
+    assert history["sale_policy"]["selected_close_date"] is None
