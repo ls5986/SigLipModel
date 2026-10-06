@@ -52,15 +52,45 @@ def snapshot(store, *, include_legacy=True):
         validation_media = {
             row['item_id'].split(':',1)[1]:row['payload'] for row in validation_media_rows
         }
-        records = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,
-                jsonb_build_object('spreadsheet',jsonb_build_object('Prior Sale Date',e.source_snapshot->'spreadsheet'->>'Prior Sale Date','Last Sale Date',e.source_snapshot->'spreadsheet'->>'Last Sale Date'),'mls_candidates',jsonb_build_array(jsonb_build_object(
-                    'listing', c.item->'listing', 'match', c.item->'match'))) AS source_snapshot,
+        records = db.execute('''SELECT e.id,
+                coalesce(
+                  nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),
+                  e.listing_key
+                ) AS listing_key,
+                e.group_id,e.source_rows,
+                jsonb_build_object(
+                  'spreadsheet',jsonb_build_object(
+                    'Prior Sale Date',e.source_snapshot->'spreadsheet'->>'Prior Sale Date',
+                    'Last Sale Date',e.source_snapshot->'spreadsheet'->>'Last Sale Date'
+                  ),
+                  'event_map',coalesce(e.source_snapshot->'event_map','{}'::jsonb),
+                  'mls_candidates',jsonb_build_array(jsonb_build_object(
+                    'listing', c.item->'listing',
+                    'match', c.item->'match' || case
+                      when e.source_snapshot->'event_map'->>'recovery_status'='mapped'
+                      then jsonb_build_object(
+                        'identity_chronology_override',
+                        jsonb_strip_nulls(jsonb_build_object(
+                          'prior_sale_date',e.source_snapshot->'event_map'->>'prior_sale_date',
+                          'after_close_date',e.source_snapshot->'event_map'->>'after_close_date'
+                        ))
+                      )
+                      else '{}'::jsonb
+                    end
+                  ))
+                ) AS source_snapshot,
                 g.identity_key,g.identity_verified,g.protected_test
             FROM acq_training.examples e JOIN acq_training.property_groups g
             ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
-            LEFT JOIN LATERAL (SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
-              WHERE item->'listing'->>'ListingKey'=e.listing_key LIMIT 1) c ON true
-            WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL AND cardinality(e.source_rows)>0 ORDER BY e.id''', (store.workspace,)).fetchall()
+            LEFT JOIN LATERAL (
+              SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
+              WHERE item->'listing'->>'ListingKey'=coalesce(
+                nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),
+                e.listing_key
+              ) LIMIT 1
+            ) c ON true
+            WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL
+              AND cardinality(e.source_rows)>0 ORDER BY e.id''', (store.workspace,)).fetchall()
         if validations:
             extra = db.execute('''SELECT e.id,e.group_id,e.source_rows,e.source_snapshot,
                   g.identity_key,g.identity_verified,g.protected_test
