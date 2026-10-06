@@ -34,11 +34,11 @@ class TextModel:
         reviews = [labels[i] for i in indices]
         for review in reviews:
             validate_labels(review.get("physical_condition", "UNKNOWN"), review.get("modernization", "UNKNOWN"))
-        physical_available = any(
+        evidence_axes_available = any(
             len({row.get(task, "UNKNOWN") for row in reviews} - {"UNKNOWN"}) >= 2
-            for task in ("physical_condition", "modernization")
+            for task in ("physical_condition", "modernization", "acquisition_fit")
         )
-        heads = EvidenceHeads.fit(matrix, reviews) if physical_available else None
+        heads = EvidenceHeads.fit(matrix, reviews) if evidence_axes_available else None
         signals = {}
         for row in reviews:
             if set(row.get("text_signals", {})) - set(TEXT_SIGNALS):
