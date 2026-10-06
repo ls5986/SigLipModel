@@ -200,7 +200,8 @@ def snapshot(store, *, include_legacy=True):
         )
         metadata = store._selected(sources[0]).get('listing', {})
         review = store._review('property', key, legacy, live)
-        properties.append({'id':key, 'physical_key':group, 'group_id':group, 'split':split,
+        properties.append({'id':key, 'example_id':str(sources[0]['id']),
+            'physical_key':group, 'group_id':group, 'split':split,
             'metadata': {k:v for k,v in metadata.items() if k in ACCEPTED_METADATA_KEYS},
             'model_metadata':metadata_features(metadata), 'review':review,
             'mls_remarks':__import__('listing_text').remarks(metadata),
