@@ -40,8 +40,22 @@ def classifier(value, mutate=lambda:None):
     class Client:
         def post(self, url, **kwargs):
             mutate()
+            # Fixture transport follows the actual provider quote-index format.
+            raw=copy.deepcopy(value)
+            inputs=json.loads(kwargs['json']['input'][1]['content'])
+            quotes=inputs.get('evidence_quotes',[])
+            if 'quote_index' in kwargs['json']['text']['format']['schema']['properties']['text_signals']['items'].get('properties',{}):
+                tags=[]
+                for item in raw['text_signals']:
+                    if 'quote_index' in item:
+                        tags.append(item);continue
+                    if item['state']=='UNKNOWN':
+                        index=None if all(item.get(k) is None for k in ('snippet','probability','start','end')) else -1
+                    else:index=quotes.index(item['snippet']) if item.get('snippet') in quotes else -1
+                    tags.append({'signal':item['signal'],'state':item['state'],'quote_index':index})
+                raw['text_signals']=tags
             return SimpleNamespace(raise_for_status=lambda:None, json=lambda:{"status":"completed", "output":[
-                {"type":"message", "content":[{"type":"output_text", "text":json.dumps(value)}]}]})
+                {"type":"message", "content":[{"type":"output_text", "text":json.dumps(raw)}]}]})
     calls = []
     return SimpleNamespace(client=Client(), key="test-only", model="test-fixture", reserve_call=lambda:calls.append(1)), calls
 
@@ -258,7 +272,7 @@ def test_constrained_quotes_preserve_unicode_and_derive_provider_null_offsets():
     saved=store.document('typed-label-result:listing')
     tag=next(i for i in saved['text_signals'] if i['signal']=='needs_tlc')
     assert remarks[tag['start']:tag['end']]==quotes[1]
-    assert saved['quotation_policy']=='source-quote-enum-v1'
+    assert saved['quotation_policy']=='source-quote-index-v2'
     signal['snippet']='Needs TLC - original fixtures!'
     with pytest.raises(ValidationError):validate(value,schema(remarks))
 
@@ -303,3 +317,22 @@ def test_provider_union_discriminator_is_the_first_property_and_has_disjoint_val
     branches=schema('Needs TLC')['properties']['text_signals']['items']['anyOf']
     assert all(next(iter(branch['properties']))=='state' for branch in branches)
     assert set(branches[0]['properties']['state']['enum']).isdisjoint(branches[1]['properties']['state']['enum'])
+
+
+def test_provider_quote_index_schema_has_no_source_string_enum_or_union():
+    from typed_label_assistant import provider_schema,expand_quote_references
+    from jsonschema import validate,ValidationError
+    remarks='Needs TLC. Original fixtures!'
+    response=provider_schema(remarks)
+    assert 'anyOf' not in json.dumps(response)
+    assert 'Needs TLC' not in json.dumps(response)
+    value=proposal()
+    value['text_signals']=[{'signal':signal,'state':'PRESENT' if signal=='needs_tlc' else 'UNKNOWN','quote_index':0 if signal=='needs_tlc' else None} for signal in TEXT_SIGNALS]
+    validate(value,response)
+    expanded=expand_quote_references(value,remarks)
+    supported=next(i for i in expanded['text_signals'] if i['signal']=='needs_tlc')
+    assert supported['snippet']=='Needs TLC.' and supported['probability'] is None
+    value['text_signals'][0]['quote_index']=999
+    with pytest.raises(ValidationError):validate(value,response)
+    value['text_signals'][0]['quote_index']=0
+    with pytest.raises(ValueError,match='UNKNOWN'):expand_quote_references(value,remarks)

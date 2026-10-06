@@ -17,20 +17,14 @@ physical condition. Missing photos need not prevent judgments supported by remar
 and acquisition-time facts. Use UNKNOWN for unsupported axes. Acquisition fit means
 credible cosmetic/value-add opportunity, not simply disrepair. A recent construction
 date is relevant to that judgment but does not establish physical condition.
-For each semantic tag return PRESENT only with an exact verbatim supporting snippet
-selected from the supplied evidence_quotes; ABSENT requires explicit contrary
-evidence with a snippet. Mere non-mention is UNKNOWN. Do not guess confidence or
+For each semantic tag return PRESENT only when an evidence_quotes entry explicitly
+supports it; ABSENT requires explicit contrary evidence in an entry. Mere non-mention is UNKNOWN. Do not guess confidence or
 pretend to be a calibrated trained model. Return exactly 17 text_signals, one for
-each signal name in the schema, with no duplicates. For UNKNOWN, set snippet,
-start and end to null; never use empty strings or zero placeholders. For PRESENT
-and ABSENT, choose one exact sentence from evidence_quotes, with
-the same punctuation, capitalization, whitespace and Unicode characters. Do not
-quote a paraphrase or text from metadata or visual drafts as a remarks snippet.
-Use enough surrounding original text to make each supporting snippet unique in
-the remarks, rather than an ambiguous repeated word.
-Set start and end to null. The server calculates exact Unicode character offsets.
-Do not calculate offsets yourself. If no supplied quote explicitly supports or
-contradicts a signal, use UNKNOWN. Explain uncertain evidence briefly."""
+each signal name in the schema, with no duplicates. For UNKNOWN, set quote_index to null. For PRESENT and ABSENT, return the
+zero-based index of the exact supporting entry in evidence_quotes. Never invent a
+quote or calculate character offsets. The server inserts the original quote and
+calculates its exact Unicode offsets. If no entry explicitly supports or contradicts
+a signal, use UNKNOWN. Explain uncertain evidence briefly."""
 
 
 def evidence_quotes(remarks):
@@ -54,7 +48,7 @@ def evidence_quotes(remarks):
     # supply a unique span containing their actual surrounding context.
     if not quotes and remarks.strip() and len(remarks.strip()) <= 600:
         quotes.append(remarks.strip())
-    return list(dict.fromkeys(quotes))
+    return list(dict.fromkeys(quotes))[:500]
 
 
 def schema(remarks=None):
@@ -79,6 +73,38 @@ def schema(remarks=None):
         "text_signals": {"type":"array", "minItems":len(TEXT_SIGNALS), "maxItems":len(TEXT_SIGNALS),
             "items":{"anyOf":choices}},
     })
+
+
+
+def provider_schema(remarks):
+    """Use quote indices rather than source strings or unions in provider grammar."""
+    from openai_labels import object_schema
+    quotes=evidence_quotes(remarks)
+    row=object_schema({
+        'signal':{'type':'string','enum':list(TEXT_SIGNALS)},
+        'state':{'type':'string','enum':['PRESENT','ABSENT','UNKNOWN']},
+        'quote_index':{'type':['integer','null'],'enum':[None,*range(len(quotes))]} if quotes else {'type':'null'},
+    })
+    value=schema()
+    value['properties']['text_signals']['items']=row
+    return value
+
+
+def expand_quote_references(proposal,remarks):
+    quotes=evidence_quotes(remarks)
+    result={**proposal,'text_signals':[]}
+    for item in proposal['text_signals']:
+        index=item['quote_index']
+        if item['state']=='UNKNOWN':
+            if index is not None:raise ValueError('UNKNOWN cannot cite a quote')
+            snippet=None
+        else:
+            if type(index) is not int or not 0 <= index < len(quotes):
+                raise ValueError('Supported signals require a source quote')
+            snippet=quotes[index]
+        result['text_signals'].append({'signal':item['signal'],'state':item['state'],
+            'probability':None,'snippet':snippet,'start':None,'end':None})
+    return result
 
 
 def evidence(detail):
@@ -174,7 +200,7 @@ def process(store, request, classifier):
             raise ValueError("No usable evidence")
         if len(inputs["remarks"]) > 16000:
             raise ValueError("Remarks exceed bounded analysis limit")
-        provider_schema = schema(inputs["remarks"])
+        response_schema = provider_schema(inputs["remarks"])
         provider_inputs = {**inputs, "evidence_quotes":evidence_quotes(inputs["remarks"])}
         stage = "daily_budget"
         classifier.reserve_call()  # Shares the existing bounded daily OpenAI budget.
@@ -183,7 +209,7 @@ def process(store, request, classifier):
             headers={"Authorization":"Bearer " + classifier.key}, json={
                 "model":classifier.model, "store":False, "max_output_tokens":6000,
                 "input":[{"role":"system","content":PROMPT}, {"role":"user","content":json.dumps(provider_inputs)}],
-                "text":{"format":{"type":"json_schema","name":"typed_property_draft","strict":True,"schema":provider_schema}},
+                "text":{"format":{"type":"json_schema","name":"typed_property_draft","strict":True,"schema":response_schema}},
             })
         response.raise_for_status()
         stage = "provider_response"
@@ -196,7 +222,8 @@ def process(store, request, classifier):
         from jsonschema import validate
         from studio_v2 import validate_text_reviews
         stage = "structured_schema"
-        validate(proposal, provider_schema)
+        validate(proposal, response_schema)
+        proposal = expand_quote_references(proposal, inputs["remarks"])
         stage = "text_evidence"
         anchor_text_spans(proposal["text_signals"], inputs["remarks"])
         for item in proposal["text_signals"]:
@@ -226,7 +253,7 @@ def process(store, request, classifier):
             "status":"draft", "label_schema_version":LABEL_SCHEMA_V2,
             "label_evidence_id":request["label_evidence_id"], "policy":POLICY,
             "model":classifier.model, "input_sha256":digest(inputs), "property_id":prop["id"],
-            "requested_by":request["requested_by"], "quotation_policy":"source-quote-enum-v1", "at":now(), "trained_v2":False}, previous.get("revision", 0))
+            "requested_by":request["requested_by"], "quotation_policy":"source-quote-index-v2", "at":now(), "trained_v2":False}, previous.get("revision", 0))
         stage = "request_completion"
         store.save_document(key, {**active, "status":"completed", "at":now()}, active["revision"])
         return True
