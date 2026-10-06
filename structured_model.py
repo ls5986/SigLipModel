@@ -14,8 +14,7 @@ from condition_schema import PHYSICAL_CONDITIONS, MODERNIZATION_STATES, TARGET_L
 FEATURE_SCHEMA_VERSION = "actvision-structured-v2"
 NUMERIC = (
     "YearBuilt", "PhotosCount", "LivingArea", "BedroomsTotal", "BathroomsTotalInteger",
-    "ListPrice", "OriginalListPrice", "DaysOnMarket", "PriorSaleCount",
-    "MonthsSinceMostRecentPriorSale", "MostRecentPriorSalePrice",
+    "ListPrice", "OriginalListPrice", "DaysOnMarket",
 )
 CATEGORICAL = ("PropertyType", "PropertySubType", "PostalCode", "City")
 ALLOWED_FIELDS = frozenset((*NUMERIC, *CATEGORICAL))
