@@ -98,6 +98,11 @@ def get(studio, raw_path):
         return public_status(studio.store)
     if action == "dataset/latest":
         return studio.store.document("actvision-v2-dataset-latest") or {"status": "none"}
+    if action == "inventory/status":
+        if not cloud:
+            return {"counts": {}, "items": [], "unavailable": "Cloud inventory status requires the training database"}
+        from v2_inventory import status
+        return status(studio.store)
     if action == "experimental/prediction":
         from experimental_candidate import prediction
         return prediction(studio.store, args.get("id", ""))
