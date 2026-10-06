@@ -12,10 +12,43 @@ from photo_view import effective_photo
 from studio_data import FEATURES, StudioStore, now, trim_metadata, validate_review
 
 
+
+def source_transaction_candidate(example):
+    snapshot = example.get('source_snapshot', {})
+    source = snapshot.get('spreadsheet', {})
+    event_map = snapshot.get('event_map') or {}
+    return {
+        'listing': {
+            'ListingKey': None,
+            'ListingId': None,
+            'UnparsedAddress': source.get('Address'),
+            'City': source.get('City'),
+            'PostalCode': source.get('Zip'),
+            'YearBuilt': source.get('Effective Year Built'),
+            'LivingArea': source.get('Building Sqft'),
+            'BedroomsTotal': source.get('Bedrooms'),
+            'BathroomsTotalInteger': source.get('Total Bathrooms'),
+            'PropertyType': source.get('Property Type'),
+            'PropertySubType': source.get('Property Type'),
+            'PhotosCount': 0,
+            'PublicRemarks': '',
+            'CloseDate': None,
+            'ClosePrice': None,
+            'StandardStatus': 'SourceTransactionOnly',
+        },
+        'match': {
+            'source_transaction_only': True,
+            'event_recovery_status': event_map.get('recovery_status'),
+        },
+    }
+
+
 def validation_candidate(example):
     snapshot = example.get('source_snapshot',{})
     candidates = snapshot.get('mls_candidates',[])
     event_map = snapshot.get('event_map') or {}
+    if event_map.get('recovery_status') == 'acquisition_mls_unavailable':
+        return source_transaction_candidate(example)
     selected = str(event_map.get('acquisition_listing_key') or example.get('listing_key') or '')
     if selected:
         match = next((c for c in candidates if str(c.get('listing',{}).get('ListingKey'))==selected),None)
@@ -152,6 +185,8 @@ class SupabaseStore:
     def _selected(example):
         snapshot = example['source_snapshot']
         event_map = snapshot.get('event_map') or {}
+        if event_map.get('recovery_status') == 'acquisition_mls_unavailable':
+            return source_transaction_candidate(example)
         selected_key = str(event_map.get('acquisition_listing_key') or example['listing_key'])
         candidate = next((c for c in snapshot.get('mls_candidates', [])
                      if str(c.get('listing', {}).get('ListingKey')) == selected_key), {})
@@ -197,6 +232,33 @@ class SupabaseStore:
                 unique[key]['protected_test'] |= row['protected_test']
             else:
                 unique[key] = dict(row, image_id=key)
+        recovered = db.execute('''SELECT e.id AS example_id,e.group_id,g.protected_test,s.payload
+             FROM acq_training.examples e
+             JOIN acq_training.property_groups g ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
+             JOIN acq_training.studio_state s ON s.workspace_id=e.workspace_id
+               AND s.kind='document' AND s.item_id='mls-validation-media:'||e.id::text
+             WHERE e.workspace_id=%s
+               AND e.source_snapshot->'event_map'->>'acquisition_listing_key'=%s
+               AND e.source_snapshot->'event_map'->>'recovery_status'='mapped' ''',
+             (self.workspace, identifier)).fetchall()
+        for record in recovered:
+            for image in record['payload'].get('images', []):
+                if image.get('context_evidence', {}).get('event_role') != 'acquisition':
+                    continue
+                media_key = str(image.get('provider_media_key') or '')
+                if not media_key or not image.get('image_sha256'):
+                    continue
+                key = 'validation:'+str(record['example_id'])+':'+media_key
+                candidate = {
+                    **image,
+                    'id': None,
+                    'image_id': key,
+                    'group_id': record['group_id'],
+                    'protected_test': bool(record['protected_test']),
+                }
+                if key in unique and unique[key]['image_sha256'] != candidate['image_sha256']:
+                    raise ValueError('Conflicting recovered photo versions require reconciliation')
+                unique[key] = candidate
         return sorted(unique.values(), key=lambda r:(r['context_evidence'].get('provider_metadata', {}).get('Order') or 0,r['image_id']))
 
     def _legacy(self, db, identifiers, fields=None):
@@ -590,29 +652,78 @@ class SupabaseStore:
                         AND item_id LIKE 'mls-validation:%%' AND payload->>'decision'='confirmed'
                         ''', (self.workspace,)).fetchone()['count']
                     # Compact listing summary only: no full source snapshots, review history, or photo bytes.
-                    rows = db.execute('''SELECT e.listing_key,e.source_rows,e.group_id,
-                        c.item->'listing'->>'UnparsedAddress' AS address,
-                        c.item->'listing'->>'City' AS city,
-                        c.item->'listing'->>'ListingId' AS listing_id,
-                        c.item->'listing'->>'PhotosCount' AS provider_photo_count,
-                        jsonb_build_object('listing',jsonb_build_object('StandardStatus',c.item->'listing'->>'StandardStatus','CloseDate',c.item->'listing'->>'CloseDate'),
-                          'match',c.item->'match') AS candidate
+                    rows = db.execute('''SELECT e.id AS example_id,
+                        coalesce(nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),e.listing_key) AS listing_key,
+                        e.source_rows,e.group_id,
+                        e.source_snapshot->'event_map'->>'recovery_status' AS recovery_status,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN e.source_snapshot->'spreadsheet'->>'Address'
+                          ELSE c.item->'listing'->>'UnparsedAddress' END AS address,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN e.source_snapshot->'spreadsheet'->>'City'
+                          ELSE c.item->'listing'->>'City' END AS city,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN NULL ELSE c.item->'listing'->>'ListingId' END AS listing_id,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN '0' ELSE c.item->'listing'->>'PhotosCount' END AS provider_photo_count,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN jsonb_build_object('listing',jsonb_build_object('StandardStatus','SourceTransactionOnly','CloseDate',NULL),
+                            'match',jsonb_build_object('source_transaction_only',true))
+                          ELSE jsonb_build_object(
+                            'listing',jsonb_build_object(
+                              'StandardStatus',c.item->'listing'->>'StandardStatus',
+                              'CloseDate',c.item->'listing'->>'CloseDate'
+                            ),
+                            'match',c.item->'match' || CASE
+                              WHEN e.source_snapshot->'event_map'->>'recovery_status'='mapped'
+                              THEN jsonb_build_object('identity_chronology_override',
+                                jsonb_strip_nulls(jsonb_build_object(
+                                  'prior_sale_date',e.source_snapshot->'event_map'->>'prior_sale_date',
+                                  'after_close_date',e.source_snapshot->'event_map'->>'after_close_date'
+                                )))
+                              ELSE '{}'::jsonb END
+                          ) END AS candidate
                       FROM acq_training.examples e
-                      LEFT JOIN LATERAL (SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
-                         WHERE item->'listing'->>'ListingKey'=e.listing_key LIMIT 1)c ON true
-                      WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL ORDER BY e.listing_key,e.id''',
+                      LEFT JOIN LATERAL (
+                        SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
+                        WHERE item->'listing'->>'ListingKey'=coalesce(
+                          nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),
+                          e.listing_key
+                        ) LIMIT 1
+                      ) c ON true
+                      WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL
+                      ORDER BY listing_key,e.id''',
                       (self.workspace,)).fetchall()
                     photos = {r['listing_key']:r for r in db.execute('''WITH unique_photos AS (
-                       SELECT DISTINCT e.listing_key,p.provider_media_key,p.image_sha256
+                       SELECT DISTINCT
+                         coalesce(nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),e.listing_key) AS listing_key,
+                         p.provider_media_key,p.image_sha256,
+                         coalesce(nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),e.listing_key)
+                           ||':'||p.provider_media_key AS image_id
                        FROM acq_training.photos p JOIN acq_training.examples e
                        ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
                        WHERE e.workspace_id=%s
                        AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
                        AND p.revoked_at IS NULL
-                       AND (p.retention_until IS NULL OR p.retention_until>now()))
-                       SELECT listing_key,count(*) AS count,min(listing_key||':'||provider_media_key) AS hero,
+                       AND (p.retention_until IS NULL OR p.retention_until>now())
+                       UNION ALL
+                       SELECT DISTINCT
+                         e.source_snapshot->'event_map'->>'acquisition_listing_key' AS listing_key,
+                         image->>'provider_media_key' AS provider_media_key,
+                         image->>'image_sha256' AS image_sha256,
+                         'validation:'||e.id::text||':'||(image->>'provider_media_key') AS image_id
+                       FROM acq_training.examples e
+                       JOIN acq_training.studio_state s ON s.workspace_id=e.workspace_id
+                         AND s.kind='document' AND s.item_id='mls-validation-media:'||e.id::text
+                       CROSS JOIN LATERAL jsonb_array_elements(coalesce(s.payload->'images','[]'::jsonb)) image
+                       WHERE e.workspace_id=%s
+                         AND e.source_snapshot->'event_map'->>'recovery_status'='mapped'
+                         AND image->'context_evidence'->>'event_role'='acquisition')
+                       SELECT listing_key,count(*) AS count,min(image_id) AS hero,
                        encode(sha256(convert_to(jsonb_agg(image_sha256 ORDER BY image_sha256)::text,'UTF8')),'hex') AS evidence_hash
-                       FROM unique_photos GROUP BY listing_key''',(self.workspace,))}
+                       FROM unique_photos
+                       WHERE listing_key IS NOT NULL
+                       GROUP BY listing_key''',(self.workspace,self.workspace))}
                     states = {(r['kind'],r['item_id']):r['payload'] for r in db.execute('''SELECT kind,item_id,payload
                        FROM acq_training.studio_state WHERE workspace_id=%s AND (
                          kind IN ('property','era') OR kind='document' AND (
@@ -624,7 +735,8 @@ class SupabaseStore:
                 items = {}
                 for row in rows:
                     key = row['listing_key']
-                    blocked = not supports_prior(row['candidate'])
+                    recovery_status = row.get('recovery_status')
+                    blocked = False if recovery_status in {'mapped','acquisition_mls_unavailable'} else not supports_prior(row['candidate'])
                     if key in items:
                         items[key]['blocked'] |= blocked
                         continue
@@ -649,7 +761,9 @@ class SupabaseStore:
                     except (TypeError, ValueError):
                         provider_photo_count = None
                     retained_count = photo.get('count',0)
-                    if blocked:
+                    if recovery_status == 'acquisition_mls_unavailable':
+                        photo_state = 'acquisition_mls_unavailable'
+                    elif blocked:
                         photo_state = 'source_conflict'
                     elif retained_count == 0 and provider_photo_count == 0:
                         photo_state = 'provider_no_photos'
@@ -677,7 +791,13 @@ class SupabaseStore:
                         'human_score':review.get('target_score'),'target':None,
                         'missing_text':not bool(review.get('text_signals')),
                         # Queue is conservative; property detail verifies exact evidence hash.
-                        'needs_photo_match':not(photo.get('count') and era.get('decision')=='correct_era' and era.get('evidence_hash')==photo.get('evidence_hash')),'blocked':blocked or era.get('decision')=='wrong_era',
+                        'needs_photo_match':False if recovery_status=='acquisition_mls_unavailable' else not(
+                            photo.get('count') and (
+                                recovery_status=='mapped' or
+                                era.get('decision')=='correct_era' and era.get('evidence_hash')==photo.get('evidence_hash')
+                            )
+                        ),
+                        'blocked':blocked or (era.get('decision')=='wrong_era' and recovery_status!='mapped'),
                         'autolabel_status':label_request.get('status','not_requested'),
                         'tagged_photo_count':len(tagged_images),
                         'interior_tagged_count':len(interior_tags),
