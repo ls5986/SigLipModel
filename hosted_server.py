@@ -142,10 +142,12 @@ def create_server(port, app, auth):
             if not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token):
                 return self.data(401, {"error": "ActVision service credentials required"})
             try:
+                studio = app.get_studio()
+                store = getattr(studio, "store", None)
                 if self.command == "GET" and path.startswith("/api/actvision/v2/releases/"):
                     release_id = unquote(path.removeprefix("/api/actvision/v2/releases/"), errors="strict")
                     try:
-                        manifest = approved_manifest(app.get_studio().store, release_id)
+                        manifest = approved_manifest(store, release_id)
                     except UnavailableError:
                         return self.data(404, {"error": "Release not found"})
                     return self.data(200, manifest)
@@ -158,8 +160,10 @@ def create_server(port, app, auth):
                     workspace = os.environ.get("ACTVISION_SOURCE_WORKSPACE_ID") or os.environ.get("STUDIO_WORKSPACE_ID")
                     if not workspace or payload["evidence"]["workspace_id"] != workspace:
                         raise PermissionError("Inference source workspace is not authorized")
-                    return self.data(200, infer(app.get_studio().store, payload))
-                return self.data(200, receive_feedback(app.get_studio().store, payload))
+                    return self.data(200, infer(store, payload))
+                if store is None:
+                    raise UnavailableError("ActVision cloud training store is unavailable")
+                return self.data(200, receive_feedback(store, payload))
             except UnavailableError as exc:
                 return self.data(503, {"error": str(exc), "code": "actvision_unavailable"})
             except PermissionError as exc:
