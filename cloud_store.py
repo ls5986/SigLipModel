@@ -312,10 +312,30 @@ class SupabaseStore:
         return StudioStore.reviews(None, Empty(), kind, identifier, legacy)
 
     def _history(self, examples, photos, review):
-        supported = all(supports_prior(self._selected(e),e['source_snapshot'].get('spreadsheet'),e['source_snapshot'].get('mls_candidates')) for e in examples)
-        digest = hashlib.sha256(json.dumps(sorted(p['image_sha256'] for p in photos)).encode()).hexdigest()
-        policy = first_sale_policy(self._selected(examples[0]),examples[0]['source_snapshot'].get('spreadsheet'),examples[0]['source_snapshot'].get('mls_candidates'))
         event_map = examples[0]['source_snapshot'].get('event_map') or {}
+        source_only = event_map.get('recovery_status') == 'acquisition_mls_unavailable'
+        supported = True if source_only else all(
+            supports_prior(
+                self._selected(e),
+                e['source_snapshot'].get('spreadsheet'),
+                e['source_snapshot'].get('mls_candidates'),
+            )
+            for e in examples
+        )
+        digest = hashlib.sha256(json.dumps(sorted(p['image_sha256'] for p in photos)).encode()).hexdigest()
+        policy = ({
+            'policy':'source-transaction-only-v1',
+            'target_sale_date':event_map.get('prior_sale_date'),
+            'selected_close_date':None,
+            'actual_date_gap_days':None,
+            'supported':True,
+            'price_match_required':False,
+            'reason':'Original acquisition MLS listing is unavailable; source transaction retained without MLS photo evidence.',
+        } if source_only else first_sale_policy(
+            self._selected(examples[0]),
+            examples[0]['source_snapshot'].get('spreadsheet'),
+            examples[0]['source_snapshot'].get('mls_candidates'),
+        ))
         mapped_at = str(event_map.get('mapped_at') or '')
         review_at = str((review or {}).get('at') or '')
         stale_pre_mapping_wrong = bool(
@@ -336,8 +356,12 @@ class SupabaseStore:
                 'event_map':event_map,
                 'mls_listing':trim_metadata(self._selected(examples[0]).get('listing', {})),
                 'evidence_hash':digest, 'review':review, 'blocked':blocked,
-                'photo_coverage':review.get('photo_coverage','unknown') if review and review.get('evidence_hash')==digest else 'unknown',
-                'acquisition_status':'wrong_era' if wrong else 'prior_acquisition_candidate' if supported else 'needs_prior_listing',
+                'photo_coverage':'no_interior' if source_only else (
+                    review.get('photo_coverage','unknown')
+                    if review and review.get('evidence_hash')==digest else 'unknown'
+                ),
+                'acquisition_status':'acquisition_mls_unavailable' if source_only else
+                  'wrong_era' if wrong else 'prior_acquisition_candidate' if supported else 'needs_prior_listing',
                 'block_reason':'You flagged these photos as the wrong property or era.' if wrong else
                   policy.get('reason') or 'First acquisition listing/photos need rematching.' if blocked else None,
                 'timing_verified':bool(not blocked and (
