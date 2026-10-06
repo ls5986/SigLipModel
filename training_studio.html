@@ -155,7 +155,7 @@ function renderSamples(){
  $('sample-list').replaceChildren(...state.samples.items.map(item=>{const row=node('div',undefined,'row');const open=node('button',item.address+' · MLS '+item.id);open.type='button';open.onclick=guard(()=>loadProperty(item.id));const remove=node('button','Remove from my list');remove.type='button';remove.onclick=guard(async()=>{state.samples=await api('/api/studio/v2/samples',{action:'remove',id:item.id,expected_revision:state.samples.revision});renderSamples()});row.append(open,remove);return row}));if(!state.samples.items.length)$('sample-list').textContent='No samples selected yet. Open a property and add it above.';
 }
 function renderQueue(){
- $('queue').replaceChildren();state.selectedDrafts??=new Set();for(const item of state.items){const row=node('div');const choose=node('input');choose.type='checkbox';choose.setAttribute('aria-label','Select draft for '+(item.address||item.id));choose.checked=state.selectedDrafts.has(item.id);choose.onchange=()=>{if(choose.checked)state.selectedDrafts.add(item.id);else state.selectedDrafts.delete(item.id)};const b=node('button');b.append(node('strong',item.address||item.id),node('small',`${item.image_count||0} photos | ${item.blocked?'Source / era conflict':item.status||'unreviewed'}`));b.onclick=guard(()=>loadProperty(item.id));row.append(choose,b);$('queue').append(row)}
+ $('queue').replaceChildren();state.selectedDrafts??=new Set();for(const item of state.items){const row=node('div');const choose=node('input');choose.type='checkbox';choose.setAttribute('aria-label','Select draft for '+(item.address||item.id));choose.checked=state.selectedDrafts.has(item.id);choose.onchange=()=>{if(choose.checked)state.selectedDrafts.add(item.id);else state.selectedDrafts.delete(item.id)};const b=node('button');b.append(node('strong',item.address||item.id),node('small',`${item.image_count||0} photos | ${item.blocked?'Source/photo recovery needed':item.status||'unreviewed'}`));b.onclick=guard(()=>loadProperty(item.id));row.append(choose,b);$('queue').append(row)}
  if(!state.items.length)$('queue').textContent='No properties in this queue.';
  $('queue-total').textContent=`${state.offset+1 > state.total?0:state.offset+1}-${Math.min(state.offset+state.items.length,state.total)} of ${state.total}`;
  $('more').disabled=state.offset+state.items.length>=state.total;
@@ -163,9 +163,21 @@ function renderQueue(){
 async function loadQueue(){
  if(state.dirty)throw Error('Save the current property before changing queues.');
  const data=await api('/api/studio/review-queue?scope=all&queue='+encodeURIComponent($('queue-filter').value)+'&search='+encodeURIComponent($('search').value)+'&offset='+state.offset+'&limit=20');
- state.items=data.items;state.total=data.total;state.inventoryTotal=data.counts.all;renderQueue();$('counts').replaceChildren();
- for(const [title,value] of [['Unlabeled',data.counts.unscored],['Reviewed',data.counts.reviewed],['Missing text labels',data.counts.missing_text],['Source / photo checks',data.counts.photo_match]]){const card=node('div',undefined,'card');card.append(node('span',value??'Unavailable','metric'),node('span',title));$('counts').append(card)}
+ state.items=data.items;state.total=data.total;state.inventoryTotal=data.counts.all;renderQueue();await refreshInventoryTruth();
  if(!state.detail){const wanted=!state.deepLinkUsed&&new URLSearchParams(location.search).get('property');state.deepLinkUsed=true;if(wanted)await loadProperty(wanted);else if(state.items.length)await loadProperty(state.items[0].id)}
+}
+async function refreshInventoryTruth(){
+ const data=await api('/api/studio/v2/inventory/status');const x=data.counts||{};
+ $('counts').replaceChildren();
+ const metrics=[
+   ['Acquisition targets',x.target_properties,'Imported cohort; TARGET provenance already established'],
+   ['Acquisition MLS',x.acquisition_mls_listings,'Current before-state listings'],
+   ['Source issues',x.unresolved_source_issues,'True unresolved source recovery only'],
+   ['AI drafts ready',x.current_acquisition_ai_drafts,'Unreviewed machine suggestions'],
+   ['AI drafts missing',x.missing_acquisition_ai_drafts,'Eligible acquisition listings without a current draft'],
+   ['Human corrections',x.human_reviewed,'Optional overrides; not required on every target'],
+ ];
+ for(const [title,value,help] of metrics){const card=node('div',undefined,'card');card.append(node('span',value??'Unavailable','metric'),node('span',title),node('small',help));$('counts').append(card)}
 }
 async function loadProperty(id){
  if(state.dirty)throw Error('Save the current property before selecting another.');
