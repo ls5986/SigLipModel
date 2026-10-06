@@ -155,7 +155,9 @@ def get(studio, raw_path):
     if action == "operations":
         if cloud:
             from model_workbench import summary
+            from v2_release import approved
             legacy = summary(studio.store)
+            approved_releases = approved(studio.store)
             return {**legacy,
                     "workers": {
                         "siglip_room_labels": worker_heartbeat_state(studio.store, "autolabel-room-worker"),
@@ -165,15 +167,9 @@ def get(studio, raw_path):
                         "actvision_v2_model": worker_heartbeat_state(studio.store, "actvision-v2-model-worker", threshold_seconds=90),
                         "legacy_model_worker": legacy["worker"],
                     },
-                    **__import__("v2_release").approved(studio.store) and {
-                        "approved_releases": __import__("v2_release").approved(studio.store),
-                        "inference_enabled": True,
-                        "inference_status": "approved_release_available",
-                    } or {
-                        "approved_releases": [],
-                        "inference_enabled": False,
-                        "inference_status": "no_approved_release",
-                    },
+                    "approved_releases": approved_releases,
+                    "inference_enabled": bool(approved_releases),
+                    "inference_status": "approved_release_available" if approved_releases else "no_approved_release",
                     "notice": "Worker health requires a fresh heartbeat and deployed commit. Label readiness, model readiness and release readiness are independent."}
         return {"inference_enabled": False, "inference_status": "not_provisioned",
                 "notice": "Local research backend; cloud training status unavailable"}
