@@ -400,3 +400,107 @@ def test_private_storage_artifact_upload_is_immutable_and_hashed(tmp_path):
     duplicate, _ = storage(tmp_path / "duplicate", b"", status=409)
     with pytest.raises(FileExistsError):
         duplicate.put("acq-training-private", "models/actvision-v2/release/vision.joblib", body)
+
+
+
+def test_event_map_prefers_acquisition_and_supersedes_old_wrong_era():
+    acquisition = {
+        "listing": {
+            "ListingKey": "before",
+            "ListingId": "BEFORE",
+            "StandardStatus": "Closed",
+            "CloseDate": "2026-03-12",
+            "UnparsedAddress": "10174 Camino Ruiz 46",
+        },
+        "match": {
+            "exact_apn": True,
+            "street_number_matches": True,
+            "unit_conflict": False,
+            "sale_agreements": [{
+                "source_sale": "prior",
+                "sale_date": "2026-03-04",
+                "price_agrees": False,
+                "price_gap_dollars": 8500,
+            }],
+        },
+    }
+    after = {
+        "listing": {
+            "ListingKey": "after",
+            "ListingId": "AFTER",
+            "StandardStatus": "Closed",
+            "CloseDate": "2026-06-29",
+            "UnparsedAddress": "10174 Camino Ruiz 46",
+        },
+        "match": {
+            "exact_apn": True,
+            "street_number_matches": True,
+            "unit_conflict": False,
+            "sale_agreements": [{
+                "source_sale": "last",
+                "sale_date": "2026-06-18",
+                "price_agrees": True,
+            }],
+        },
+    }
+    example = {
+        "listing_key": "after",
+        "source_rows": [253],
+        "source_snapshot": {
+            "spreadsheet": {
+                "Prior Sale Date": "2026-03-04",
+                "Last Sale Date": "2026-06-18",
+            },
+            "event_map": {
+                "policy": "exact-apn-chronology-v1",
+                "recovery_status": "mapped",
+                "acquisition_listing_key": "before",
+                "prior_sale_date": "2026-03-04",
+                "after_listing_key": "after",
+                "after_close_date": "2026-06-29",
+                "mapped_at": "2026-10-06T12:00:00+00:00",
+            },
+            "mls_candidates": [after, acquisition],
+        },
+        "first_sale_date": "2026-03-04",
+    }
+    selected = SupabaseStore._selected(example)
+    assert selected["listing"]["ListingKey"] == "before"
+    assert selected["match"]["identity_chronology_override"]["prior_sale_date"] == "2026-03-04"
+    assert selected["match"]["sale_agreements"][0]["price_agrees"] is False
+
+    old_wrong = {
+        "decision": "wrong_era",
+        "at": "2026-10-05T12:00:00+00:00",
+        "evidence_hash": "old",
+    }
+    history = Store(MemoryDatabase(), None)._history(
+        [example],
+        [],
+        old_wrong,
+    )
+    assert history["sale_policy"]["supported"] is True
+    assert history["blocked"] is False
+    assert history["event_map"]["after_listing_key"] == "after"
+
+
+def test_validation_candidate_uses_event_mapped_acquisition():
+    before = {
+        "listing": {"ListingKey": "before", "ListingId": "B"},
+        "match": {"rank_score": 10},
+    }
+    after = {
+        "listing": {"ListingKey": "after", "ListingId": "A"},
+        "match": {"rank_score": 100},
+    }
+    example = {
+        "listing_key": "after",
+        "source_snapshot": {
+            "event_map": {
+                "recovery_status": "mapped",
+                "acquisition_listing_key": "before",
+            },
+            "mls_candidates": [after, before],
+        },
+    }
+    assert validation_candidate(example)["listing"]["ListingKey"] == "before"
