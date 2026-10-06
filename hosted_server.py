@@ -133,7 +133,7 @@ def create_server(port, app, auth):
             })
 
         def service_request(self, path):
-            from actvision_service import UnavailableError, configured_bundle, infer, receive_feedback
+            from actvision_service import UnavailableError, approved_manifest, infer, receive_feedback
             token = os.environ.get("ACTVISION_SERVICE_TOKEN", "")
             if not self.trusted_host():
                 return self.data(403, {"error": "Unrecognized host"})
@@ -143,10 +143,12 @@ def create_server(port, app, auth):
                 return self.data(401, {"error": "ActVision service credentials required"})
             try:
                 if self.command == "GET" and path.startswith("/api/actvision/v2/releases/"):
-                    release = configured_bundle()
-                    if unquote(path.removeprefix("/api/actvision/v2/releases/"), errors="strict") != release.manifest["release_id"]:
+                    release_id = unquote(path.removeprefix("/api/actvision/v2/releases/"), errors="strict")
+                    try:
+                        manifest = approved_manifest(app.get_studio().store, release_id)
+                    except UnavailableError:
                         return self.data(404, {"error": "Release not found"})
-                    return self.data(200, release.manifest)
+                    return self.data(200, manifest)
                 if self.command != "POST" or path not in {"/api/actvision/v2/infer", "/api/actvision/v2/feedback"}:
                     return self.data(404, {"error": "Not found"})
                 payload = json.loads(self.body(2_000_000))
@@ -156,7 +158,7 @@ def create_server(port, app, auth):
                     workspace = os.environ.get("ACTVISION_SOURCE_WORKSPACE_ID") or os.environ.get("STUDIO_WORKSPACE_ID")
                     if not workspace or payload["evidence"]["workspace_id"] != workspace:
                         raise PermissionError("Inference source workspace is not authorized")
-                    return self.data(200, infer(payload))
+                    return self.data(200, infer(app.get_studio().store, payload))
                 return self.data(200, receive_feedback(app.get_studio().store, payload))
             except UnavailableError as exc:
                 return self.data(503, {"error": str(exc), "code": "actvision_unavailable"})
