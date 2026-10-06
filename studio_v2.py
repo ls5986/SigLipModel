@@ -101,6 +101,9 @@ def get(studio, raw_path):
     if action == "experimental/prediction":
         from experimental_candidate import prediction
         return prediction(studio.store, args.get("id", ""))
+    if action == "actvision/prediction":
+        from v2_property_prediction import prediction
+        return prediction(studio.store, args.get("id", ""))
     if action == "label/batch":
         from typed_draft_batch import status
         return status(studio.store)
@@ -175,6 +178,10 @@ def post(studio, path, payload):
         if not cloud: raise ValueError("Hosted experimental worker required")
         from experimental_candidate import queue_prediction
         return queue_prediction(studio.store,payload,identity()["id"])
+    if action == "actvision/predict":
+        if not cloud: raise ValueError("Hosted ActVision v2 model worker required")
+        from v2_property_prediction import queue
+        return queue(studio.store, payload, identity()["id"])
     if action == "samples":
         if not cloud: raise ValueError("Hosted sample selection requires cloud storage")
         from sample_selection import change
