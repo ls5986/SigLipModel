@@ -11,6 +11,7 @@ from condition_schema import (
 from structured_model import ALLOWED_FIELDS, CATEGORICAL, NUMERIC, structured_features
 from studio_data import now
 from typed_label_assistant import POLICY as AI_DRAFT_POLICY
+from v2_frozen_items import FORMAT as ITEM_FORMAT, pack_rows, row_order, unpack_rows
 
 SPLIT_POLICY_VERSION = "actvision-group-split-v2"
 LABEL_POLICY_VERSION = "actvision-label-provenance-v2"
@@ -29,7 +30,7 @@ def _structured(metadata):
     result = {}
     for key in ALLOWED_FIELDS:
         value = (metadata or {}).get(key)
-        if value in {None, ""}:
+        if value is None or value == "":
             continue
         if key in NUMERIC:
             if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -238,7 +239,7 @@ def _after_event_examples(store, acquisition_properties):
             "example_id": example_id,
             "source_group_id": str(row["group_id"]),
             "split_group_id": str(base["group_id"]),
-            "split": base["split"],
+            "split": _split(str(base["group_id"]), base["split"] == "test"),
             "candidate": row["candidate"],
         })
         if row["photo_uuid"] is not None:
@@ -450,10 +451,7 @@ def build(store):
     if any(len(splits) != 1 for splits in split_sets.values()):
         raise ValueError("Physical property events leaked across dataset splits")
     split_by_group = {group: splits for group, splits in split_sets.items()}
-    canonical_rows = sorted(
-        canonical_rows,
-        key=lambda row: (row["split_group_id"], row.get("event_role", "acquisition"), row["property_id"]),
-    )
+    canonical_rows = sorted(canonical_rows, key=row_order)
     fingerprint = digest({
         "policy": LABEL_POLICY_VERSION,
         "split_policy": SPLIT_POLICY_VERSION,
@@ -514,31 +512,9 @@ def freeze(store, payload):
     if not _trainable(manifest):
         raise ValueError("Current v2 labels do not support a supervised candidate yet")
     identifier = str(uuid4())
-    groups = []
-    # Persisted source groups may have aliases; all aliases inherit the merged split.
-    seen_groups = set()
-    for row in manifest["rows"]:
-        key = row["source_group_id"]
-        if key not in seen_groups:
-            groups.append({"group_id": key, "split": row["split"]})
-            seen_groups.add(key)
-    items = [{
-        "group_id": row["source_group_id"],
-        "example_id": row["example_id"],
-        "label_snapshot": {
-            "property_id": row["property_id"],
-            "split_group_id": row["split_group_id"],
-            "evidence_id": row["evidence_id"],
-            "labels": row["labels"],
-            "provenance": row["provenance"],
-            "remarks": row["remarks"],
-            "structured": row["structured"],
-            "photos": row["photos"],
-            "available_modalities": row["available_modalities"],
-        },
-        "photo_hashes": [photo["sha256"] for photo in row["photos"]],
-        "source_review_ids": [],
-    } for row in manifest["rows"]]
+    # One item per physical example, with distinct acquisition/after event rows
+    # inside its immutable snapshot. This respects the existing database key.
+    groups, items = pack_rows(manifest["rows"])
 
     from psycopg.types.json import Jsonb
     with store.database.connect() as db:
@@ -550,7 +526,8 @@ def freeze(store, payload):
         db.execute(
             "SELECT acq_training.create_frozen_dataset_v2(%s,%s,%s,%s,%s,%s,%s,%s)",
             (store.workspace, identifier, "actvision-v2", version, manifest["fingerprint"],
-             Jsonb({"policy": LABEL_POLICY_VERSION, "split_policy": SPLIT_POLICY_VERSION}),
+             Jsonb({"policy": LABEL_POLICY_VERSION, "split_policy": SPLIT_POLICY_VERSION,
+                    "materialization": ITEM_FORMAT}),
              Jsonb(groups), Jsonb(items)),
         )
     saved = store.document("actvision-v2-dataset-latest") or {}
@@ -581,17 +558,12 @@ def load_frozen(store, dataset_id):
           WHERE i.workspace_id=%s AND i.dataset_id=%s
           ORDER BY i.example_id
         """, (store.workspace, dataset_id)).fetchall()
-    values = []
-    for row in rows:
-        snap = row["label_snapshot"]
-        values.append({
-            **snap, "split": row["split"], "example_id": str(row["example_id"]),
-            "source_group_id": str(row["group_id"]),
-        })
+    materialization = (dataset["label_policy"] or {}).get("materialization")
+    values = unpack_rows(rows, materialization)
     recomputed = digest({
         "policy": LABEL_POLICY_VERSION,
         "split_policy": SPLIT_POLICY_VERSION,
-        "rows": sorted(values, key=lambda row: (row["split_group_id"], row["property_id"])),
+        "rows": sorted(values, key=row_order),
     })
     if recomputed != dataset["manifest_sha256"]:
         raise ValueError("Frozen dataset fingerprint no longer matches materialized rows")
