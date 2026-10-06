@@ -669,6 +669,11 @@ class SupabaseStore:
         counts['limited'] = sum(i['evidence_mode']=='limited' for i in items)
         counts['metadata_only'] = sum(i['evidence_mode']=='metadata_only' for i in items)
         counts['missing_text'] = sum(i['missing_text'] for i in items)
+        counts['with_photos'] = sum(i['image_count'] > 0 for i in items)
+        counts['without_photos'] = sum(i['image_count'] == 0 for i in items)
+        counts['photo_states'] = dict(__import__('collections').Counter(
+            i.get('photo_status',{}).get('state','photo_status_unknown') for i in items
+        ))
         photo_count = sum(i['image_count'] for i in items)
         search = args.get('search','').strip().casefold()
         items = [i for i in items if (queue=='all' or queue=='todo' and not i['review_complete']
