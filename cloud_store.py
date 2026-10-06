@@ -13,8 +13,10 @@ from studio_data import FEATURES, StudioStore, now, trim_metadata, validate_revi
 
 
 def validation_candidate(example):
-    candidates = example.get('source_snapshot',{}).get('mls_candidates',[])
-    selected = str(example.get('listing_key') or '')
+    snapshot = example.get('source_snapshot',{})
+    candidates = snapshot.get('mls_candidates',[])
+    event_map = snapshot.get('event_map') or {}
+    selected = str(event_map.get('acquisition_listing_key') or example.get('listing_key') or '')
     if selected:
         match = next((c for c in candidates if str(c.get('listing',{}).get('ListingKey'))==selected),None)
         if match: return match
@@ -145,8 +147,22 @@ class SupabaseStore:
 
     @staticmethod
     def _selected(example):
-        candidate = next((c for c in example['source_snapshot'].get('mls_candidates', [])
-                     if str(c.get('listing', {}).get('ListingKey')) == example['listing_key']), {})
+        snapshot = example['source_snapshot']
+        event_map = snapshot.get('event_map') or {}
+        selected_key = str(event_map.get('acquisition_listing_key') or example['listing_key'])
+        candidate = next((c for c in snapshot.get('mls_candidates', [])
+                     if str(c.get('listing', {}).get('ListingKey')) == selected_key), {})
+        if candidate and event_map.get('recovery_status') == 'mapped':
+            candidate = {
+                **candidate,
+                'match': {
+                    **candidate.get('match', {}),
+                    'identity_chronology_override': {
+                        'prior_sale_date': event_map.get('prior_sale_date'),
+                        'after_close_date': event_map.get('after_close_date'),
+                    },
+                },
+            }
         if candidate and example.get('first_sale_date'):
             candidate = {**candidate,'match':{**candidate.get('match',{}),'first_actual_sale_date_2026':example['first_sale_date']}}
         return candidate
@@ -163,6 +179,7 @@ class SupabaseStore:
              JOIN acq_training.examples e ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
              JOIN acq_training.property_groups g ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
              WHERE e.workspace_id=%s AND e.listing_key=%s
+               AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
                AND p.revoked_at IS NULL AND (p.retention_until IS NULL OR p.retention_until>now())
              ORDER BY p.provider_media_key,p.id''', (self.workspace, identifier)).fetchall()
         unique = {}
@@ -566,7 +583,9 @@ class SupabaseStore:
                        SELECT DISTINCT e.listing_key,p.provider_media_key,p.image_sha256
                        FROM acq_training.photos p JOIN acq_training.examples e
                        ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
-                       WHERE e.workspace_id=%s AND p.revoked_at IS NULL
+                       WHERE e.workspace_id=%s
+                       AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
+                       AND p.revoked_at IS NULL
                        AND (p.retention_until IS NULL OR p.retention_until>now()))
                        SELECT listing_key,count(*) AS count,min(listing_key||':'||provider_media_key) AS hero,
                        encode(sha256(convert_to(jsonb_agg(image_sha256 ORDER BY image_sha256)::text,'UTF8')),'hex') AS evidence_hash
@@ -810,7 +829,9 @@ class SupabaseStore:
             photo_rows = db.execute('''SELECT e.listing_key,p.provider_media_key,p.image_sha256
                 FROM acq_training.photos p JOIN acq_training.examples e
                 ON (p.workspace_id,p.example_id)=(e.workspace_id,e.id)
-                WHERE p.workspace_id=%s AND p.revoked_at IS NULL
+                WHERE p.workspace_id=%s
+                AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
+                AND p.revoked_at IS NULL
                 AND (p.retention_until IS NULL OR p.retention_until>now())''',(self.workspace,)).fetchall()
         annotate_first_sales(rows)
         by_listing = {}
