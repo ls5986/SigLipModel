@@ -165,7 +165,20 @@ def poll_training(store):
         request=store.save_document(REQUEST,{**request,'status':'queued','at':now()},request['revision'])
     if request.get('status') not in {'queued','waiting_for_labels'}:return False
     from cloud_training import snapshot
-    _,properties=snapshot(store, include_legacy=False);rows,excluded=select_rows(store,properties)
+    stage='snapshot'
+    try:
+        _,properties=snapshot(store, include_legacy=False)
+        stage='label_selection'
+        rows,excluded=select_rows(store,properties)
+    except Exception as exc:
+        import traceback
+        from pathlib import Path
+        frames=[{'module':Path(f.filename).name,'function':f.name,'line':f.lineno}
+                for f in traceback.extract_tb(exc.__traceback__)[-4:]]
+        store.save_document(REQUEST,{**request,'status':'failed','at':now(),
+            'error_code':type(exc).__name__,'stage':stage,'frames':frames,
+            'reason':'Training preflight failed. No candidate or labels changed.'},request['revision'])
+        raise
     train_rows=[r for r in rows if r['split']=='train']
     counts={task:dict(Counter(r['labels'].get(task,'UNKNOWN') for r in train_rows)) for task in ('physical_condition','modernization','acquisition_fit')}
     enough=len(train_rows)>=MIN_GROUPS and any(len(supported_classes(train_rows,task))>=2 for task in TASKS)
