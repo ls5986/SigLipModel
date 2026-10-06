@@ -49,7 +49,7 @@ def worker_heartbeat_state(store, key, threshold_seconds=90):
         "threshold_seconds": threshold_seconds,
         "detail": heartbeat.get("detail"),
     }
-    for field in ("policy", "trained_v2", "daily_limit"):
+    for field in ("policy", "trained_v2", "daily_limit", "deployed_commit"):
         if field in heartbeat:
             public[field] = heartbeat[field]
     return public
@@ -91,6 +91,13 @@ def get(studio, raw_path):
     if action == "experimental/status":
         from experimental_candidate import public_status
         return public_status(studio.store)
+    if action == "training/status":
+        if not cloud:
+            return {"request": {"status": "unavailable"}, "runs": {}, "release": None}
+        from v2_training import public_status
+        return public_status(studio.store)
+    if action == "dataset/latest":
+        return studio.store.document("actvision-v2-dataset-latest") or {"status": "none"}
     if action == "experimental/prediction":
         from experimental_candidate import prediction
         return prediction(studio.store, args.get("id", ""))
@@ -108,10 +115,9 @@ def get(studio, raw_path):
                              "acquisition_fit": TARGET_LABELS, "text_signals": TEXT_SIGNALS},
                 "label_schema_version": LABEL_SCHEMA_V2,
                 "blockers": [
-                    "V2 physical/text/fusion training orchestration and calibrated release artifacts are not provisioned.",
-                    "Legacy Train Candidate is a target classifier, not a v2 physical evidence release.",
-                    "Production corrections need identity/era mapping before frozen training dataset inclusion.",
-                    "Promotion/rollback remain administrative and disabled here; protected-slice acceptance thresholds are not configured.",
+                    "ActVision v2 candidates remain research-only until protected release gates pass.",
+                    "Production feedback must match current listing evidence before it can enter a future frozen dataset.",
+                    "Promotion and rollback remain explicit administrative release operations; training cannot self-promote.",
                 ]}
     if action == "property":
         detail = studio.get("/api/studio/property?id=" + quote(args.get("id", ""), safe=""))
@@ -146,11 +152,12 @@ def get(studio, raw_path):
                         "paid_photo_drafts": worker_heartbeat_state(studio.store, "autolabel-worker"),
                         "copilot_photo_drafts": worker_heartbeat_state(studio.store, "autolabel-copilot-worker"),
                         "typed_property_drafts": worker_heartbeat_state(studio.store, "typed-label-worker"),
+                        "actvision_v2_model": worker_heartbeat_state(studio.store, "actvision-v2-model-worker", threshold_seconds=90),
                         "legacy_model_worker": legacy["worker"],
                     },
-                    "inference_enabled": False,
-                    "inference_status": "not_provisioned",
-                    "notice": "Worker status requires a fresh heartbeat. The Text + Metadata Bootstrap runs on the hosted label worker; true ActVision v2 model training/inference is not provisioned yet."}
+                    "inference_enabled": bool(os.environ.get("ACTVISION_ACTIVE_RELEASE_ID")),
+                    "inference_status": "configured" if os.environ.get("ACTVISION_ACTIVE_RELEASE_ID") else "no_approved_release",
+                    "notice": "Worker health requires a fresh heartbeat and deployed commit. Label readiness, model readiness and release readiness are independent."}
         return {"inference_enabled": False, "inference_status": "not_provisioned",
                 "notice": "Local research backend; cloud training status unavailable"}
     raise ValueError("Unknown Studio v2 endpoint")
@@ -207,10 +214,14 @@ def post(studio, path, payload):
         return decide_feedback(studio.store, payload, identity()["id"])
     if action in {"dataset/preview", "dataset/freeze", "train"}:
         if not cloud:
-            raise ValueError("Explicit frozen-dataset training requires the cloud worker")
+            raise ValueError("ActVision v2 training requires the cloud training backend")
         if action == "dataset/preview":
-            from typed_dataset import preview
+            from v2_dataset import preview
             return preview(studio.store)
         require_operator()
-        raise ValueError("V2 freeze/training requires grouped orchestration and durable bundles; legacy training is not a v2 candidate")
+        if action == "dataset/freeze":
+            from v2_dataset import freeze
+            return freeze(studio.store, payload)
+        from v2_training import enqueue
+        return enqueue(studio.store, payload, identity()["id"])
     raise ValueError("Unknown Studio v2 action")
