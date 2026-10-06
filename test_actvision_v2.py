@@ -639,3 +639,43 @@ def test_unavailable_error_tuple_does_not_hide_programming_failures():
 
     assert not isinstance(psycopg.errors.SyntaxError("invalid SQL"), STORAGE_UNAVAILABLE_ERRORS)
     assert not isinstance(AttributeError("programming defect"), STORAGE_UNAVAILABLE_ERRORS)
+
+
+
+def test_worker_heartbeat_state_rejects_stale_ready_status():
+    from datetime import UTC, datetime, timedelta
+    from studio_v2 import worker_heartbeat_state
+
+    class Store:
+        def __init__(self, payload):
+            self.payload = payload
+        def document(self, key):
+            return self.payload
+
+    fresh = worker_heartbeat_state(Store({
+        "status": "ready", "at": datetime.now(UTC).isoformat(),
+        "policy": "openai-property-typed-draft-v2", "daily_limit": 0,
+    }))
+    assert fresh["online"] is True
+    assert fresh["actionable"] is True
+    assert fresh["status"] == "ready"
+    assert fresh["daily_limit"] == 0
+
+    stale = worker_heartbeat_state(Store({
+        "status": "ready", "at": (datetime.now(UTC) - timedelta(hours=2)).isoformat(),
+    }))
+    assert stale["online"] is False
+    assert stale["actionable"] is False
+    assert stale["status"] == "offline"
+    assert stale["saved_status"] == "ready"
+
+
+def test_training_studio_names_bootstrap_and_paid_ai_draft_actions():
+    from pathlib import Path
+
+    text = Path("training_studio.html").read_text(encoding="utf-8")
+    assert "Text + Metadata Bootstrap" in text
+    assert "Run Text + Metadata Bootstrap" in text
+    assert "Generate AI draft" in text
+    assert "Run model on this property" not in text
+    assert ">Analyze property</button>" not in text
