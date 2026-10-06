@@ -1,5 +1,28 @@
 # ActVision v2 contract
 
+## Versioned bundle
+
+[`manifest.json`](manifest.json) is the authoritative, deterministic bundle
+index. [`VERSION`](VERSION) contains its independent Semantic Versioning
+identity; the initial bundle is `1.0.0`. The bundle version does not replace the
+`actvision-v2` wire version or `actvision-labels-v2` taxonomy version. The
+manifest records the provider, owner, source commit, compatibility policy,
+fixture generator command, and raw-byte SHA-256 for the schema, semantic
+validator, generator, and every synthetic fixture. Paths are sorted,
+repository-relative POSIX paths.
+
+Validate the complete local bundle without network access:
+
+```powershell
+python tools/check_actvision_contract_bundle.py
+python tools/export_actvision_fixtures.py --check
+```
+
+Consumers must pin an independently approved exact `manifest.json` and reject
+missing, additional, duplicated, reordered, or byte-mismatched bundle files.
+`source_commit` is provenance for the bundled bytes; it is not the later commit
+that adds the manifest.
+
 `actvision-v2.schema.json` is authoritative for both repositories. Its `$defs`
 contain `inference_request`, `prediction`, `feedback`, and `release`. Validate the
 JSON Schema **and** the cross-field rules in `actvision_contract.py`. Fixtures
@@ -74,3 +97,23 @@ recorded operator approval and passing protected-slice evaluation. The loader
 checks schema, approval, compatibility, path containment and bytes before any
 adapter may deserialize. A hash alone is not permission to execute pickle code.
 Only operator-provisioned trusted local bundles are supported in this rebuild.
+
+## Compatibility policy
+
+Bundle versions follow Semantic Versioning:
+
+- **PATCH** records compatible corrections that preserve every valid payload and
+  existing meaning.
+- **MINOR** may add optional fields or enum behavior only when existing payloads,
+  validation, and semantics remain compatible.
+- **MAJOR** is required for changes to required fields, canonicalization, label
+  meaning, evidence or release identity, status meaning, or the validity of
+  existing payloads. A breaking release requires a separately approved migration
+  specification and explicit consumer migration.
+
+The provider publishes and validates a new bundle before consumer enablement.
+The consumer then pins the exact approved manifest and verifies it offline
+before shadow use. Rollback disables consumer behavior first, restores the
+previous approved manifest and compatible provider release, and preserves
+historical requests, predictions, feedback, and releases. See
+[`CHANGELOG.md`](CHANGELOG.md) for bundle history.

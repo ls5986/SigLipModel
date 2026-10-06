@@ -1,0 +1,57 @@
+{
+  "bundle_version": "1.0.0",
+  "provider": "SigLipModel",
+  "owner": "SigLipModel",
+  "source_commit": "68a91e86c13018fed86bb5538cf44002d55cc1fe",
+  "wire_version": "actvision-v2",
+  "taxonomy_version": "actvision-labels-v2",
+  "compatibility_policy": {
+    "policy": "semantic-versioning",
+    "compatible_changes": "Optional additive fields or enum behavior that preserve existing valid payloads and semantics.",
+    "breaking_changes": "Required-field, canonicalization, label, identity, status, or existing-payload validity changes require a separately approved migration.",
+    "reference": "contracts/README.md#compatibility-policy"
+  },
+  "schema": {
+    "path": "contracts/actvision-v2.schema.json",
+    "sha256": "8b58809a7261ce33edbc4b590980273b12146dbc4086ea9e4be4252787aaef2f"
+  },
+  "semantic_validator": {
+    "path": "actvision_contract.py",
+    "sha256": "7e60fdeed7e178fe2a31280c494e157c1a8f268f4d075a75adc00ca3d47cbfef"
+  },
+  "fixtures": [
+    {
+      "path": "contracts/fixtures/feedback.json",
+      "sha256": "4b451931e5d443c9fa293d944eb65d9ef5b72b57dde1f4b958ff803c02f900af"
+    },
+    {
+      "path": "contracts/fixtures/inference-request-multimodal.json",
+      "sha256": "f7dde09a5508a358e31e470e2a8a76cd79d7fcd7b4dfec480879d4c860e9d9a7"
+    },
+    {
+      "path": "contracts/fixtures/inference-request.json",
+      "sha256": "b9f4f137c040b92b6b61975d7cd0493415da7dfae8d119886c51a31bc65995d1"
+    },
+    {
+      "path": "contracts/fixtures/prediction-complete.json",
+      "sha256": "48700d2d21895f28647ebf279920e697e69ad33dec7a3d44cc76790d1e8fe3e3"
+    },
+    {
+      "path": "contracts/fixtures/prediction-unavailable.json",
+      "sha256": "e260bee009471acd9ce2bd61fe7ed5dd4406b295fbe8d794da03bf0bb92a4962"
+    },
+    {
+      "path": "contracts/fixtures/release-candidate.json",
+      "sha256": "fa93e0f670198f45e284c5f9d0a8a5d17429aac18af416725dac7c6fcfcab5d6"
+    },
+    {
+      "path": "contracts/fixtures/release-shadow.json",
+      "sha256": "b78bfae61553f2c358dcd84f655503f19cba34798941a5944b8393002ab3bb92"
+    }
+  ],
+  "generator": {
+    "path": "tools/export_actvision_fixtures.py",
+    "sha256": "d6e89db286fe44e14b1a8dd7027bebb0e86027ef71321e50a39e1a270d27f44a",
+    "command": "python tools/export_actvision_fixtures.py"
+  }
+}

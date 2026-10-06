@@ -40,11 +40,21 @@ MLSSourcing:
 
 ## Compatibility Policy
 
-Compatible changes may add optional fields or enum behavior only when existing
-valid payloads and consumer validation remain valid and semantics are not
-reinterpreted. A change to required fields, canonicalization, label meaning,
-identity, status meaning, or existing valid payloads is breaking and requires a
-separate migration specification.
+The independently versioned bundle follows Semantic Versioning. PATCH releases
+preserve every valid payload and existing meaning. MINOR releases may add
+optional fields or enum behavior only when existing valid payloads and consumer
+validation remain valid and semantics are not reinterpreted. A change to
+required fields, canonicalization, label meaning, identity, status meaning, or
+existing valid payloads is breaking, requires a MAJOR bundle version, and
+requires a separately approved migration specification.
+
+`contracts/manifest.json` pins raw-byte hashes for the schema, semantic
+validator, generator, and every synthetic fixture. `contracts/VERSION` matches
+its bundle version. Consumers pin the exact independently approved manifest,
+validate it offline, and reject missing, additional, duplicated, reordered, or
+byte-mismatched files. The manifest `source_commit` identifies the pre-bundle
+provider commit containing those bytes rather than the self-referential commit
+that publishes the manifest.
 
 Provider-first rollout order:
 
@@ -77,6 +87,10 @@ The current fixture command is:
 python tools\export_actvision_fixtures.py --check
 ```
 
-The versioned manifest and raw-byte bundle checker are future provider tasks.
-Until those are implemented and approved, a branch or deploy name MUST NOT be
-treated as a released contract identity.
+The current bundle command is:
+
+```powershell
+python tools\check_actvision_contract_bundle.py
+```
+
+A branch or deploy name MUST NOT be treated as a released contract identity.
