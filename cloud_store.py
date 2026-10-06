@@ -302,13 +302,30 @@ class SupabaseStore:
             image['synthetic_evidence'] = image_evidence(listing,description)
             image['selection'] = selection(image['effective']['context'],review,image['synthetic_evidence'])
             images.append(image)
+        try:
+            provider_photo_count = int(metadata.get('PhotosCount')) if metadata.get('PhotosCount') not in {None, ''} else None
+        except (TypeError, ValueError):
+            provider_photo_count = None
+        if photos and history['blocked']:
+            photo_notice = 'Stored listing photos are shown for source review only; source/listing identity is unresolved.'
+        elif photos and not history.get('timing_verified'):
+            photo_notice = 'Stored listing photos are available, but acquisition-era photo identity is not verified yet.'
+        elif not photos and provider_photo_count == 0:
+            photo_notice = 'The MLS provider reports zero listing photos for this record.'
+        elif not photos and provider_photo_count and provider_photo_count > 0:
+            photo_notice = f'The MLS provider reports {provider_photo_count} photo(s), but none are retained in the training workspace. Media recovery is required.'
+        elif not photos:
+            photo_notice = 'No retained listing photos are stored, and the provider photo count is unknown.'
+        else:
+            photo_notice = None
         return {'property':{'id':identifier,'address':metadata.get('UnparsedAddress',identifier),
                  'city':metadata.get('City'),'year_built':metadata.get('YearBuilt'),
                  'property_type':metadata.get('PropertySubType'),'metadata':metadata,
                  'review':self._review('property',identifier,legacy,live),
                  'mls_remarks':__import__('listing_text').remarks(listing),
                  'synthetic_evidence':__import__('listing_text').image_evidence(listing)},
-                'images':images,'stored_photo_count':len(photos),'photo_display_notice':'Stored listing photos are shown for source review only; acquisition-era matching is unresolved.' if history['blocked'] and photos else None,'coverage':coverage,'property_suggestions':[], 'assessment':None,
+                'images':images,'stored_photo_count':len(photos),'provider_photo_count':provider_photo_count,
+                'photo_display_notice':photo_notice,'coverage':coverage,'property_suggestions':[], 'assessment':None,
                 'historical_source':history,
                 'capabilities':{'review':True,'assessment':False,'training':False,'autolabel':not mismatched and any(not i['synthetic_evidence']['excluded'] for i in images),'storage':'supabase'}}
 
