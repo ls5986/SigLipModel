@@ -1,5 +1,7 @@
 """Default-off production bridge. No training, promotion or arbitrary URL fetching."""
 import os
+import time
+from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 
 from actvision_contract import digest, validate_contract
@@ -26,10 +28,54 @@ def configured_bundle(release_id=None):
         raise UnavailableError("Configured release is missing, incompatible or failed integrity/approval checks") from exc
 
 
-def infer(payload):
+def _model_worker_online(store, threshold_seconds=90):
+    heartbeat = store.document("actvision-v2-model-worker") or {}
+    try:
+        at = datetime.fromisoformat(heartbeat["at"])
+        if at.tzinfo is None:
+            at = at.replace(tzinfo=UTC)
+        age = (datetime.now(UTC) - at).total_seconds()
+    except (KeyError, TypeError, ValueError):
+        return False
+    return 0 <= age < threshold_seconds and heartbeat.get("status") in {"ready", "running"}
+
+
+def approved_manifest(store, release_id):
+    active = os.environ.get("ACTVISION_ACTIVE_RELEASE_ID", "").strip()
+    if not active:
+        raise UnavailableError("No approved ActVision release is active")
+    if active != release_id:
+        raise UnavailableError("Requested release is not the configured active ActVision release")
+    from v2_runtime import release_manifest
+    try:
+        return release_manifest(store, release_id, allowed_statuses=("shadow", "production"))
+    except (ValueError, OSError) as exc:
+        raise UnavailableError("Active ActVision release is unavailable or incompatible") from exc
+
+
+def infer(store, payload):
     validate_contract(payload, "inference_request")
-    configured_bundle(payload["evidence"]["release_id"])
-    raise UnavailableError("Physical-evidence inference adapters are not installed; legacy target scores cannot substitute")
+    approved_manifest(store, payload["evidence"]["release_id"])
+    if not _model_worker_online(store):
+        raise UnavailableError("ActVision model worker is offline or stale")
+    from v2_inference import enqueue, RESULT_PREFIX, REQUEST_PREFIX
+    try:
+        existing = enqueue(store, payload)
+    except (ValueError, RuntimeError, OSError) as exc:
+        raise UnavailableError("ActVision inference could not be queued safely") from exc
+    if existing is not None:
+        return existing
+    timeout = min(55.0, max(1.0, float(os.environ.get("ACTVISION_INFERENCE_WAIT_SECONDS", "45"))))
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        result = store.document(RESULT_PREFIX + payload["request_id"])
+        if result and result.get("status") == "completed":
+            return validate_contract(result["prediction"], "prediction")
+        request = store.document(REQUEST_PREFIX + payload["request_id"]) or {}
+        if request.get("status") == "failed":
+            raise UnavailableError("ActVision inference failed; no prediction was fabricated")
+        time.sleep(.5)
+    raise UnavailableError("ActVision inference is still pending; retry the same request ID")
 
 
 def receive_feedback(store, payload):
