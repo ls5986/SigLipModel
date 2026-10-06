@@ -37,9 +37,13 @@ def create(store, payload, reviewer):
         ids=[];offset=0
         while True:
             page=store.queue({'scope':'all','queue':'all','offset':offset,'limit':40})
-            ids.extend(i['id'] for i in page['items']);offset += len(page['items'])
+            ids.extend(
+                i['id'] for i in page['items']
+                if (i.get('photo_status') or {}).get('state') != 'acquisition_mls_unavailable'
+            )
+            offset += len(page['items'])
             if offset >= page['total'] or not page['items']: break
-            if len(ids)>MAX_ITEMS: raise ValueError('Select 500 or fewer listings per batch')
+            if len(ids)>MAX_ITEMS: raise ValueError('Select 500 or fewer acquisition MLS listings per batch')
     elif payload.get('selection') == 'ids': ids=payload.get('ids')
     else: raise ValueError('Choose all matched listings or selected listing IDs')
     if not isinstance(ids,list) or not ids or len(ids)>MAX_ITEMS or any(not isinstance(i,str) or not i or len(i)>200 for i in ids):
