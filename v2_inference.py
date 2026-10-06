@@ -1,6 +1,8 @@
 """Durable authenticated ActVision v2 inference jobs for the hosted model lane."""
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import io
 import os
@@ -76,24 +78,34 @@ def _download(payload, directory):
             uri = item["uri"]
             if not _trusted_photo_url(uri):
                 raise ValueError("ActVision photo origin is not trusted")
-            # Current provider URLs may already be authorized. Only request an
-            # OAuth token after an explicit 401, so inference does not require a
-            # second auth flow when the selected URI itself is valid.
-            response = client.get(uri, headers={"Accept": "image/*"})
-            if response.status_code == 401:
-                global _token
-                _token = None
-                token = _access_token(client)
-                response = client.get(
-                    uri, headers={"Authorization": "Bearer " + token, "Accept": "image/*"}
-                )
-            if response.status_code != 200:
-                warnings.append(f"Photo {item['photo_id']} could not be retrieved")
-                continue
-            blob = response.content
-            if not 0 < len(blob) <= 8_000_000:
-                warnings.append(f"Photo {item['photo_id']} exceeded the bounded image size")
-                continue
+            inline = item.get("content_b64")
+            if inline is not None:
+                try:
+                    blob = base64.b64decode(inline, validate=True)
+                except (binascii.Error, ValueError) as exc:
+                    raise ValueError("ActVision inline photo encoding is invalid") from exc
+                if not 0 < len(blob) <= 160_000:
+                    raise ValueError("ActVision inline photo exceeded the transport limit")
+                if hashlib.sha256(blob).hexdigest() != item.get("content_sha256"):
+                    raise ValueError("ActVision inline photo hash mismatch")
+            else:
+                # Backward-compatible fallback for older MLS shadow requests.
+                # New requests hydrate bounded image bytes in the MLS worker.
+                response = client.get(uri, headers={"Accept": "image/*"})
+                if response.status_code == 401:
+                    global _token
+                    _token = None
+                    token = _access_token(client)
+                    response = client.get(
+                        uri, headers={"Authorization": "Bearer " + token, "Accept": "image/*"}
+                    )
+                if response.status_code != 200:
+                    warnings.append(f"Photo {item['photo_id']} could not be retrieved")
+                    continue
+                blob = response.content
+                if not 0 < len(blob) <= 8_000_000:
+                    warnings.append(f"Photo {item['photo_id']} exceeded the bounded image size")
+                    continue
             try:
                 with Image.open(io.BytesIO(blob)) as image:
                     if image.format not in {"JPEG", "PNG", "WEBP"} or image.width * image.height > 40_000_000:
