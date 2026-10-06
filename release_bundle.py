@@ -8,7 +8,7 @@ from actvision_contract import validate_contract
 
 FEATURE_SCHEMAS = {
     "vision": {"actvision-siglip2-heads-v2"},
-    "text": {"actvision-text-tfidf-v2", "actvision-text-encoder-v2"},
+    "text": {"actvision-text-tfidf-v2", "actvision-text-encoder-v2", "actvision-text-semantic-v1"},
     "structured": {"actvision-structured-v2"},
     "fusion": {"actvision-fusion-v2"},
 }
