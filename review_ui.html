@@ -309,16 +309,16 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   const requestedQueue=S.filter;
   const data=await api('review-queue?'+new URLSearchParams({queue:requestedQueue,scope:S.scope,evidence:S.evidence,search:$('search').value.trim(),offset:S.offset,limit:20}));
   const cloud=data.capabilities?.storage==='supabase';
-  if(cloud){$('source-ledger-link').hidden=false;$('review-nav').hidden=true;$('match-nav').textContent='Verify listing / photos';$('ready-button').hidden=true;}
+  if(cloud){S.knownTargets=true;$('source-ledger-link').hidden=false;$('review-nav').hidden=true;$('match-nav').textContent='Review acquisition cohort';$('ready-button').hidden=true;}
   S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
   if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
-  $('progress').textContent=S.knownTargets?`${S.counts.todo} incomplete of ${S.counts.all} matched listings`:`${S.counts.all} matched listings · ${S.counts.source_conflicts} source conflicts · source verification only`;
+  $('progress').textContent=S.knownTargets?`${S.counts.all} acquisition targets · ${S.counts.photo_match} still need source/photo recovery · ${S.counts.reviewed} human-reviewed`:`${S.counts.all} matched listings · ${S.counts.source_conflicts} unresolved source issues`;
   const queueSummary=$('queue-summary');queueSummary.hidden=!S.knownTargets;
   if(S.knownTargets)queueSummary.replaceChildren(
-   summaryStat(S.counts.all,'Matched listings'),
-   summaryStat(S.counts.verified,'Photo sets confirmed'),
-   summaryStat(S.counts.reviewed,'Opportunity reviews'),
-   summaryStat(S.counts.todo,'Still incomplete')
+   summaryStat(S.counts.all,'Acquisition targets'),
+   summaryStat(S.counts.photo_match,'Source/photo recovery'),
+   summaryStat(S.counts.ready,'AI drafts ready'),
+   summaryStat(S.counts.reviewed,'Human corrections')
   );
   $('ready-button').textContent=`AI drafts (${S.counts.ready})`;drawQueue();
   const next=S.items.find(i=>i.id===prefer)||S.items.find(i=>i.id===S.detail?.property.id)||S.items[0];
