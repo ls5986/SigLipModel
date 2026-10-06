@@ -4,6 +4,27 @@ from __future__ import annotations
 from collections import Counter
 
 
+def training_status(store):
+    """Cheap saved snapshot status, never an implicit full dataset assembly.
+
+Current eligibility requires the explicit dataset preview. A previously frozen
+snapshot is labeled as historical instead of pretending it describes live labels.
+"""
+    latest = store.document('actvision-v2-dataset-latest') or {}
+    return {
+        'eligible_properties': None, 'protected_test': None, 'excluded': None,
+        'dataset_fingerprint': None, 'available': False,
+        'basis': 'explicit_preview_required',
+        'current_evidence_evaluated': False,
+        'notice': 'Live eligibility is computed by the explicit dataset preview, not while loading inventory counters.',
+        'frozen_dataset': {
+            'id': latest.get('id'), 'version': latest.get('version'),
+            'fingerprint': latest.get('fingerprint'), 'frozen_at': latest.get('frozen_at'),
+            'counts': latest.get('counts') or {}, 'basis': 'last_frozen_dataset',
+        } if latest.get('id') else None,
+    }
+
+
 def status(store):
     pages = []
     offset = 0
@@ -87,29 +108,9 @@ def status(store):
             AND payload->>'status'='failed'
         """, (store.workspace,)).fetchone()["count"]
 
-    training = {
-        "eligible_properties": None, "protected_test": None, "excluded": None,
-        "dataset_fingerprint": None, "available": False,
-    }
-    training_error = None
-    try:
-        from v2_dataset import preview
-        current = preview(store)
-        training.update({
-            "eligible_properties": current["counts"]["properties"],
-            "protected_test": current["counts"]["splits"].get("test", 0),
-            "excluded": sum(current["counts"]["excluded"].values()),
-            "dataset_fingerprint": current["fingerprint"],
-            "available": True,
-            "modalities": {
-                "vision": current["counts"]["vision"],
-                "text": current["counts"]["text"],
-                "structured": current["counts"]["structured"],
-            },
-            "origins": current["counts"]["origins"],
-        })
-    except Exception as exc:
-        training_error = type(exc).__name__
+    # Loading overview/review counters must not compete with a training worker
+    # by assembling every property's dataset and opening thousands of DB reads.
+    training = training_status(store)
 
     counts = {
         "imported_source_rows": inventory.get("imported_rows"),
@@ -136,7 +137,7 @@ def status(store):
         "counts": counts,
         "photo_states": dict(photo_states),
         "training": training,
-        "training_status_error": training_error,
+        "training_status_error": None,
         "items": [{
             "id": item["id"], "address": item.get("address"),
             "listing_id": item.get("listing_id"),
