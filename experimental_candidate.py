@@ -165,7 +165,7 @@ def poll_training(store):
         request=store.save_document(REQUEST,{**request,'status':'queued','at':now()},request['revision'])
     if request.get('status') not in {'queued','waiting_for_labels'}:return False
     from cloud_training import snapshot
-    _,properties=snapshot(store);rows,excluded=select_rows(store,properties)
+    _,properties=snapshot(store, include_legacy=False);rows,excluded=select_rows(store,properties)
     train_rows=[r for r in rows if r['split']=='train']
     counts={task:dict(Counter(r['labels'].get(task,'UNKNOWN') for r in train_rows)) for task in ('physical_condition','modernization','acquisition_fit')}
     enough=len(train_rows)>=MIN_GROUPS and any(len(supported_classes(train_rows,task))>=2 for task in TASKS)
@@ -180,7 +180,7 @@ def poll_training(store):
     try:
         enc,checkpoint=encoder();bundle=train(rows,excluded,enc,checkpoint);bundle['id']=request['id']
         # Recheck every selected source/label identity before immutable persistence.
-        _,fresh=snapshot(store);latest,_=select_rows(store,fresh)
+        _,fresh=snapshot(store, include_legacy=False);latest,_=select_rows(store,fresh)
         by_id={r['id']:r for r in latest}
         if any(digest(by_id.get(r['id'],{}))!=digest(r) for r in rows):raise RuntimeError('Source or labels changed during training')
         store.save_document('experimental-candidate:'+request['id'],bundle,0)
@@ -232,7 +232,7 @@ def poll_prediction(store):
             results[task]={'label':head['classes'][index] if score>=.6 else 'UNKNOWN','uncalibrated_probability':score,'classes':dict(zip(head['classes'],map(float,probabilities)))}
         if evidence(store.property(request['id']))!=request['evidence_id']:raise ValueError('Evidence changed')
         from cloud_training import snapshot
-        _,properties=snapshot(store)
+        _,properties=snapshot(store, include_legacy=False)
         group=next((r['group_id'] for r in properties if r['id']==request['id']),None)
         trained_on=next((r['split'] for r in bundle['provenance'] if r['group_id']==group),None)
         store.save_document(item['item_id'],{**active,'status':'completed','at':now(),'results':results,

@@ -31,7 +31,7 @@ def readiness(properties):
             'notice':'Known targets from workbook provenance. Overall target/pass ratings are not required. Pending rows are excluded.'}
 
 
-def snapshot(store):
+def snapshot(store, *, include_legacy=True):
     """One repeatable DB snapshot; protect duplicate/physical groups before filtering the cohort."""
     with store.database.connect() as db:
         db.execute("SET LOCAL statement_timeout='60000ms'")
@@ -114,7 +114,7 @@ def snapshot(store):
                 })
         keys = sorted({r['listing_key'] for r in records})
         legacy = store._legacy(db, [*keys, *[r['listing_key']+':'+str(r['provider_media_key'])
-                                               for r in photos if r['listing_key'] in keys]])
+                                               for r in photos if r['listing_key'] in keys]]) if include_legacy else {}
         live = store._reviews(db, [*keys, *['autolabel-result:'+k for k in keys], *[r['listing_key']+':'+str(r['provider_media_key'])
                                           for r in photos if r['listing_key'] in keys]])
         # Imported base schema did not restore protected_test flags. Recover original test
