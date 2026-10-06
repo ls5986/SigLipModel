@@ -103,7 +103,7 @@ main{margin:0 0 0 236px;padding:26px 28px 48px;max-width:1680px}h1{font-size:26p
  <div class="card"><h2>Batch AI drafts</h2><p>Queue once, then review saved suggestions. Existing current drafts are reused. Human reviews stay intact. Source conflicts remain visible and blocked.</p><label><span><input id="select-all-drafts" type="checkbox"> Select all matched listings (entire inventory, not just this page)</span></label><div class="row"><button id="queue-draft-batch" type="button" class="primary">Queue selected drafts</button><button id="refresh-draft-batch" type="button">Refresh batch progress</button></div><p class="muted">Drafts use descriptions, listing facts and existing photo tags. This explicitly starts paid OpenAI requests for eligible listings. It does not train a model or analyze every photo anew. Select individual listings using their queue checkboxes below.</p><div id="draft-batch-progress" aria-live="polite"></div></div><details class="card"><summary>My review samples: add examples by MLS ID</summary><p>Search the full inventory below, open a listing, then add it to your samples. Approve Target, Not target or Unknown in its review. This list does not change protected test splits.</p><button id="add-sample" type="button">Add current listing to my samples</button><button id="load-samples" type="button">Show my samples</button><div id="sample-list"></div><p class="muted">If an MLS ID is not found, it is not imported into this workspace yet. No new listing, photos or acquisition verification will be invented.</p></details><div class="row queue-toolbar"><label>Review queue<select id="queue-filter"><option value="all">All properties</option><option value="unscored">Unlabeled</option><option value="reviewed">Reviewed</option><option value="missing_text">Missing text labels</option><option value="photo_match">Source / photo era needs review</option></select></label><label>Search<input id="search" type="search" placeholder="Address or MLS ID"></label><button id="refresh">Refresh</button><button id="more">Next page</button><span id="queue-total" class="muted"></span></div>
  <div class="layout"><aside class="card queue" id="queue" aria-label="Property inbox"></aside>
  <div class="card"><div id="empty">Select a property to start labeling.</div><div id="property" hidden>
-  <h2 id="address"></h2><div class="card"><h3>Text + Metadata Bootstrap</h3><p class="muted">A saved prediction from the experimental description + listing-facts bootstrap. It does not use a trained vision component and never overwrites your review.</p><div id="property-prediction" aria-live="polite">Loading saved prediction…</div><button id="property-predict" type="button">Run Text + Metadata Bootstrap</button></div><div class="card"><h3 id="draft-status">Loading saved analysis…</h3><p id="draft-help" class="muted">Existing results load automatically. Opening a property never starts a paid analysis.</p><div id="proposal-result" aria-live="polite"></div><div class="row"><button id="use-proposal" type="button" disabled>Review saved AI draft</button><button id="refresh-proposal" type="button">Refresh status</button></div><details><summary>Generate a new AI draft</summary><p>Uses one paid OpenAI request to propose editable labels from the stored evidence. It does not train a model.</p><label><span><input id="confirm-proposal" type="checkbox"> Generate one AI draft for this property</span></label><button id="request-proposal" type="button">Generate AI draft</button></details></div><p id="identity" class="muted"></p><div id="era" class="warning"></div>
+  <h2 id="address"></h2><div class="card"><h3>Text + Metadata Bootstrap</h3><p class="muted">A saved prediction from the experimental description + listing-facts bootstrap. It does not use a trained vision component and never overwrites your review.</p><div id="property-prediction" aria-live="polite">Loading saved prediction…</div><button id="property-predict" type="button">Run Text + Metadata Bootstrap</button></div><div class="card"><h3>ActVision v2 Candidate</h3><p class="muted">The real multimodal candidate. It uses the versioned vision, semantic text, structured-facts and calibrated fusion artifacts that were trained together. It never overwrites your review.</p><div id="actvision-prediction" aria-live="polite">Loading saved ActVision result…</div><button id="actvision-predict" type="button">Run ActVision v2 Candidate</button></div><div class="card"><h3 id="draft-status">Loading saved analysis…</h3><p id="draft-help" class="muted">Existing results load automatically. Opening a property never starts a paid analysis.</p><div id="proposal-result" aria-live="polite"></div><div class="row"><button id="use-proposal" type="button" disabled>Review saved AI draft</button><button id="refresh-proposal" type="button">Refresh status</button></div><details><summary>Generate a new AI draft</summary><p>Uses one paid OpenAI request to propose editable labels from the stored evidence. It does not train a model.</p><label><span><input id="confirm-proposal" type="checkbox"> Generate one AI draft for this property</span></label><button id="request-proposal" type="button">Generate AI draft</button></details></div><p id="identity" class="muted"></p><div id="era" class="warning"></div>
   <form id="label-form"><h3>Review these three answers</h3><p class="muted">AI suggestions are editable drafts. Approving saves your human review; it never starts training.</p><div class="decisions">
    <label>What repairs are needed?<small class="muted">Judge repair needs, separately from dated finishes. Year built alone is not enough.</small><select id="physical"></select></label><label>How updated is it?<small class="muted">Original can still be well maintained.</small><select id="modernization"></select></label><label>Does it fit our renovation strategy?<small class="muted">Review the evidence, not just the listing age.</small><select id="fit"></select></label></div><details><summary>Advanced review details</summary><div class="decisions"><label>Review confidence<select id="confidence"><option value="">Not assessed</option><option>low</option><option>medium</option><option>high</option></select></label>
   </div><div class="row"><label>Fit basis<select id="fit-basis"><option value="unknown">Unknown</option><option value="renovation">Physical renovation evidence</option><option value="pricing">Pricing (separate economics)</option><option value="layout_location">Layout / location</option><option value="mixed">Mixed</option></select></label><label>Evidence source<select id="evidence-source"><option value="">Not assessed</option><option value="images">Photos</option><option value="metadata">Remarks / facts</option><option value="both">Both</option><option value="insufficient">Insufficient evidence</option></select></label></div>
@@ -172,7 +172,7 @@ async function loadProperty(id){
  const request=++state.load;const detail=await api('/api/studio/v2/property?id='+encodeURIComponent(id));if(request!==state.load)return;
  state.detail=detail;state.photo=0;if(state.poll)clearTimeout(state.poll);state.signals=structuredClone(detail.property.review?.text_signals||[]);state.dirty=false;
  const p=detail.property,r=p.review||{},history=detail.historical_source||{};
- $('property-prediction').textContent='Loading saved prediction…';$('property-predict').disabled=true;if(state.predictionPoll)clearTimeout(state.predictionPoll);
+ $('property-prediction').textContent='Loading saved prediction…';$('property-predict').disabled=true;if(state.predictionPoll)clearTimeout(state.predictionPoll);$('actvision-prediction').textContent='Loading saved ActVision result…';$('actvision-predict').disabled=true;if(state.actvisionPoll)clearTimeout(state.actvisionPoll);
  $('empty').hidden=true;$('property').hidden=false;$('address').textContent=p.address||p.id;
  $('identity').textContent=`MLS ${p.metadata?.ListingId||p.id} | ${p.metadata?.ListDate||p.metadata?.ListingContractDate||'Listing date unknown'} | ${p.property_type||'Property type unknown'}`;
  $('era').replaceChildren(node('span',history.blocked?history.block_reason||'Quarantined acquisition evidence.':history.timing_verified?'Source and photo era verified.':'Source / photo era not yet verified. Labels do not override training eligibility.'));
@@ -189,6 +189,7 @@ async function loadProperty(id){
  $('draft-status').textContent='Loading saved analysis…';$('draft-help').textContent='Existing results load automatically. No paid analysis starts here.';
  try{await refreshDraft(request,true)}catch(error){if(request===state.load){$('draft-status').textContent='Could not load saved analysis';$('draft-help').textContent=error.message}}
  await refreshPropertyPrediction(request).catch(error=>{if(request===state.load)$('property-prediction').textContent='Could not load saved prediction: '+error.message});
+ await refreshActVisionPrediction(request).catch(error=>{if(request===state.load)$('actvision-prediction').textContent='Could not load ActVision result: '+error.message});
 }
 function renderPhoto(){
  const image=state.detail.images[state.photo];$('hero').hidden=!image;$('no-photos').hidden=!!image;$('photo-form').hidden=!image;
@@ -269,6 +270,43 @@ async function refreshPropertyPrediction(request=state.load){
  if(state.predictionPoll)clearTimeout(state.predictionPoll);
  if(['queued','running'].includes(pred.status))state.predictionPoll=setTimeout(()=>refreshPropertyPrediction(request).catch(e=>message(e.message)),5000);
 }
+async function refreshActVisionPrediction(request=state.load){
+ if(!state.detail)return;
+ const id=state.detail.property.id,pred=await api('/api/studio/v2/actvision/prediction?id='+encodeURIComponent(id));
+ if(request!==state.load||id!==state.detail?.property.id)return;
+ const labels={none:'No ActVision v2 candidate prediction yet',queued:'ActVision v2 prediction queued',running:'ActVision v2 prediction in progress',completed:'Saved ActVision v2 prediction',failed:'ActVision v2 prediction failed',stale:'Saved ActVision v2 prediction needs updating'};
+ const out=[node('strong','MLS '+id+' · '+(labels[pred.status]||pred.status))];
+ if(pred.release?.id&&!pred.release_id)out.push(node('p','Latest candidate: '+pred.release.id+' · V'+pred.release.version,'muted'));
+ if(pred.result){
+  out.push(node('p','Physical condition: '+(friendly[pred.result.physical_condition]||pred.result.physical_condition)));
+  out.push(node('p','Modernization: '+(friendly[pred.result.modernization]||pred.result.modernization)));
+  out.push(node('p','Acquisition fit: '+(friendly[pred.result.acquisition_fit]||pred.result.acquisition_fit)));
+  out.push(node('p','Calibrated confidence summary: '+(pred.result.confidence===null?'Unavailable':Math.round(pred.result.confidence*100)+'%')));
+  const detail=node('details');detail.append(node('summary','Component evidence and coverage'));
+  for(const [name,component] of Object.entries(pred.components||{}))detail.append(node('p',name+': '+component.status+(component.reason?' · '+component.reason:'')+(component.result?.physical_condition?' · '+(friendly[component.result.physical_condition]||component.result.physical_condition):'')));
+  detail.append(node('pre',JSON.stringify(pred.coverage||{},null,2)));out.push(detail);
+  out.push(node('p',pred.notice||'Candidate prediction is saved separately from your labels.','muted'));
+ }
+ if(pred.reason)out.push(node('p',pred.reason,'warning'));
+ $('actvision-prediction').replaceChildren(...out);
+ $('actvision-predict').disabled=['queued','running'].includes(pred.status)||(!pred.release_id&&!pred.release?.id&&pred.status==='none');
+ if(state.actvisionPoll)clearTimeout(state.actvisionPoll);state.actvisionPoll=null;
+ if(['queued','running'].includes(pred.status))state.actvisionPoll=setTimeout(()=>refreshActVisionPrediction(request).catch(e=>message(e.message)),5000);
+}
+async function runActVisionModel(){
+ if(!state.detail)throw Error('Open a property first.');
+ const id=state.detail.property.id,request=state.load;
+ $('actvision-prediction').replaceChildren(node('strong','Submitting ActVision v2 prediction…'));
+ $('actvision-predict').disabled=true;
+ try{
+  await api('/api/studio/v2/actvision/predict',{id});
+  if(request===state.load)await refreshActVisionPrediction(request);
+ }catch(error){
+  if(request===state.load)$('actvision-prediction').replaceChildren(node('strong','Could not run ActVision v2'),node('p',error.message,'warning'));
+  throw error;
+ }finally{if(request===state.load)$('actvision-predict').disabled=false}
+}
+
 async function runPropertyModel(){
  if(!state.detail)throw Error('Open a property first.');
  const id=state.detail.property.id,request=state.load;
@@ -323,6 +361,7 @@ async function boot(){
  $('experimental-train').onclick=guard(async()=>{if(!$('include-drafts').checked)throw Error('Confirm using unreviewed AI drafts for the experiment.');await api('/api/studio/v2/experimental/train',{confirmed:true,include_unreviewed_drafts:true});await refreshExperiment();message('Bootstrap training request saved. The worker starts when valid class coverage is ready.',true)});
  $('property-predict').onclick=guard(runPropertyModel);
  $('experimental-predict').onclick=guard(runPropertyModel);
+ $('actvision-predict').onclick=guard(runActVisionModel);
  async function refreshV2Status(){
   const [training,dataset]=await Promise.all([api('/api/studio/v2/training/status'),api('/api/studio/v2/dataset/latest')]);
   const request=training.request||{status:'none'},parts=[];
