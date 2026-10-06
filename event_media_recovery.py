@@ -136,11 +136,22 @@ def heartbeat(store, status, detail=None):
     )
 
 
+def media_recovery_done(payload):
+    payload = payload or {}
+    status = payload.get("status")
+    images = payload.get("images") or []
+    try:
+        reported = int(payload.get("reported_photo_count") or 0)
+    except (TypeError, ValueError):
+        reported = 0
+    return status in {"complete", "sampled"} and (bool(images) or reported == 0)
+
+
 def pending(store, limit=1):
     with store.database.connect() as db:
         rows = db.execute("""
           SELECT e.id,e.listing_key,e.source_snapshot,
-                 v.payload AS validation
+                 v.payload AS validation,m.payload AS media
           FROM acq_training.examples e
           JOIN acq_training.studio_state v
             ON v.workspace_id=e.workspace_id
@@ -154,11 +165,6 @@ def pending(store, limit=1):
             AND e.source_snapshot->'event_map'->>'recovery_status'='mapped'
             AND e.source_snapshot->'event_map'->>'acquisition_listing_key'<>e.listing_key
             AND v.payload->>'certified_for_training'='true'
-            AND NOT (
-              m.payload->>'status'='complete'
-              AND coalesce((m.payload->>'reported_photo_count')::int,0)=0
-            )
-            AND coalesce(jsonb_array_length(m.payload->'images'),0)=0
             AND NOT EXISTS (
               SELECT 1 FROM acq_training.photos p
               WHERE (p.workspace_id,p.example_id)=(e.workspace_id,e.id)
@@ -168,9 +174,11 @@ def pending(store, limit=1):
             )
           ORDER BY e.id
           LIMIT %s
-        """, (store.workspace, limit)).fetchall()
+        """, (store.workspace, max(limit * 8, 32))).fetchall()
     result = []
     for row in rows:
+        if media_recovery_done(row.get("media")):
+            continue
         event_map = row["source_snapshot"].get("event_map") or {}
         selected = next((
             candidate for candidate in row["source_snapshot"].get("mls_candidates", [])
@@ -186,6 +194,8 @@ def pending(store, limit=1):
             "listing_id": event_map.get("acquisition_listing_id"),
             "reported_photos": int(listing.get("PhotosCount") or 0),
         })
+        if len(result) >= limit:
+            break
     return result
 
 
