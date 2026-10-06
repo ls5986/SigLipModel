@@ -39,6 +39,8 @@ acquisition_audit.json
 # Rebuildable environments, caches and test output
 .venv/
 .venv-hosted/
+.worktrees/
+.superpowers/
 .cache/
 __pycache__/
 .pytest_cache/
