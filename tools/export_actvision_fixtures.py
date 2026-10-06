@@ -68,8 +68,10 @@ def fixtures():
     full_request["evidence_id"] = digest(full_request["evidence"])
     result = {
         **unknown_result(), "physical_condition": "C3_WELL_MAINTAINED", "modernization": "ORIGINAL",
+        "acquisition_fit": "TARGET",
         "condition_probabilities": {"C3_WELL_MAINTAINED": .75, "C4_AVERAGE_FUNCTIONAL": .25},
         "modernization_probabilities": {"ORIGINAL": .8, "PARTIALLY_UPDATED": .2},
+        "acquisition_fit_probabilities": {"TARGET": .6, "NOT_TARGET": .4},
         "value_add_score": .6, "confidence": .7,
     }
     complete = deepcopy(prediction)
