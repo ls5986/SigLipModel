@@ -18,14 +18,14 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from psycopg import OperationalError
-from psycopg.errors import UndefinedColumn, UndefinedTable
+from psycopg.errors import InsufficientPrivilege, UndefinedColumn, UndefinedTable
 
 from cloud_runtime import from_env
 from config import CODE_ROOT
 from PIL import Image, ImageOps
 
 COOKIE = "acq_studio_session"
-STORAGE_UNAVAILABLE_ERRORS = (OSError, OperationalError, UndefinedTable, UndefinedColumn)
+STORAGE_UNAVAILABLE_ERRORS = (OSError, OperationalError, UndefinedTable, UndefinedColumn, InsufficientPrivilege)
 LOGIN = b'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ACQ Vision sign in</title><style>body{margin:0;background:#071521;color:#eaf4ff;font:16px/1.5 Segoe UI,sans-serif;min-height:100vh;display:grid;place-items:center}.card{width:min(380px,calc(100% - 40px));background:#10283a;border:1px solid #31506a;border-radius:18px;padding:28px;box-shadow:0 24px 70px #0008}h1{margin:0 0 8px}p{color:#9fb4c7;margin:0 0 22px}label{display:grid;gap:6px;margin:14px 0}input,button{font:inherit;padding:12px;border-radius:9px;border:1px solid #49667d}input{background:#071521;color:#fff}button{width:100%;margin-top:12px;background:#4c80ff;color:#fff;font-weight:700}.error{color:#ff9c9c}</style></head><body><form class="card" method="post" action="/login"><h1>ACQ Vision Studio</h1><p>Private development workspace</p>__ERROR__<label>Email<input name="username" type="email" autocomplete="username" required autofocus></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button>Sign in</button></form></body></html>'''
 
 
@@ -300,7 +300,8 @@ def create_server(port, app, auth):
             except STORAGE_UNAVAILABLE_ERRORS as exc:
                 return self.storage_unavailable(exc)
 
-    return ThreadingHTTPServer(("0.0.0.0",port),Handler)
+    from hosted_session import session_handler
+    return ThreadingHTTPServer(("0.0.0.0",port),session_handler(Handler, app, auth, COOKIE))
 
 
 def main():
@@ -315,4 +316,3 @@ def main():
         server.server_close()
 
 if __name__=="__main__": main()
-
