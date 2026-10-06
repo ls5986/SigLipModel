@@ -29,3 +29,19 @@ jobs:
         run: python tools/export_actvision_fixtures.py --check
       - name: Backend regression suite
         run: python -m pytest test_actvision_v2.py test_cloud_runtime.py test_hosted_server.py test_model_workbench.py -q
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@1e60f620b9541dca1515400312bd016a8ccfb5de # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install browser dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Training Studio browser regression
+        run: node test_training_studio_browser.cjs
