@@ -18,7 +18,7 @@ def fusion_features(components, coverage):
         if available:
             if not component["calibration_version"]:
                 raise ValueError("Fusion requires pinned component calibration")
-            for axis in ("condition_probabilities", "modernization_probabilities"):
+            for axis in ("condition_probabilities", "modernization_probabilities", "acquisition_fit_probabilities"):
                 for label, score in component["result"][axis].items():
                     row[f"{name}:{axis}:{label}"] = score
     row.update({
