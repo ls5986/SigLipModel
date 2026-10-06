@@ -213,13 +213,20 @@ def poll_training(store):
         raise
     return True
 
+def prediction_lease_expired(record):
+    try:
+        return (datetime.now(timezone.utc)-datetime.fromisoformat(record['at'])).total_seconds() >= 300
+    except (KeyError,ValueError,TypeError):
+        return True
+
+
 def queue_prediction(store,payload,actor):
     status=public_status(store)
     if not status['candidate']:raise ValueError('No experimental candidate trained yet')
     identifier=str(payload.get('id',''));detail=store.property(identifier)
     from typed_label_assistant import evidence
     key='experimental-prediction:'+identifier;prior=store.document(key) or {}
-    if prior.get('status') in {'queued','running'}:return prior
+    if prior.get('status')=='queued' or prior.get('status')=='running' and not prediction_lease_expired(prior):return prior
     return store.save_document(key,{'id':identifier,'candidate_id':status['candidate']['id'],'status':'queued',
         'evidence_id':evidence(detail),'requested_by':actor,'at':now()},prior.get('revision',0))
 
@@ -233,9 +240,11 @@ def prediction(store,identifier):
 
 def poll_prediction(store):
     with store.database.connect() as db:
-        rows=db.execute("SELECT item_id,payload,revision FROM acq_training.studio_state WHERE workspace_id=%s AND kind='document' AND item_id LIKE 'experimental-prediction:%%' AND payload->>'status'='queued' ORDER BY item_id LIMIT 1",(store.workspace,)).fetchall()
+        rows=db.execute("SELECT item_id,payload,revision FROM acq_training.studio_state WHERE workspace_id=%s AND kind='document' AND item_id LIKE 'experimental-prediction:%%' AND payload->>'status' IN ('queued','running') ORDER BY payload->>'at',item_id LIMIT 1",(store.workspace,)).fetchall()
     if not rows:return False
-    item=rows[0];request={**item['payload'],'revision':item['revision']};active=store.save_document(item['item_id'],{**request,'status':'running'},request['revision'])
+    item=rows[0];request={**item['payload'],'revision':item['revision']}
+    if request['status']=='running' and not prediction_lease_expired(request):return False
+    active=store.save_document(item['item_id'],{**request,'status':'running'},request['revision'])
     try:
         import numpy as np
         from typed_label_assistant import evidence

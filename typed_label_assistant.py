@@ -17,20 +17,14 @@ physical condition. Missing photos need not prevent judgments supported by remar
 and acquisition-time facts. Use UNKNOWN for unsupported axes. Acquisition fit means
 credible cosmetic/value-add opportunity, not simply disrepair. A recent construction
 date is relevant to that judgment but does not establish physical condition.
-For each semantic tag return PRESENT only with an exact verbatim supporting snippet
-selected from the supplied evidence_quotes; ABSENT requires explicit contrary
-evidence with a snippet. Mere non-mention is UNKNOWN. Do not guess confidence or
+For each semantic tag return PRESENT only when an evidence_quotes entry explicitly
+supports it; ABSENT requires explicit contrary evidence in an entry. Mere non-mention is UNKNOWN. Do not guess confidence or
 pretend to be a calibrated trained model. Return exactly 17 text_signals, one for
-each signal name in the schema, with no duplicates. For UNKNOWN, set snippet,
-start and end to null; never use empty strings or zero placeholders. For PRESENT
-and ABSENT, choose one exact sentence from evidence_quotes, with
-the same punctuation, capitalization, whitespace and Unicode characters. Do not
-quote a paraphrase or text from metadata or visual drafts as a remarks snippet.
-Use enough surrounding original text to make each supporting snippet unique in
-the remarks, rather than an ambiguous repeated word.
-Set start and end to null. The server calculates exact Unicode character offsets.
-Do not calculate offsets yourself. If no supplied quote explicitly supports or
-contradicts a signal, use UNKNOWN. Explain uncertain evidence briefly."""
+each signal name in the schema, with no duplicates. For UNKNOWN, set quote_index to null. For PRESENT and ABSENT, return the
+zero-based index of the exact supporting entry in evidence_quotes. Never invent a
+quote or calculate character offsets. The server inserts the original quote and
+calculates its exact Unicode offsets. If no entry explicitly supports or contradicts
+a signal, use UNKNOWN. Explain uncertain evidence briefly."""
 
 
 def evidence_quotes(remarks):
@@ -54,15 +48,15 @@ def evidence_quotes(remarks):
     # supply a unique span containing their actual surrounding context.
     if not quotes and remarks.strip() and len(remarks.strip()) <= 600:
         quotes.append(remarks.strip())
-    return list(dict.fromkeys(quotes))
+    return list(dict.fromkeys(quotes))[:500]
 
 
 def schema(remarks=None):
     from openai_labels import object_schema
     common = {"signal":{"type":"string", "enum":list(TEXT_SIGNALS)}, "probability":{"type":"null"}}
-    unknown = object_schema({**common, "state":{"type":"string", "enum":["UNKNOWN"]},
+    unknown = object_schema({"state":{"type":"string", "enum":["UNKNOWN"]}, **common,
         "snippet":{"type":"null"}, "start":{"type":"null"}, "end":{"type":"null"}})
-    supported = object_schema({**common, "state":{"type":"string", "enum":["PRESENT","ABSENT"]},
+    supported = object_schema({"state":{"type":"string", "enum":["PRESENT","ABSENT"]}, **common,
         "snippet":{"type":"string", "minLength":1},
         "start":{"type":"integer", "minimum":0}, "end":{"type":"integer", "minimum":1}})
     if remarks is not None:
@@ -79,6 +73,40 @@ def schema(remarks=None):
         "text_signals": {"type":"array", "minItems":len(TEXT_SIGNALS), "maxItems":len(TEXT_SIGNALS),
             "items":{"anyOf":choices}},
     })
+
+
+
+def provider_schema(remarks):
+    """Use quote indices rather than source strings or unions in provider grammar."""
+    from openai_labels import object_schema
+    quotes=evidence_quotes(remarks)
+    row=object_schema({
+        'signal':{'type':'string','enum':list(TEXT_SIGNALS)},
+        'state':{'type':'string','enum':['PRESENT','ABSENT','UNKNOWN']},
+        'quote_index':{'type':['integer','null'],'enum':[None,*range(len(quotes))]} if quotes else {'type':'null'},
+    })
+    value=schema()
+    value['properties']['text_signals']['items']=row
+    return value
+
+
+def expand_quote_references(proposal,remarks):
+    quotes=evidence_quotes(remarks)
+    result={**proposal,'text_signals':[]}
+    for item in proposal['text_signals']:
+        index=item['quote_index']
+        state=item['state']
+        if state=='UNKNOWN':
+            snippet=None
+        elif type(index) is not int or not 0 <= index < len(quotes):
+            # A proposed conclusion without source support remains unknown.
+            state='UNKNOWN'
+            snippet=None
+        else:
+            snippet=quotes[index]
+        result['text_signals'].append({'signal':item['signal'],'state':state,
+            'probability':None,'snippet':snippet,'start':None,'end':None})
+    return result
 
 
 def evidence(detail):
@@ -127,6 +155,22 @@ def anchor_text_spans(items, remarks):
     return items
 
 
+
+def provider_diagnostic(exc):
+    """Classify provider failures without saving response text or private evidence."""
+    import httpx
+    if not isinstance(exc,httpx.HTTPStatusError):return None
+    try:
+        error=exc.response.json().get('error',{})
+        message=str(error.get('message','')).casefold()
+        code=error.get('code')
+        known={'invalid_json_schema','context_length_exceeded','invalid_value','unsupported_parameter','invalid_request_error'}
+        hints=[word for word in ('schema','enum','grammar','token','context','unsupported','duplicate','invalid','complex','anyof','identical','first key','minlength','maxlength') if word in message]
+        return {'code':code if code in known else 'provider_rejection','hints':hints}
+    except (ValueError,AttributeError,TypeError):
+        return {'code':'provider_rejection','hints':[]}
+
+
 def process(store, request, classifier):
     """Worker CAS claim; interrupted paid requests never automatically retry."""
     key = "typed-label-request:" + request["property_id"]
@@ -158,7 +202,7 @@ def process(store, request, classifier):
             raise ValueError("No usable evidence")
         if len(inputs["remarks"]) > 16000:
             raise ValueError("Remarks exceed bounded analysis limit")
-        provider_schema = schema(inputs["remarks"])
+        response_schema = provider_schema(inputs["remarks"])
         provider_inputs = {**inputs, "evidence_quotes":evidence_quotes(inputs["remarks"])}
         stage = "daily_budget"
         classifier.reserve_call()  # Shares the existing bounded daily OpenAI budget.
@@ -167,7 +211,7 @@ def process(store, request, classifier):
             headers={"Authorization":"Bearer " + classifier.key}, json={
                 "model":classifier.model, "store":False, "max_output_tokens":6000,
                 "input":[{"role":"system","content":PROMPT}, {"role":"user","content":json.dumps(provider_inputs)}],
-                "text":{"format":{"type":"json_schema","name":"typed_property_draft","strict":True,"schema":provider_schema}},
+                "text":{"format":{"type":"json_schema","name":"typed_property_draft","strict":True,"schema":response_schema}},
             })
         response.raise_for_status()
         stage = "provider_response"
@@ -180,7 +224,8 @@ def process(store, request, classifier):
         from jsonschema import validate
         from studio_v2 import validate_text_reviews
         stage = "structured_schema"
-        validate(proposal, provider_schema)
+        validate(proposal, response_schema)
+        proposal = expand_quote_references(proposal, inputs["remarks"])
         stage = "text_evidence"
         anchor_text_spans(proposal["text_signals"], inputs["remarks"])
         for item in proposal["text_signals"]:
@@ -210,7 +255,7 @@ def process(store, request, classifier):
             "status":"draft", "label_schema_version":LABEL_SCHEMA_V2,
             "label_evidence_id":request["label_evidence_id"], "policy":POLICY,
             "model":classifier.model, "input_sha256":digest(inputs), "property_id":prop["id"],
-            "requested_by":request["requested_by"], "quotation_policy":"source-quote-enum-v1", "at":now(), "trained_v2":False}, previous.get("revision", 0))
+            "requested_by":request["requested_by"], "quotation_policy":"source-quote-index-v2", "at":now(), "trained_v2":False}, previous.get("revision", 0))
         stage = "request_completion"
         store.save_document(key, {**active, "status":"completed", "at":now()}, active["revision"])
         return True
@@ -233,6 +278,7 @@ def process(store, request, classifier):
             "error_code":evidence_errors.get(str(exc)) if stage == "text_evidence" else None,
             "evidence_failure":evidence_failure,
             "provider_status":exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None,
+            "provider_diagnostic":provider_diagnostic(exc),
             "error":"Draft request failed or evidence changed; explicit retry required."}, active["revision"])
         return False
 
@@ -263,4 +309,5 @@ def heartbeat(store, classifier):
     previous = store.document("typed-label-worker") or {}
     return store.save_document("typed-label-worker", {"at":now(),
         "status":"ready" if enabled and classifier else "disabled" if not enabled else "unconfigured",
-        "policy":POLICY, "trained_v2":False, "daily_budget_shared":True, "daily_limit":classifier.limit if classifier else None}, previous.get("revision", 0))
+        "policy":POLICY, "trained_v2":False, "daily_budget_shared":True, "daily_limit":classifier.limit if classifier else None,
+        "runtime_commit":os.environ.get("RENDER_GIT_COMMIT"), "worker_instance":os.environ.get("RENDER_INSTANCE_ID")}, previous.get("revision", 0))

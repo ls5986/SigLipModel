@@ -109,3 +109,11 @@ def test_reference_listing_prediction_does_not_remove_training_quarantine():
  assert prediction(s,'reference')['status']=='queued'
  assert s.details['reference']['historical_source']['blocked'] is True
  assert not any(k.startswith('typed-label-result:') for k in s.docs)
+
+
+def test_prediction_running_lease_is_bounded_and_missing_timestamps_recover():
+ from experimental_candidate import prediction_lease_expired
+ from studio_data import now
+ assert prediction_lease_expired({'at':'2026-01-01T00:00:00+00:00'})
+ assert prediction_lease_expired({})
+ assert not prediction_lease_expired({'at':now()})

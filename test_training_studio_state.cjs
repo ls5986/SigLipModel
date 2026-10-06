@@ -4,7 +4,7 @@ const html=fs.readFileSync('training_studio.html','utf8');
 const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1].replace('guard(boot)();','');
 class Element{constructor(){this.children=[];this.value='';this.textContent='';}append(...items){this.children.push(...items)}replaceChildren(...items){this.children=items}setAttribute(){} }
 const elements=new Map(),get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id)};
-const sandbox={document:{getElementById:get,createElement:()=>new Element()},structuredClone,setTimeout:()=>1,clearTimeout(){},console};
+const sandbox={window:{addEventListener(){}},location:{pathname:'/studio',hash:''},document:{getElementById:get,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}},structuredClone,setTimeout:()=>1,clearTimeout(){},console};
 vm.createContext(sandbox);vm.runInContext(script,sandbox);
 (async()=>{
  await vm.runInContext(`(async()=>{
@@ -50,5 +50,11 @@ vm.createContext(sandbox);vm.runInContext(script,sandbox);
  if($('property-predict').disabled)throw Error('Button stayed disabled after rejection');
  })()`,sandbox);
  assert.match(JSON.stringify(get('property-prediction')),/Fixture rejection/);
+ await vm.runInContext(`(async()=>{
+ state.caps=null;api=async()=>({actor:{id:'fixture',role:'operator'},cloud:true,taxonomy:{physical_condition:['UNKNOWN'],modernization:['UNKNOWN'],acquisition_fit:['UNKNOWN'],text_signals:['needs_tlc']}});
+ loadQueue=async()=>{};refreshBatch=async()=>{};
+ await boot();
+ if(typeof $('property-predict').onclick!=='function'||typeof $('experimental-predict').onclick!=='function')throw Error('Model button handler was not installed by boot');
+ })()`,sandbox);
  console.log('PASS: automatic draft navigation, explicit edits, saved human correction preservation, inline model results, uncalibrated wording, stale response protection');
 })().catch(e=>{console.error(e);process.exitCode=1});
