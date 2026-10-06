@@ -166,3 +166,31 @@ def test_hosted_auth_rejects_weak_or_non_https_configuration(monkeypatch):
     monkeypatch.setenv('STUDIO_LOGIN_PASSWORD','short')
     monkeypatch.setenv('STUDIO_SESSION_SECRET','short')
     with pytest.raises(ValueError): HostedAuth()
+
+
+def test_authenticated_model_button_route_queues_reference_listing_without_approval(monkeypatch):
+    from types import SimpleNamespace
+    from cloud_runtime import CloudStudio
+    from test_experimental_candidate import Store
+    from experimental_candidate import REQUEST
+    store=Store();store.database=object()
+    store.details['reference']={'property':{'id':'reference','mls_remarks':'Original finishes','metadata':{}},'images':[],'historical_source':{'blocked':True}}
+    store.docs[REQUEST]={'id':'candidate','status':'completed'}
+    store.docs['experimental-candidate:candidate']={'id':'candidate','created_at':'fixture','policy':'fixture','counts':{},'evaluation':{},'encoder':{},'dataset_fingerprint':'fixture','limitations':[],'heads':{}}
+    app=SimpleNamespace(token='csrf')
+    studio=CloudStudio(app,store);app.get_studio=lambda:studio
+    server=create_server(0,app,auth(monkeypatch));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();port=server.server_address[1]
+    try:
+        form=urlencode({'username':'owner@example.test','password':'correct horse battery'})
+        status,headers,_=request(port,'POST','/login',form,{'Origin':'https://studio.example.test','Content-Type':'application/x-www-form-urlencoded'})
+        assert status==303
+        cookie=headers['Set-Cookie'].split(';',1)[0]
+        headers={'Cookie':cookie,'Origin':'https://studio.example.test','X-Review-Token':'csrf','Content-Type':'application/json'}
+        status,_,body=request(port,'POST','/api/studio/v2/experimental/predict',json.dumps({'id':'reference'}),headers)
+        assert status==200 and json.loads(body)['status']=='queued'
+        status,_,body=request(port,'GET','/api/studio/v2/experimental/prediction?id=reference',headers=headers)
+        assert status==200 and json.loads(body)['status']=='queued'
+        assert store.details['reference']['historical_source']['blocked']
+        assert not any(k.startswith('typed-label-result:') for k in store.docs)
+    finally:
+        server.shutdown();server.server_close();thread.join()

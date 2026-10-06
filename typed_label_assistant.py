@@ -60,9 +60,9 @@ def evidence_quotes(remarks):
 def schema(remarks=None):
     from openai_labels import object_schema
     common = {"signal":{"type":"string", "enum":list(TEXT_SIGNALS)}, "probability":{"type":"null"}}
-    unknown = object_schema({**common, "state":{"type":"string", "enum":["UNKNOWN"]},
+    unknown = object_schema({"state":{"type":"string", "enum":["UNKNOWN"]}, **common,
         "snippet":{"type":"null"}, "start":{"type":"null"}, "end":{"type":"null"}})
-    supported = object_schema({**common, "state":{"type":"string", "enum":["PRESENT","ABSENT"]},
+    supported = object_schema({"state":{"type":"string", "enum":["PRESENT","ABSENT"]}, **common,
         "snippet":{"type":"string", "minLength":1},
         "start":{"type":"integer", "minimum":0}, "end":{"type":"integer", "minimum":1}})
     if remarks is not None:
@@ -137,7 +137,7 @@ def provider_diagnostic(exc):
         message=str(error.get('message','')).casefold()
         code=error.get('code')
         known={'invalid_json_schema','context_length_exceeded','invalid_value','unsupported_parameter','invalid_request_error'}
-        hints=[word for word in ('schema','enum','grammar','token','context','unsupported','duplicate','invalid','complex') if word in message]
+        hints=[word for word in ('schema','enum','grammar','token','context','unsupported','duplicate','invalid','complex','anyof','identical','first key','minlength','maxlength') if word in message]
         return {'code':code if code in known else 'provider_rejection','hints':hints}
     except (ValueError,AttributeError,TypeError):
         return {'code':'provider_rejection','hints':[]}
@@ -280,4 +280,5 @@ def heartbeat(store, classifier):
     previous = store.document("typed-label-worker") or {}
     return store.save_document("typed-label-worker", {"at":now(),
         "status":"ready" if enabled and classifier else "disabled" if not enabled else "unconfigured",
-        "policy":POLICY, "trained_v2":False, "daily_budget_shared":True, "daily_limit":classifier.limit if classifier else None}, previous.get("revision", 0))
+        "policy":POLICY, "trained_v2":False, "daily_budget_shared":True, "daily_limit":classifier.limit if classifier else None,
+        "runtime_commit":os.environ.get("RENDER_GIT_COMMIT"), "worker_instance":os.environ.get("RENDER_INSTANCE_ID")}, previous.get("revision", 0))

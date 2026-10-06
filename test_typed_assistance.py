@@ -296,3 +296,10 @@ def test_provider_diagnostic_never_saves_response_text_or_unrecognized_codes():
     result=provider_diagnostic(error)
     assert result=={'code':'provider_rejection','hints':['schema','grammar','invalid']}
     assert 'secret' not in json.dumps(result) and 'private' not in json.dumps(result)
+
+
+def test_provider_union_discriminator_is_the_first_property_and_has_disjoint_values():
+    from typed_label_assistant import schema
+    branches=schema('Needs TLC')['properties']['text_signals']['items']['anyOf']
+    assert all(next(iter(branch['properties']))=='state' for branch in branches)
+    assert set(branches[0]['properties']['state']['enum']).isdisjoint(branches[1]['properties']['state']['enum'])
