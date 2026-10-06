@@ -14,6 +14,7 @@ def public_status(store):
     bundle = store.document('experimental-candidate:'+request.get('id','')) if request.get('status')=='completed' else None
     return {'request':request, 'candidate':{k:bundle[k] for k in ('id','created_at','policy','counts','evaluation','encoder','dataset_fingerprint','limitations')} if bundle else None,
             'tasks':{task:{'classes':head['classes'],'training_class_counts':head['training_class_counts']} for task,head in (bundle or {}).get('heads',{}).items()},
+            'review_next':[{'id':r['id'],'split':r['split'],'labels':{k:v for k,v in r['labels'].items() if k in ('physical_condition','modernization','acquisition_fit')}} for r in sorted((bundle or {}).get('provenance',[]),key=lambda r:(r['split']!='validation',r['id'])) if r['origin']=='unreviewed_ai_draft'][:8],
             'production_ready':False,'approved_release':False}
 
 def enqueue(store, payload, actor):
@@ -211,7 +212,10 @@ def poll_prediction(store):
             probabilities=predict_head(head,matrix)[0];index=int(np.argmax(probabilities));score=float(probabilities[index])
             results[task]={'label':head['classes'][index] if score>=.6 else 'UNKNOWN','uncalibrated_probability':score,'classes':dict(zip(head['classes'],map(float,probabilities)))}
         if evidence(store.property(request['id']))!=request['evidence_id']:raise ValueError('Evidence changed')
-        trained_on=next((r['split'] for r in bundle['provenance'] if r['id']==request['id']),None)
+        from cloud_training import snapshot
+        _,properties=snapshot(store)
+        group=next((r['group_id'] for r in properties if r['id']==request['id']),None)
+        trained_on=next((r['split'] for r in bundle['provenance'] if r['group_id']==group),None)
         store.save_document(item['item_id'],{**active,'status':'completed','at':now(),'results':results,
             'training_membership':trained_on,'notice':'Experimental text + metadata prediction; not human truth, calibrated confidence, vision analysis or production inference'},active['revision'])
     except Exception:
