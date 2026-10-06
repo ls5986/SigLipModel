@@ -27,8 +27,10 @@
       "result": {
         "physical_condition": "UNKNOWN",
         "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
         "condition_probabilities": {},
         "modernization_probabilities": {},
+        "acquisition_fit_probabilities": {},
         "value_add_score": null,
         "confidence": null,
         "text_signals": []
@@ -42,8 +44,10 @@
       "result": {
         "physical_condition": "UNKNOWN",
         "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
         "condition_probabilities": {},
         "modernization_probabilities": {},
+        "acquisition_fit_probabilities": {},
         "value_add_score": null,
         "confidence": null,
         "text_signals": []
@@ -57,8 +61,10 @@
       "result": {
         "physical_condition": "UNKNOWN",
         "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
         "condition_probabilities": {},
         "modernization_probabilities": {},
+        "acquisition_fit_probabilities": {},
         "value_add_score": null,
         "confidence": null,
         "text_signals": []
@@ -72,8 +78,10 @@
       "result": {
         "physical_condition": "UNKNOWN",
         "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
         "condition_probabilities": {},
         "modernization_probabilities": {},
+        "acquisition_fit_probabilities": {},
         "value_add_score": null,
         "confidence": null,
         "text_signals": []
@@ -84,8 +92,10 @@
   "result": {
     "physical_condition": "UNKNOWN",
     "modernization": "UNKNOWN",
+    "acquisition_fit": "UNKNOWN",
     "condition_probabilities": {},
     "modernization_probabilities": {},
+    "acquisition_fit_probabilities": {},
     "value_add_score": null,
     "confidence": null,
     "text_signals": []

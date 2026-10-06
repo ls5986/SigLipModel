@@ -302,13 +302,30 @@ class SupabaseStore:
             image['synthetic_evidence'] = image_evidence(listing,description)
             image['selection'] = selection(image['effective']['context'],review,image['synthetic_evidence'])
             images.append(image)
+        try:
+            provider_photo_count = int(metadata.get('PhotosCount')) if metadata.get('PhotosCount') not in {None, ''} else None
+        except (TypeError, ValueError):
+            provider_photo_count = None
+        if photos and history['blocked']:
+            photo_notice = 'Stored listing photos are shown for source review only; source/listing identity is unresolved.'
+        elif photos and not history.get('timing_verified'):
+            photo_notice = 'Stored listing photos are available, but acquisition-era photo identity is not verified yet.'
+        elif not photos and provider_photo_count == 0:
+            photo_notice = 'The MLS provider reports zero listing photos for this record.'
+        elif not photos and provider_photo_count and provider_photo_count > 0:
+            photo_notice = f'The MLS provider reports {provider_photo_count} photo(s), but none are retained in the training workspace. Media recovery is required.'
+        elif not photos:
+            photo_notice = 'No retained listing photos are stored, and the provider photo count is unknown.'
+        else:
+            photo_notice = None
         return {'property':{'id':identifier,'address':metadata.get('UnparsedAddress',identifier),
                  'city':metadata.get('City'),'year_built':metadata.get('YearBuilt'),
                  'property_type':metadata.get('PropertySubType'),'metadata':metadata,
                  'review':self._review('property',identifier,legacy,live),
                  'mls_remarks':__import__('listing_text').remarks(listing),
                  'synthetic_evidence':__import__('listing_text').image_evidence(listing)},
-                'images':images,'stored_photo_count':len(photos),'photo_display_notice':'Stored listing photos are shown for source review only; acquisition-era matching is unresolved.' if history['blocked'] and photos else None,'coverage':coverage,'property_suggestions':[], 'assessment':None,
+                'images':images,'stored_photo_count':len(photos),'provider_photo_count':provider_photo_count,
+                'photo_display_notice':photo_notice,'coverage':coverage,'property_suggestions':[], 'assessment':None,
                 'historical_source':history,
                 'capabilities':{'review':True,'assessment':False,'training':False,'autolabel':not mismatched and any(not i['synthetic_evidence']['excluded'] for i in images),'storage':'supabase'}}
 
@@ -537,6 +554,7 @@ class SupabaseStore:
                         c.item->'listing'->>'UnparsedAddress' AS address,
                         c.item->'listing'->>'City' AS city,
                         c.item->'listing'->>'ListingId' AS listing_id,
+                        c.item->'listing'->>'PhotosCount' AS provider_photo_count,
                         jsonb_build_object('listing',jsonb_build_object('StandardStatus',c.item->'listing'->>'StandardStatus','CloseDate',c.item->'listing'->>'CloseDate'),
                           'match',c.item->'match') AS candidate
                       FROM acq_training.examples e
@@ -584,8 +602,34 @@ class SupabaseStore:
                         'interior' if interior_tags else
                         'limited' if photo.get('count',0) else 'metadata_only'
                     )
+                    try:
+                        provider_photo_count = int(row['provider_photo_count']) if row['provider_photo_count'] not in {None, ''} else None
+                    except (TypeError, ValueError):
+                        provider_photo_count = None
+                    retained_count = photo.get('count',0)
+                    if blocked:
+                        photo_state = 'source_conflict'
+                    elif retained_count == 0 and provider_photo_count == 0:
+                        photo_state = 'provider_no_photos'
+                    elif retained_count == 0 and provider_photo_count and provider_photo_count > 0:
+                        photo_state = 'provider_photos_not_imported'
+                    elif era.get('decision') == 'wrong_era':
+                        photo_state = 'wrong_acquisition_era'
+                    elif retained_count and era.get('decision') != 'correct_era':
+                        photo_state = 'acquisition_era_unverified'
+                    elif retained_count and era.get('evidence_hash') != photo.get('evidence_hash'):
+                        photo_state = 'photo_inventory_changed'
+                    elif retained_count:
+                        photo_state = 'photos_verified'
+                    else:
+                        photo_state = 'photo_status_unknown'
                     items[key] = {'id':key,'address':row['address'] or key,'city':row['city'],
-                        'listing_id':row['listing_id'],'image_count':photo.get('count',0),'hero_image_id':photo.get('hero'),
+                        'listing_id':row['listing_id'],'image_count':retained_count,'hero_image_id':photo.get('hero'),
+                        'provider_photo_count':provider_photo_count,
+                        'photo_status':{'state':photo_state,'provider_photo_count':provider_photo_count,
+                            'retained_photo_count':retained_count,
+                            'era_decision':era.get('decision'),'retained_evidence_hash':photo.get('evidence_hash'),
+                            'verified_evidence_hash':era.get('evidence_hash')},
                         'status':'reviewed' if review.get('status')=='approved' else 'unscored',
                         'human_target':review.get('target_fit'),
                         'human_score':review.get('target_score'),'target':None,
@@ -625,6 +669,11 @@ class SupabaseStore:
         counts['limited'] = sum(i['evidence_mode']=='limited' for i in items)
         counts['metadata_only'] = sum(i['evidence_mode']=='metadata_only' for i in items)
         counts['missing_text'] = sum(i['missing_text'] for i in items)
+        counts['with_photos'] = sum(i['image_count'] > 0 for i in items)
+        counts['without_photos'] = sum(i['image_count'] == 0 for i in items)
+        counts['photo_states'] = dict(__import__('collections').Counter(
+            i.get('photo_status',{}).get('state','photo_status_unknown') for i in items
+        ))
         photo_count = sum(i['image_count'] for i in items)
         search = args.get('search','').strip().casefold()
         items = [i for i in items if (queue=='all' or queue=='todo' and not i['review_complete']

@@ -50,6 +50,11 @@ def fixtures():
         "release_id": evidence["release_id"], "status": "candidate",
         "components": dict.fromkeys(("vision", "text", "structured", "fusion")),
         "dataset_sha256": digest({"fixture": "dataset"}),
+        "code_commit": "fixture-commit",
+        "split_policy_version": "fixture-group-split-v2",
+        "backbones": {"vision": "google/siglip2-base-patch16-224", "text": "sentence-transformers/all-MiniLM-L6-v2"},
+        "thresholds": {},
+        "created_at": "2026-10-02T00:00:00Z",
         "evaluation": {"report_sha256": digest({"fixture": "evaluation"}), "protected_slices_passed": False},
         "approved_by": None, "approved_at": None,
     }
@@ -68,8 +73,10 @@ def fixtures():
     full_request["evidence_id"] = digest(full_request["evidence"])
     result = {
         **unknown_result(), "physical_condition": "C3_WELL_MAINTAINED", "modernization": "ORIGINAL",
+        "acquisition_fit": "TARGET",
         "condition_probabilities": {"C3_WELL_MAINTAINED": .75, "C4_AVERAGE_FUNCTIONAL": .25},
         "modernization_probabilities": {"ORIGINAL": .8, "PARTIALLY_UPDATED": .2},
+        "acquisition_fit_probabilities": {"TARGET": .6, "NOT_TARGET": .4},
         "value_add_score": .6, "confidence": .7,
     }
     complete = deepcopy(prediction)

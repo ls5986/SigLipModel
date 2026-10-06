@@ -1,4 +1,8 @@
-"""Hosted draft-label worker. No scoring, training, bulk enqueue or promotion."""
+"""Hosted CPU worker with isolated draft-label and ActVision v2 model lanes.
+
+The v2 lane can train research candidates and serve approved inference artifacts,
+but it cannot promote releases.
+"""
 from __future__ import annotations
 
 import os
@@ -121,6 +125,17 @@ def main():
             classifiers.append(paid)
         last_heartbeat = 0
         last_experiment = 0
+        last_v2_model = 0
+        if os.environ.get("STUDIO_V2_MODEL_ENABLED", "false").lower() == "true":
+            from v2_training import heartbeat as v2_heartbeat
+            v2_heartbeat(store, "ready", detail={"lane": "model"})
+            from v2_auto_bootstrap import maybe_enqueue
+            try:
+                bootstrap = maybe_enqueue(store)
+                if bootstrap.get("status") != "disabled":
+                    print("ActVision v2 auto-bootstrap: " + str(bootstrap.get("status")), flush=True)
+            except Exception:
+                print("ActVision v2 auto-bootstrap could not queue; inspect saved marker.", flush=True)
         while not STOP.is_set():
             if time.monotonic() - last_heartbeat >= 30:
                 for classifier in classifiers:
@@ -152,6 +167,44 @@ def main():
                 poll_prediction(store)
             except Exception:
                 print("Experimental prediction failed; inspect saved status.", flush=True)
+
+            if (
+                os.environ.get("STUDIO_V2_MODEL_ENABLED", "false").lower() == "true"
+                and time.monotonic() - last_v2_model >= 5
+            ):
+                from v2_training import poll_training, heartbeat as v2_heartbeat
+                active_heartbeat = threading.Event()
+                def keep_model_heartbeat():
+                    while not active_heartbeat.wait(25):
+                        try:
+                            v2_heartbeat(store, "running", detail={"lane": "model", "operation": "training"})
+                        except Exception:
+                            pass
+                helper = None
+                try:
+                    request = store.document("actvision-v2-training-current") or {}
+                    if request.get("status") == "queued":
+                        helper = threading.Thread(target=keep_model_heartbeat, daemon=True)
+                        helper.start()
+                    poll_training(store, rooms)
+                    from v2_auto_bootstrap import reconcile as reconcile_v2_bootstrap
+                    reconcile_v2_bootstrap(store)
+                    from v2_inference import poll as poll_v2_inference
+                    from v2_property_prediction import poll as poll_v2_property
+                    inference_ran = poll_v2_inference(store, rooms)
+                    property_ran = poll_v2_property(store, rooms)
+                    if request.get("status") not in {"queued", "running"}:
+                        v2_heartbeat(store, "ready", detail={
+                            "lane": "model",
+                            "latest_operation": "inference" if inference_ran else "property_prediction" if property_ran else "idle",
+                        })
+                except Exception:
+                    print("ActVision v2 training failed; inspect saved run states.", flush=True)
+                finally:
+                    active_heartbeat.set()
+                    if helper:
+                        helper.join(timeout=2)
+                    last_v2_model = time.monotonic()
             STOP.wait(5)
     finally:
         if paid:
@@ -159,6 +212,12 @@ def main():
         for classifier in classifiers:
             heartbeat(store, "stopped", stage=classifier.stage,
                       provider=getattr(classifier, "provider", None))
+        if os.environ.get("STUDIO_V2_MODEL_ENABLED", "false").lower() == "true":
+            try:
+                from v2_training import heartbeat as v2_heartbeat
+                v2_heartbeat(store, "stopped", detail={"lane": "model"})
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

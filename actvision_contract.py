@@ -27,8 +27,8 @@ def remarks_digest(value):
 
 def unknown_result():
     return {
-        "physical_condition": "UNKNOWN", "modernization": "UNKNOWN",
-        "condition_probabilities": {}, "modernization_probabilities": {},
+        "physical_condition": "UNKNOWN", "modernization": "UNKNOWN", "acquisition_fit": "UNKNOWN",
+        "condition_probabilities": {}, "modernization_probabilities": {}, "acquisition_fit_probabilities": {},
         "value_add_score": None, "confidence": None, "text_signals": [],
     }
 
@@ -148,7 +148,7 @@ def _validate_result(result):
     error = next(validator.iter_errors(result), None)
     if error:
         raise ValueError("Invalid physical result: " + error.message)
-    for key in ("condition_probabilities", "modernization_probabilities"):
+    for key in ("condition_probabilities", "modernization_probabilities", "acquisition_fit_probabilities"):
         values = result[key]
         if values and abs(sum(values.values()) - 1.0) > 1e-6:
             raise ValueError("Class probabilities must sum to one")

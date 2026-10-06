@@ -170,20 +170,46 @@ def target_class(review: dict | None) -> int | None:
     return {"target": 1, "not_target": 0}.get(review.get("target_fit"))
 
 
-def vision_vector(vectors: list[np.ndarray] | np.ndarray) -> np.ndarray | None:
+VISION_ROOMS = ("kitchen", "bathroom", "living", "bedroom", "exterior", "other")
+
+
+def vision_vector(vectors) -> "np.ndarray | None":
+    """Room-balanced property aggregation over frozen image embeddings.
+
+    Accepts either the legacy NxD ndarray/list of vectors or a list of
+    {"vector": embedding, "room": label} records. Room balancing prevents a
+    listing with many living-room photos from drowning out a single kitchen or
+    bathroom. Missing rooms are explicit coverage features, never fake vectors.
+    """
     import numpy as np
     if isinstance(vectors, np.ndarray):
         values = vectors
+        rooms = ["other"] * len(values)
     elif vectors:
-        values = np.stack(vectors)
+        if isinstance(vectors[0], dict):
+            values = np.stack([np.asarray(item["vector"]) for item in vectors])
+            rooms = [str(item.get("room") or "other") for item in vectors]
+        else:
+            values = np.stack(vectors)
+            rooms = ["other"] * len(values)
     else:
         return None
-    if values.ndim != 2 or not len(values):
+    if values.ndim != 2 or not len(values) or not np.isfinite(values).all():
         return None
+
+    room_means = []
+    room_features = []
+    for room in VISION_ROOMS:
+        selected = values[[i for i, value in enumerate(rooms) if value == room]]
+        room_features.extend((float(len(selected) > 0), math.log1p(len(selected))))
+        if len(selected):
+            room_means.append(selected.mean(axis=0))
+    balanced = np.stack(room_means).mean(axis=0) if room_means else values.mean(axis=0)
     return np.concatenate([
         values.mean(axis=0),
+        balanced,
         values.max(axis=0),
-        np.asarray([math.log1p(len(values))], dtype=values.dtype),
+        np.asarray([math.log1p(len(values)), *room_features], dtype=values.dtype),
     ])
 
 
