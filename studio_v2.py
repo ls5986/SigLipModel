@@ -98,11 +98,6 @@ def get(studio, raw_path):
         return public_status(studio.store)
     if action == "dataset/latest":
         return studio.store.document("actvision-v2-dataset-latest") or {"status": "none"}
-    if action == "inventory":
-        if not cloud:
-            raise ValueError("Canonical inventory requires the cloud training backend")
-        from studio_inventory import inventory_status
-        return inventory_status(studio.store)
     if action == "inventory/status":
         if not cloud:
             return {"counts": {}, "items": [], "unavailable": "Cloud inventory status requires the training database"}
