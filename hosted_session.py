@@ -79,9 +79,22 @@ SESSION_SCRIPT = r'''<script>
     // Never automatically replay a save, labeling request, or training run.
     return response;
   };
+  function alignAccountBar() {
+    const bar = document.querySelector('.acq-session-bar');
+    if (!bar) return;
+    const sidebar = document.querySelector('aside.sidebar');
+    let inset = 0;
+    if (sidebar && window.getComputedStyle(sidebar).position === 'fixed') {
+      const bounds = sidebar.getBoundingClientRect();
+      if (bounds.left <= 1) inset = Math.max(0, bounds.right);
+    }
+    bar.style.marginLeft = inset + 'px';
+  }
   document.addEventListener('DOMContentLoaded', () => {
+    alignAccountBar();
     if (pendingNotice) notice(pendingNotice, pendingSignedOut);
   });
+  window.addEventListener('resize', alignAccountBar);
   window.addEventListener('pageshow', event => {
     if (event.persisted) window.location.reload();
   });
