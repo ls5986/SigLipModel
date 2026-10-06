@@ -830,3 +830,30 @@ def test_release_control_migrations_never_grant_worker_promotion():
     assert "to acq_training_worker" not in "\n".join(
         line for line in sql.splitlines() if "promote_release_v2" in line or "grant execute" in line
     )
+
+
+
+def test_v2_auto_bootstrap_is_explicit_and_never_retries_failed(monkeypatch):
+    from v2_auto_bootstrap import MARKER, maybe_enqueue
+
+    class Store:
+        def __init__(self):
+            self.docs = {}
+            self.writes = 0
+        def document(self, key):
+            return self.docs.get(key)
+        def save_document(self, key, payload, expected):
+            self.writes += 1
+            saved = {**payload, "revision": expected + 1}
+            self.docs[key] = saved
+            return saved
+
+    store = Store()
+    monkeypatch.delenv("STUDIO_V2_AUTO_BOOTSTRAP_ONCE", raising=False)
+    assert maybe_enqueue(store)["status"] == "disabled"
+    assert store.writes == 0
+
+    monkeypatch.setenv("STUDIO_V2_AUTO_BOOTSTRAP_ONCE", "true")
+    store.docs[MARKER] = {"status": "failed", "reason": "prior failure", "revision": 1}
+    assert maybe_enqueue(store)["status"] == "failed"
+    assert store.writes == 0
