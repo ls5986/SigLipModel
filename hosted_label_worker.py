@@ -181,11 +181,13 @@ def main():
                         helper.start()
                     poll_training(store, rooms)
                     from v2_inference import poll as poll_v2_inference
+                    from v2_property_prediction import poll as poll_v2_property
                     inference_ran = poll_v2_inference(store, rooms)
+                    property_ran = poll_v2_property(store, rooms)
                     if request.get("status") not in {"queued", "running"}:
                         v2_heartbeat(store, "ready", detail={
                             "lane": "model",
-                            "latest_operation": "inference" if inference_ran else "idle",
+                            "latest_operation": "inference" if inference_ran else "property_prediction" if property_ran else "idle",
                         })
                 except Exception:
                     print("ActVision v2 training failed; inspect saved run states.", flush=True)
