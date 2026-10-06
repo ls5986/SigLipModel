@@ -496,7 +496,6 @@ def test_freeze_rejects_first_typed_review_after_legacy_preview(monkeypatch, tar
     "release?#%+reserved", "literal%2Fnot-a-slash",
 ])
 def test_hosted_release_lookup_decodes_id_exactly_once(monkeypatch, release_id):
-    from types import SimpleNamespace
     from urllib.parse import quote
     from hosted_server import create_server
     from test_hosted_server import App, auth, request
@@ -504,7 +503,12 @@ def test_hosted_release_lookup_decodes_id_exactly_once(monkeypatch, release_id):
     manifest = fixtures()["release-shadow"]
     manifest["release_id"] = release_id
     validate_contract(manifest, "release")
-    monkeypatch.setattr("actvision_service.configured_bundle", lambda: SimpleNamespace(manifest=manifest))
+    from actvision_service import UnavailableError
+    def lookup(_store, requested):
+        if requested != release_id:
+            raise UnavailableError("Release not found")
+        return manifest
+    monkeypatch.setattr("actvision_service.approved_manifest", lookup)
     monkeypatch.setenv("ACTVISION_SERVICE_TOKEN", "x" * 32)
     server = create_server(0, App(), auth(monkeypatch))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -655,7 +659,7 @@ def test_worker_heartbeat_state_rejects_stale_ready_status():
     fresh = worker_heartbeat_state(Store({
         "status": "ready", "at": datetime.now(UTC).isoformat(),
         "policy": "openai-property-typed-draft-v2", "daily_limit": 0,
-    }))
+    }), "worker")
     assert fresh["online"] is True
     assert fresh["actionable"] is True
     assert fresh["status"] == "ready"
@@ -663,7 +667,7 @@ def test_worker_heartbeat_state_rejects_stale_ready_status():
 
     stale = worker_heartbeat_state(Store({
         "status": "ready", "at": (datetime.now(UTC) - timedelta(hours=2)).isoformat(),
-    }))
+    }), "worker")
     assert stale["online"] is False
     assert stale["actionable"] is False
     assert stale["status"] == "offline"
