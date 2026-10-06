@@ -317,7 +317,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   if(S.knownTargets)queueSummary.replaceChildren(
    summaryStat(S.counts.all,'Acquisition targets'),
    summaryStat(S.counts.photo_match,'Source/photo recovery'),
-   summaryStat(S.counts.ready,'AI drafts ready'),
+   summaryStat(S.counts.with_photos,'With acquisition photos'),
    summaryStat(S.counts.reviewed,'Human corrections')
   );
   $('ready-button').textContent=`AI drafts (${S.counts.ready})`;drawQueue();
