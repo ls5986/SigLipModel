@@ -1,4 +1,5 @@
 contracts/actvision-v2.schema.json text eol=lf
+contracts/manifest.json text eol=lf
 contracts/fixtures/*.json text eol=lf
 actvision_contract.py text eol=lf
 tools/export_actvision_fixtures.py text eol=lf
