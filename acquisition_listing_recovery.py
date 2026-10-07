@@ -5,6 +5,109 @@ import hashlib
 import os
 import re
 import threading
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class MediaRecord:
+    url: str
+    order: int | None
+    media_key: str | None
+    category: str | None
+    short_description: str | None
+    long_description: str | None
+    image_of: str | None
+    media_type: str | None
+    modification_timestamp: str | None
+
+
+@dataclass(frozen=True)
+class MediaRecords:
+    records: list[MediaRecord]
+    truncated: bool
+
+
+class HostedTrestleClient:
+    def __init__(self):
+        import httpx
+        client_id = os.environ.get("TRESTLE_CLIENT_ID", "")
+        secret = os.environ.get("TRESTLE_CLIENT_SECRET", "")
+        if not client_id or not secret:
+            raise ValueError("Cotality credentials are not configured")
+        self.client_id = client_id
+        self.secret = secret
+        self.http = httpx.AsyncClient(
+            base_url="https://api.cotality.com",
+            timeout=45,
+            follow_redirects=False,
+            trust_env=False,
+        )
+        self._token = None
+
+    async def close(self):
+        await self.http.aclose()
+
+    async def _access_token(self):
+        if self._token:
+            return self._token
+        response = await self.http.post(
+            "/trestle/oidc/connect/token",
+            data={
+                "client_id": self.client_id,
+                "client_secret": self.secret,
+                "grant_type": "client_credentials",
+                "scope": "api",
+            },
+            headers={"Accept": "application/json"},
+        )
+        response.raise_for_status()
+        token = response.json().get("access_token")
+        if not isinstance(token, str) or not token:
+            raise ValueError("Cotality authentication omitted access token")
+        self._token = token
+        return token
+
+    async def media_records(self, listing_key, *, max_images=24):
+        token = await self._access_token()
+        escaped = str(listing_key).replace("'", "''")
+        fields = [
+            "MediaURL", "Order", "MediaKey", "MediaCategory",
+            "ShortDescription", "LongDescription", "ImageOf", "MediaType",
+            "ModificationTimestamp",
+        ]
+        response = await self.http.get(
+            "/trestle/odata/Media",
+            params={
+                "$select": ",".join(fields),
+                "$filter": f"ResourceRecordKey eq '{escaped}'",
+                "$top": max_images,
+                "$orderby": "Order",
+            },
+            headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
+        )
+        response.raise_for_status()
+        payload = response.json()
+        values = payload.get("value")
+        if not isinstance(values, list):
+            raise ValueError("Cotality media response is invalid")
+        records = []
+        for row in values:
+            url = row.get("MediaURL")
+            if not isinstance(url, str) or not url:
+                continue
+            records.append(MediaRecord(
+                url=url,
+                order=row.get("Order") if isinstance(row.get("Order"), int) else None,
+                media_key=str(row.get("MediaKey")) if row.get("MediaKey") is not None else None,
+                category=row.get("MediaCategory"),
+                short_description=row.get("ShortDescription"),
+                long_description=row.get("LongDescription"),
+                image_of=row.get("ImageOf"),
+                media_type=row.get("MediaType"),
+                modification_timestamp=row.get("ModificationTimestamp"),
+            ))
+        return MediaRecords(records[:max_images], bool(payload.get("@odata.nextLink")))
+
+
 
 KEY='acquisition-recovery:'
 
@@ -37,7 +140,6 @@ def acquisition_candidates(rows,source):
     return list(result.values())
 
 async def recover(store,payload):
-    from event_media_recovery import HostedTrestleClient
     from backfill_validation_media import download_image,storage_client,storage_upload
     payload={**payload,'lookup_policy':'historical-apn-address-v2'}
     source=payload['source'];client=HostedTrestleClient();storage=None
