@@ -11,6 +11,9 @@ MARKER = "actvision-v2-auto-bootstrap-once"
 
 @capture_bootstrap_failure
 def maybe_enqueue(store, *, actor="operator:auto-bootstrap"):
+    if os.environ.get("STUDIO_STORAGE_RECOVERY_ID", "").strip():
+        from storage_recovery import run_requested
+        return run_requested(store)
     if os.environ.get("STUDIO_V2_AUTO_BOOTSTRAP_ONCE", "false").lower() != "true":
         return {"status": "disabled"}
 
