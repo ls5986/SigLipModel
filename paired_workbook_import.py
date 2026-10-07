@@ -76,6 +76,7 @@ def prepare(source,stored):
    if not key: reasons.append('NO_CANDIDATE')
    if key and not selected: reasons.append('MISSING_STORED_PAYLOAD')
    if a['Assignment_Status']!='matched': reasons.append('AMBIGUOUS_ASSIGNMENT')
+   if s['Prior Sale Date'] and s['Last Sale Date'] and s['Last Sale Date']<s['Prior Sale Date']: reasons.append('SOURCE_TRANSACTION_ORDER_CONFLICT')
    if key and len(listing_groups[key])>1: reasons.append('LISTING_SHARED_ACROSS_IDENTITIES')
    gap=a[prefix+'_Date_Gap_Days']
    if gap is not None and int(gap)>120: reasons.append('DATE_GAP_OVER_120')

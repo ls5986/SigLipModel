@@ -1,7 +1,7 @@
 BEGIN;
 -- Staged membership only. Freeze and training require separate, explicit approval.
 INSERT INTO acq_training.datasets(workspace_id,name,version,label_policy,purpose)
-SELECT workspace_id,'corrected-prior-sale-reference-review',1,
+SELECT workspace_id,'corrected-prior-sale-reference-review',2,
  '{"mode":"acquisition_reference_similarity_only","provenance":"RULE_DRAFT","classifier_ready":false,"freeze_approved":false,"photo_era_verified":false,"point_in_time_verified":false,"prior_last_labels":"editable_suggestions_not_ground_truth","source":"corrected_paired_workbook_only","supersedes":"earliest_closed_2026_selection","outcomes":"separate_not_features"}'::jsonb,'training'
 FROM acq_training.source_imports WHERE schema_version='paired-workbook-v1'
 ON CONFLICT DO NOTHING;
@@ -12,7 +12,7 @@ SELECT r.workspace_id,r.group_id,r.source_row_id,r.listing_event_id,s.id evidenc
 FROM (SELECT DISTINCT ON(workspace_id,source_row_id,event_role) * FROM acq_training.property_event_roles ORDER BY workspace_id,source_row_id,event_role,revision DESC)r
 JOIN acq_training.source_rows src ON src.workspace_id=r.workspace_id AND src.id=r.source_row_id
 JOIN acq_training.source_imports i ON i.workspace_id=src.workspace_id AND i.id=src.source_import_id
-JOIN acq_training.datasets d ON d.workspace_id=i.workspace_id AND d.name='corrected-prior-sale-reference-review' AND d.version=1
+JOIN acq_training.datasets d ON d.workspace_id=i.workspace_id AND d.name='corrected-prior-sale-reference-review' AND d.version=2
 JOIN acq_training.property_groups g ON g.workspace_id=r.workspace_id AND g.id=r.group_id
 JOIN acq_training.listing_events l ON l.workspace_id=r.workspace_id AND l.id=r.listing_event_id
 JOIN LATERAL(SELECT es.* FROM acq_training.evidence_snapshots es WHERE es.workspace_id=l.workspace_id AND es.listing_event_id=l.id AND es.metadata_snapshot->>'role'='acquisition' ORDER BY es.evidence_sha256 DESC LIMIT 1)s ON true
