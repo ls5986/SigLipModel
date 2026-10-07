@@ -147,7 +147,7 @@ def test_real_storage_probe_gates_retry_and_is_single_use(tmp_path,monkeypatch,f
         def save_document(self,k,payload,revision):
             assert (self.docs.get(k) or {}).get('revision',0)==revision
             self.docs[k]={**deepcopy(payload),'revision':revision+1}
-            return self.docs[k]
+            return deepcopy(self.docs[k])
     store=Store();queued=[]
     if failure == 'active_training': store.docs[TRAINING_KEY]['status'] = 'running'
     if failure == 'wrong_workspace':
@@ -158,7 +158,8 @@ def test_real_storage_probe_gates_retry_and_is_single_use(tmp_path,monkeypatch,f
             'rows':[{'photos':[] if failure=='not_in_dataset' else [{'sha256':sha,'storage_bucket':BUCKET,'storage_object_key':'p'}]}]}
     def enqueue(s,payload,actor):
         queued.append(payload)
-        return {'request':{'id':str(uuid4()),'dataset_id':dataset,'status':'queued'}}
+        return {'request':{'id':str(uuid4()),'dataset_id':dataset,'status':'queued',
+                           'dataset_fingerprint':'f'*64,'requested_by':actor}}
     result=run_requested(store,loader=lambda *_: frozen,enqueuer=enqueue)
     if failure=='none':
         assert result['status']=='retry_queued' and len(queued)==1 and store.calls==1
@@ -171,3 +172,76 @@ def test_real_storage_probe_gates_retry_and_is_single_use(tmp_path,monkeypatch,f
     run_requested(store,loader=lambda *_:pytest.fail('Repeated load'),enqueuer=enqueue)
     assert store.calls==before
     assert 'SECRET' not in json.dumps(store.docs)
+
+
+def setup_concurrent_recovery(tmp_path, monkeypatch, race):
+    from copy import deepcopy
+    import threading
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from PIL import Image
+    from storage_recovery import REQUEST_PREFIX, TRAINING_KEY
+    rid, workspace, dataset, old = [str(uuid4()) for _ in range(4)]
+    for name in ('STUDIO_WORKSPACE_ID', 'STUDIO_LABEL_WORKER_WORKSPACE'):
+        monkeypatch.setenv(name, workspace)
+    monkeypatch.setenv('STUDIO_STORAGE_RECOVERY_ID', rid)
+    key = REQUEST_PREFIX + rid
+    path = tmp_path / 'photo.jpg'
+    Image.new('RGB', (2, 2)).save(path, format='JPEG')
+    sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    request = {'confirmed': True, 'workspace_id': workspace, 'status': 'queued',
+               'operation': 'probe_and_retry', 'dataset_id': dataset,
+               'dataset_fingerprint': 'f' * 64, 'expected_failed_training_id': old,
+               'photo_sha256s': [sha], 'revision': 1}
+    class Store:
+        def __init__(self):
+            self.workspace = workspace
+            self.docs = {key: request, TRAINING_KEY: {'id': old, 'status': 'failed',
+                         'revision': 3, 'dataset_id': dataset, 'dataset_fingerprint': 'f' * 64}}
+            self.storage = SimpleNamespace(lock=threading.RLock(), get=lambda *a, **kw: path)
+            self.enqueued = []
+        def document(self, name):
+            return deepcopy(self.docs.get(name))
+        def save_document(self, name, value, revision):
+            if (self.docs.get(name) or {}).get('revision', 0) != revision:
+                raise RuntimeError('Revision conflict')
+            self.docs[name] = {**deepcopy(value), 'revision': revision + 1}
+            saved = deepcopy(self.docs[name])
+            if race == 'claim_edit' and name == key and value['status'] == 'running':
+                self.docs[key].update(revision=revision + 2, operator_note='Preserve concurrent edit')
+            return saved
+    store = Store()
+    def enqueue(s, value, actor):
+        s.enqueued.append(value)
+        request_actor = 'operator:another-request' if race == 'foreign_enqueue' else actor
+        return {'request': {'id': str(uuid4()), 'dataset_id': dataset, 'status': 'queued',
+                            'dataset_fingerprint': 'f' * 64, 'requested_by': request_actor}}
+    frozen = {'dataset': {'manifest_sha256': 'f' * 64}, 'rows': [{'photos': [{
+        'sha256': sha, 'storage_bucket': BUCKET, 'storage_object_key': 'photo.jpg'}]}]}
+    return store, key, lambda *_: frozen, enqueue
+
+
+def test_claim_revision_never_adopts_concurrent_operator_edit(tmp_path, monkeypatch):
+    from storage_recovery import run_requested
+    store, key, loader, enqueue = setup_concurrent_recovery(tmp_path, monkeypatch, 'claim_edit')
+    with pytest.raises(RuntimeError, match='Revision conflict'):
+        run_requested(store, loader=loader, enqueuer=enqueue)
+    assert store.docs[key]['operator_note'] == 'Preserve concurrent edit'
+    assert store.enqueued == []
+
+
+def test_concurrent_training_request_is_not_attributed_to_recovery(tmp_path, monkeypatch):
+    from storage_recovery import run_requested
+    store, key, loader, enqueue = setup_concurrent_recovery(tmp_path, monkeypatch, 'foreign_enqueue')
+    result = run_requested(store, loader=loader, enqueuer=enqueue)
+    assert result['status'] == 'failed'
+    assert 'training_id' not in result
+
+
+def test_own_verified_retry_is_confirmed(tmp_path, monkeypatch):
+    from storage_recovery import run_requested
+    store, key, loader, enqueue = setup_concurrent_recovery(tmp_path, monkeypatch, 'none')
+    result = run_requested(store, loader=loader, enqueuer=enqueue)
+    assert result['status'] == 'retry_queued'
+    assert len(store.enqueued) == 1
+    assert store.docs[key]['revision'] == 3
