@@ -12,7 +12,7 @@ wire version.
   all seven synthetic fixtures by raw-byte SHA-256.
 - Added a deterministic offline bundle checker.
 - Recorded source provenance at provider commit
-  `68a91e86c13018fed86bb5538cf44002d55cc1fe`.
+  `a56c23078a1948b61141e39df1376cb0479591e3`.
 
 This release versions the existing contract bytes; it does not change schema,
 fixture, runtime, or model behavior.

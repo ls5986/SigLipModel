@@ -3,7 +3,7 @@
   "semantic_contract_version": "1.0.0",
   "provider": "SigLipModel",
   "owner": "SigLipModel",
-  "source_commit": "68a91e86c13018fed86bb5538cf44002d55cc1fe",
+  "source_commit": "a56c23078a1948b61141e39df1376cb0479591e3",
   "wire_version": "actvision-v2",
   "taxonomy_version": "actvision-labels-v2",
   "compatibility_policy": {

@@ -12,7 +12,7 @@ from tools.check_actvision_contract_bundle import build_manifest, check_manifest
 
 
 REPO_ROOT = Path(__file__).resolve().parent
-SOURCE_COMMIT = "68a91e86c13018fed86bb5538cf44002d55cc1fe"
+SOURCE_COMMIT = "a56c23078a1948b61141e39df1376cb0479591e3"
 EXPECTED_FILES = {
     "contracts/actvision-v2.schema.json": "d118dd865852280e04a00b031e04f0daf128d95f8e4887b1741578af559d7f8d",
     "actvision_contract.py": "4f5dcdc8e83b8061dd978aaa1b969a1a62176c9a0339835eac003574446e3227",
