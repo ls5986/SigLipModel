@@ -135,7 +135,7 @@ def create_server(port, app, auth):
                 if path.startswith("/api/"):
                     return self.data(401,{"error":"Your session expired. Sign in again.","login":"/login"})
                 return self.reply(303,b"",headers=[("Location","/login")])
-            if path=="/target-review":
+            if path=="/target-review" or (path=="/" and not parse_qs(urlparse(self.path).query).get("property")):
                 return self.reply(200,(CODE_ROOT/"target_review.html").read_bytes(),"text/html; charset=utf-8")
             if path=="/" and parse_qs(urlparse(self.path).query).get("property"):
                 return self.reply(303,b"",headers=[("Location","/property-review?"+urlparse(self.path).query)])
