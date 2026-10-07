@@ -55,3 +55,6 @@ DO $$ BEGIN
   RAISE EXCEPTION 'Expected exactly 415 unique acquisition property groups';
  END IF;
 END $$;
+
+-- Repair is scoped by existing workspace RLS and server-only database login.
+GRANT UPDATE(listing_key,evidence_identity,event_snapshot,odata_json,frozen_at) ON acq_training.property_target_review TO acq_training_reviewer;

@@ -251,10 +251,13 @@ def main():
     server=create_server(port,app,auth)
     from openai_labels import start_hosted_worker
     stop = start_hosted_worker(app.get_studio().store)
+    from acquisition_listing_recovery import start as start_acquisition_recovery
+    acquisition_stop = start_acquisition_recovery(app.get_studio().store)
     print(json.dumps({"status":"ready","port":port,"storage":"supabase"}),flush=True)
     try: server.serve_forever()
     finally:
         if stop: stop.set()
+        if acquisition_stop: acquisition_stop.set()
         server.server_close()
 
 if __name__=="__main__": main()
