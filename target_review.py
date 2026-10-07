@@ -40,7 +40,8 @@ def validate_answer(payload):
 def present(row, detail=False):
     raw = row.get('odata_json') or {}
     result={'group_id':str(row['group_id']), 'listing_key':row['listing_key'],
-        'listing_id':raw.get('ListingId') or row['listing_key'],
+        'listing_id':raw.get('ListingId') or ('No matched MLS' if row['listing_key'].startswith('source-only:') else row['listing_key']),
+        'normalized_apn':row.get('normalized_apn'),'cohort_status':row.get('cohort_status','LEGACY'),
         'address':raw.get('UnparsedAddress') or ' '.join(str(raw.get(k) or '')
             for k in ('StreetNumber','StreetName','StreetSuffix','City')).strip() or row['listing_key'],
         'review':{'revision':row['revision'],'overall':row['overall_decision'],
@@ -50,7 +51,7 @@ def present(row, detail=False):
             'notes':row['notes'],'reviewed_at':str(row['reviewed_at']) if row['reviewed_at'] else None}}
     if detail:
         result.update(event=row['event_snapshot'],odata_json=raw,evidence_identity=row['evidence_identity'],
-            source_note='Stored acquisition listing JSON, captured when this review list was created. Frozen event text/facts are shown separately if different.')
+            source_import=row.get('source_import') or {},source_note='Workbook-selected earliest closed 2026 MLS. Stored fields and photos are reused only for the exact selected listing ID. Matching is silver provenance until reviewed.')
     return result
 
 
@@ -60,16 +61,16 @@ class TargetReview:
 
     def queue(self):
         with self.database.connect() as db:
-            rows=db.execute('SELECT * FROM '+TABLE+' WHERE workspace_id=%s ORDER BY group_id',
+            rows=db.execute('SELECT * FROM '+TABLE+' WHERE workspace_id=%s AND active ORDER BY CASE WHEN cohort_status=\'SILVER_READY\' THEN 0 ELSE 1 END,group_id',
                 (self.database.workspace,)).fetchall()
-        if len(rows)!=415:
-            raise ValueError('The 415-property review list has not been provisioned in this workspace')
+        if not rows:
+            raise ValueError('The property review list has not been provisioned in this workspace')
         items=[present(r) for r in rows]
         completed=sum(bool(r['reviewed_at']) for r in rows)
         return {'items':items,'total':len(items),'completed':completed,'remaining':len(items)-completed}
 
     def _row(self,db,group):
-        row=db.execute('SELECT * FROM '+TABLE+' WHERE workspace_id=%s AND group_id=%s',
+        row=db.execute('SELECT * FROM '+TABLE+' WHERE workspace_id=%s AND active AND group_id=%s',
             (self.database.workspace,str(UUID(str(group))))).fetchone()
         if not row:
             raise ValueError('Property is outside this review list')
@@ -78,7 +79,7 @@ class TargetReview:
     def detail(self,group):
         with self.database.connect() as db:
             result=present(self._row(db,group),True)
-        result['recovery']=self.store.document('acquisition-recovery:'+str(UUID(str(group)))) or {}
+        result['recovery']={} if result.get('source_import') else (self.store.document('acquisition-recovery:'+str(UUID(str(group)))) or {})
         return result
 
     def save(self,payload,reviewer):
@@ -107,10 +108,11 @@ class TargetReview:
             row=self._row(db,group)
             photo=next((p for p in row['event_snapshot'].get('photos',[]) if p.get('sha256')==digest),None)
             if not photo:
-                raise ValueError('Photo is outside the selected acquisition listing')
+                raise ValueError('Photo is outside the selected MLS listing')
             blocked=db.execute('''SELECT 1 FROM acq_training.photos WHERE workspace_id=%s
                 AND image_sha256=%s AND (revoked_at IS NOT NULL OR retention_until<=now()) LIMIT 1''',
                 (self.database.workspace,digest)).fetchone()
             if blocked:
                 raise ValueError('Photo access or retention has changed')
         return self.store.storage.get(photo['storage_bucket'],photo['storage_object_key'],digest)
+
