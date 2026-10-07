@@ -24,10 +24,13 @@ results in shadow until approval, and owns economics, qualification, ranking, an
 canonical MLS product writes. See the feature's
 [ownership contract](specs/001-actvision-v2-provider-foundation/contracts/README.md).
 
-The current independently versioned contract bundle is **1.0.0**. Its
-[`manifest.json`](contracts/manifest.json) pins the provider, source commit,
-compatibility policy, and raw-byte SHA-256 values for every authoritative file;
-[`contracts/VERSION`](contracts/VERSION) carries the same bundle identity.
+The current contract bundle and semantic contract versions are both **1.0.0**.
+They are explicit, independent manifest fields: `bundle_version` identifies the
+exact published bundle and matches [`contracts/VERSION`](contracts/VERSION);
+`semantic_contract_version` identifies consumer-compatible schema and
+cross-field behavior. Consumers must not alias one to the other. The
+[`manifest.json`](contracts/manifest.json) also pins the provider, source commit,
+compatibility policy, and raw-byte SHA-256 values for every authoritative file.
 Validate fixture semantics and complete bundle consistency offline:
 
 ```powershell

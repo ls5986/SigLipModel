@@ -50,6 +50,7 @@ def test_version_and_manifest_metadata_identify_the_authoritative_bundle():
 
     assert (REPO_ROOT / "contracts" / "VERSION").read_text(encoding="ascii").strip() == "1.0.0"
     assert manifest["bundle_version"] == "1.0.0"
+    assert manifest["semantic_contract_version"] == "1.0.0"
     assert manifest["provider"] == "SigLipModel"
     assert manifest["owner"] == "SigLipModel"
     assert manifest["source_commit"] == SOURCE_COMMIT
@@ -127,6 +128,35 @@ def test_build_manifest_is_deterministic_with_sorted_relative_posix_paths():
     paths = [entry["path"] for entry in first["fixtures"]]
     assert paths == sorted(paths)
     assert all(not Path(path).is_absolute() and "\\" not in path for path in paths)
+
+
+@pytest.mark.parametrize(
+    ("semantic_contract_version", "expected_error"),
+    [
+        (None, "missing fields semantic_contract_version"),
+        ("1.0.1", "semantic_contract_version does not match bundle policy"),
+        ("actvision-v2", "semantic_contract_version must be a semantic version"),
+    ],
+)
+def test_checker_rejects_missing_drifted_or_malformed_semantic_contract_version(
+    tmp_path,
+    semantic_contract_version,
+    expected_error,
+):
+    root = _copy_bundle(tmp_path)
+    manifest = _manifest(root)
+    if semantic_contract_version is None:
+        manifest.pop("semantic_contract_version", None)
+    else:
+        manifest["semantic_contract_version"] = semantic_contract_version
+    (root / "contracts" / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    errors = check_manifest(root)
+
+    assert any(expected_error in error for error in errors), errors
 
 
 def test_checker_rejects_an_unlisted_fixture(tmp_path):

@@ -10,12 +10,16 @@ import sys
 
 
 BUNDLE_VERSION = "1.0.0"
+SEMANTIC_CONTRACT_VERSION = "1.0.0"
 PROVIDER = "SigLipModel"
 OWNER = "SigLipModel"
 WIRE_VERSION = "actvision-v2"
 TAXONOMY_VERSION = "actvision-labels-v2"
 SOURCE_COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+SEMANTIC_VERSION_PATTERN = re.compile(
+    r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+)
 COMPATIBILITY_POLICY = {
     "policy": "semantic-versioning",
     "compatible_changes": (
@@ -34,6 +38,7 @@ GENERATOR_PATH = "tools/export_actvision_fixtures.py"
 GENERATOR_COMMAND = "python tools/export_actvision_fixtures.py"
 TOP_LEVEL_FIELDS = {
     "bundle_version",
+    "semantic_contract_version",
     "provider",
     "owner",
     "source_commit",
@@ -71,6 +76,7 @@ def build_manifest(repo_root: Path, source_commit: str) -> dict[str, object]:
     generator["command"] = GENERATOR_COMMAND
     return {
         "bundle_version": BUNDLE_VERSION,
+        "semantic_contract_version": SEMANTIC_CONTRACT_VERSION,
         "provider": PROVIDER,
         "owner": OWNER,
         "source_commit": source_commit,
@@ -241,12 +247,22 @@ def check_manifest(repo_root: Path) -> list[str]:
 
     expected_metadata = {
         "bundle_version": BUNDLE_VERSION,
+        "semantic_contract_version": SEMANTIC_CONTRACT_VERSION,
         "provider": PROVIDER,
         "owner": OWNER,
         "wire_version": WIRE_VERSION,
         "taxonomy_version": TAXONOMY_VERSION,
         "compatibility_policy": COMPATIBILITY_POLICY,
     }
+    semantic_contract_version = manifest.get("semantic_contract_version")
+    if (
+        not isinstance(semantic_contract_version, str)
+        or SEMANTIC_VERSION_PATTERN.fullmatch(semantic_contract_version) is None
+    ):
+        errors.append(
+            "contracts/manifest.json: semantic_contract_version must be a "
+            "semantic version"
+        )
     for field, expected in expected_metadata.items():
         if manifest.get(field) != expected:
             errors.append(

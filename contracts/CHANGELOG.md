@@ -6,8 +6,8 @@ wire version.
 
 ## [1.0.0] - 2026-10-06
 
-- Published the initial stable bundle for wire contract `actvision-v2` and
-  taxonomy `actvision-labels-v2`.
+- Published bundle `1.0.0` with explicit semantic contract version `1.0.0` for
+  wire contract `actvision-v2` and taxonomy `actvision-labels-v2`.
 - Pinned the authoritative schema, semantic validator, fixture generator, and
   all seven synthetic fixtures by raw-byte SHA-256.
 - Added a deterministic offline bundle checker.

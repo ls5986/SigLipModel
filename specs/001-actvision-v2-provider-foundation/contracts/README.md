@@ -40,13 +40,22 @@ MLSSourcing:
 
 ## Compatibility Policy
 
-The independently versioned bundle follows Semantic Versioning. PATCH releases
-preserve every valid payload and existing meaning. MINOR releases may add
-optional fields or enum behavior only when existing valid payloads and consumer
-validation remain valid and semantics are not reinterpreted. A change to
-required fields, canonicalization, label meaning, identity, status meaning, or
-existing valid payloads is breaking, requires a MAJOR bundle version, and
-requires a separately approved migration specification.
+The manifest has two explicit version axes. `bundle_version` matches
+`contracts/VERSION` and identifies the exact published bundle.
+`semantic_contract_version` is the independent consumer-compatibility identity
+for schema and cross-field behavior. Both are initially `1.0.0`, but they are
+not aliases: bundle-only publications can advance `bundle_version` while
+preserving `semantic_contract_version`.
+
+`semantic_contract_version` follows Semantic Versioning. PATCH releases preserve
+every valid payload and existing meaning. MINOR releases may add optional fields
+or enum behavior only when existing valid payloads and consumer validation
+remain valid and semantics are not reinterpreted. A change to required fields,
+canonicalization, label meaning, identity, status meaning, or existing valid
+payloads is breaking, requires a MAJOR semantic contract version, and requires a
+separately approved migration specification. Consumers MUST read the explicit
+`semantic_contract_version`; they MUST NOT alias or derive it from
+`bundle_version`.
 
 `contracts/manifest.json` pins raw-byte hashes for the schema, semantic
 validator, generator, and every synthetic fixture. `contracts/VERSION` matches

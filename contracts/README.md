@@ -3,13 +3,18 @@
 ## Versioned bundle
 
 [`manifest.json`](manifest.json) is the authoritative, deterministic bundle
-index. [`VERSION`](VERSION) contains its independent Semantic Versioning
-identity; the initial bundle is `1.0.0`. The bundle version does not replace the
-`actvision-v2` wire version or `actvision-labels-v2` taxonomy version. The
-manifest records the provider, owner, source commit, compatibility policy,
-fixture generator command, and raw-byte SHA-256 for the schema, semantic
-validator, generator, and every synthetic fixture. Paths are sorted,
-repository-relative POSIX paths.
+index. [`VERSION`](VERSION) contains the `bundle_version`, which identifies the
+exact published bundle; the initial bundle is `1.0.0`.
+`semantic_contract_version` is the independent consumer-compatibility identity
+for the schema and cross-field semantics and is also initially `1.0.0`. They
+are distinct fields, not aliases: a bundle-only publication can advance
+`bundle_version` without changing semantic compatibility, while a semantic
+contract change advances `semantic_contract_version` under the policy below.
+Neither replaces the `actvision-v2` wire version or `actvision-labels-v2`
+taxonomy version. The manifest records both version axes, provider, owner,
+source commit, compatibility policy, fixture generator command, and raw-byte
+SHA-256 for the schema, semantic validator, generator, and every synthetic
+fixture. Paths are sorted, repository-relative POSIX paths.
 
 Validate the complete local bundle without network access:
 
@@ -100,7 +105,7 @@ Only operator-provisioned trusted local bundles are supported in this rebuild.
 
 ## Compatibility policy
 
-Bundle versions follow Semantic Versioning:
+`semantic_contract_version` follows Semantic Versioning:
 
 - **PATCH** records compatible corrections that preserve every valid payload and
   existing meaning.
@@ -113,7 +118,8 @@ Bundle versions follow Semantic Versioning:
 
 The provider publishes and validates a new bundle before consumer enablement.
 The consumer then pins the exact approved manifest and verifies it offline
-before shadow use. Rollback disables consumer behavior first, restores the
-previous approved manifest and compatible provider release, and preserves
-historical requests, predictions, feedback, and releases. See
+before shadow use. Consumers must compare `semantic_contract_version` directly
+and must not infer it from `bundle_version`. Rollback disables consumer behavior
+first, restores the previous approved manifest and compatible provider release,
+and preserves historical requests, predictions, feedback, and releases. See
 [`CHANGELOG.md`](CHANGELOG.md) for bundle history.
