@@ -28,7 +28,7 @@ jobs:
       - name: Contract fixtures
         run: python tools/export_actvision_fixtures.py --check
       - name: Backend regression suite
-        run: python -m pytest test_actvision_v2.py test_cloud_runtime.py test_hosted_server.py test_hosted_session.py test_model_workbench.py test_bootstrap_diagnostics.py test_v2_startup_recovery.py test_v2_inventory_nonblocking.py test_v2_training_io.py -q
+        run: python -m pytest test_actvision_v2.py test_cloud_runtime.py test_hosted_server.py test_hosted_session.py test_model_workbench.py test_bootstrap_diagnostics.py test_v2_startup_recovery.py test_v2_inventory_nonblocking.py test_v2_training_io.py test_storage_http_recovery.py -q
 
   browser:
     runs-on: ubuntu-latest
