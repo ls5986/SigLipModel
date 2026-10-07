@@ -1,0 +1,26 @@
+name: Provider evidence feature validation
+on:
+  push:
+    branches: [feature/002-mls-evidence-provider]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: provider-evidence-feature-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Archive tracked source for reproducible offline feature testing
+        run: git archive --format=zip --output=evidence-source.zip HEAD
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: provider-evidence-source
+          path: evidence-source.zip
+          retention-days: 1
+          if-no-files-found: error
