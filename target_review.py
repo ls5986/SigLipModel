@@ -77,7 +77,9 @@ class TargetReview:
 
     def detail(self,group):
         with self.database.connect() as db:
-            return present(self._row(db,group),True)
+            result=present(self._row(db,group),True)
+        result['recovery']=self.store.document('acquisition-recovery:'+str(UUID(str(group)))) or {}
+        return result
 
     def save(self,payload,reviewer):
         answer,revision=validate_answer(payload)
