@@ -36,10 +36,10 @@ def run_requested(store, *, loader=None, enqueuer=None):
             or os.environ.get('STUDIO_WORKSPACE_ID') != str(store.workspace)):
         raise PermissionError('Explicit workspace-bound recovery authorization required')
     base = {k: v for k, v in request.items() if k != 'revision'}
-    # Claim once before making network calls. A crashed request remains running,
-    # not automatically retried at each startup.
-    store.save_document(key, {**base, 'status': 'running', 'started_at': _now()}, request.get('revision', 0))
-    claimed = store.document(key)
+    # Claim once before network calls. Retain this exact write's revision, never
+    # adopt a later operator edit. Crashes do not automatically replay recovery.
+    claimed = store.save_document(key, {**base, 'status': 'running', 'started_at': _now()},
+                                  request.get('revision', 0))
     checks = []
     try:
         if request.get('operation') not in {'probe', 'probe_and_retry'}:
@@ -64,7 +64,7 @@ def run_requested(store, *, loader=None, enqueuer=None):
                 or any(not isinstance(sha, str) or not re.fullmatch(r'[a-f0-9]{64}', sha) for sha in hashes)):
             raise ValueError('Request one through eight exact frozen photo identities')
         references = {}
-        # This is the same first-reference choice used by embedding preparation.
+        # The same first-reference choice is used by embedding preparation.
         for row in frozen['rows']:
             for photo in row.get('photos') or []:
                 references.setdefault(photo['sha256'], photo)
@@ -73,8 +73,7 @@ def run_requested(store, *, loader=None, enqueuer=None):
         from PIL import Image
         for sha in hashes:
             photo = references[sha]
-            # Do not accept a cache hit as proof that authenticated storage works.
-            # The same existing worker credentials, origin and exact path are used.
+            # Force the same authenticated network read, not a cache-only success.
             with store.storage.lock:
                 path = store.storage.get(photo['storage_bucket'], photo['storage_object_key'], sha, force_network=True)
                 data = path.read_bytes()
@@ -89,6 +88,10 @@ def run_requested(store, *, loader=None, enqueuer=None):
         result = {**base, 'status': 'verified', 'completed_at': _now(), 'checks': checks,
                   'verified_count': len(checks), 'deployed_commit': os.environ.get('RENDER_GIT_COMMIT', 'unknown')[:40]}
         if request['operation'] == 'probe_and_retry':
+            recovery_now = store.document(key) or {}
+            if (recovery_now.get('revision') != claimed['revision']
+                    or recovery_now.get('status') != 'running'):
+                raise RuntimeError('Recovery request changed; no retry queued')
             current = store.document(TRAINING_KEY) or {}
             if (current.get('id') != expected_id or current.get('status') != 'failed'
                     or current.get('revision') != previous.get('revision')):
@@ -99,9 +102,13 @@ def run_requested(store, *, loader=None, enqueuer=None):
             if enqueuer is None:
                 from v2_training import enqueue
                 enqueuer = enqueue
-            queued = enqueuer(store, {'confirmed': True, 'dataset_id': dataset_id},
-                              'operator:storage-recovery:' + identifier)['request']
-            if queued.get('dataset_id') != dataset_id or queued.get('status') not in {'queued', 'running'}:
+            actor = 'operator:storage-recovery:' + identifier
+            queued = enqueuer(store, {'confirmed': True, 'dataset_id': dataset_id}, actor)['request']
+            if (queued.get('dataset_id') != dataset_id
+                    or queued.get('dataset_fingerprint') != fingerprint
+                    or queued.get('requested_by') != actor
+                    or queued.get('id') == expected_id
+                    or queued.get('status') not in {'queued', 'running'}):
                 raise RuntimeError('Training retry was not confirmed')
             result.update(status='retry_queued', training_id=queued['id'], retry_of=expected_id)
     except Exception as exc:
