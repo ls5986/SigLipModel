@@ -22,6 +22,7 @@ from structured_model import StructuredModel, completeness
 from text_model import TextModel
 from v2_calibration import CalibratedModel, TemperatureCalibrator, expected_calibration_error
 from v2_dataset import AXES, load_frozen
+from v2_training_io import artifact_preflight, embed_rows, observe_training, safe_error, stage
 from studio_data import now
 
 REQUEST_KEY = "actvision-v2-training-current"
@@ -80,33 +81,9 @@ def _predict_component(name, model, rows, siglip):
     raise ValueError("Unknown component")
 
 
-def _photo_paths(rows, siglip):
-    store = siglip._actvision_store
-    mapping = {}
-    for row in rows:
-        for photo in row.get("photos") or []:
-            digest_value = photo["sha256"]
-            if digest_value not in mapping:
-                mapping[digest_value] = store.storage.get(
-                    photo["storage_bucket"], photo["storage_object_key"], digest_value
-                )
-    return mapping
-
-
 def _embed_rows(rows, siglip):
-    """Embed each unique photo once per training run and retain room identity."""
-    paths = _photo_paths(rows, siglip)
-    if not paths:
-        return {}
-    identities = sorted(paths)
-    vectors = {}
-    batch_size = max(1, int(os.environ.get("STUDIO_V2_EMBED_BATCH_SIZE", "8")))
-    for start in range(0, len(identities), batch_size):
-        batch = identities[start:start + batch_size]
-        values = siglip.embed([paths[key] for key in batch])
-        for key, vector in zip(batch, values):
-            vectors[key] = np.asarray(vector, dtype=np.float32)
-    return vectors
+    """Keep photo paths alive only for their bounded encoder batch."""
+    return embed_rows(rows, siglip)
 
 
 def _vision_bag(row, siglip):
@@ -130,10 +107,11 @@ def _oof_components(train_rows, siglip, semantic_encoder):
     }
     available = {name: [False] * len(train_rows) for name in raw}
     indices = np.arange(len(train_rows))
-    for fit_index, held_index in splitter.split(indices, groups=groups):
+    for fold, (fit_index, held_index) in enumerate(splitter.split(indices, groups=groups), 1):
         fit_rows = [train_rows[i] for i in fit_index]
         held_rows = [train_rows[i] for i in held_index]
         for name in raw:
+            stage("grouped_oof_" + name, fold=fold, total_folds=folds)
             try:
                 model, _ = _fit_component(name, fit_rows, siglip, semantic_encoder)
                 predictions = _predict_component(name, model, held_rows, siglip)
@@ -197,6 +175,7 @@ def _fit_final_components(train_rows, siglip, semantic_encoder, calibrators):
     models = {}
     unavailable = {}
     for name in ("vision", "text", "structured"):
+        stage("fit_final_" + name)
         try:
             model, _ = _fit_component(name, train_rows, siglip, semantic_encoder)
         except ValueError as exc:
@@ -279,6 +258,7 @@ def _artifact_bytes(value):
 
 
 def _upload_component(store, release_id, name, value):
+    stage("saving_" + name + "_artifact")
     blob = _artifact_bytes(value)
     key = f"models/actvision-v2/{release_id}/{name}.joblib"
     stored = store.storage.put("acq-training-private", key, blob)
@@ -316,6 +296,7 @@ def _fail_run(store, run_id, error_code):
             )
 
 
+@observe_training
 def train_candidate(store, request, siglip):
     frozen = load_frozen(store, request["dataset_id"])
     rows = frozen["rows"]
@@ -325,21 +306,25 @@ def train_candidate(store, request, siglip):
     if len(train_rows) < MIN_TRAIN_GROUPS:
         raise ValueError("Need at least 20 independent v2 train groups")
 
+    artifact_preflight(store, request)
     siglip._actvision_store = store
     siglip._actvision_embeddings = _embed_rows(rows, siglip)
 
+    stage("loading_semantic_encoder")
     from provision_semantic_encoder import verify
     from semantic_text import SemanticTextEncoder
     semantic = verify()
     encoder = SemanticTextEncoder(semantic["directory"], semantic["checkpoint_sha256"])
 
     raw_oof, oof_available = _oof_components(train_rows, siglip, encoder)
+    stage("calibrating_components")
     component_calibrators, calibrated_oof = _calibrate_components(
         raw_oof, train_rows, frozen["dataset"]["manifest_sha256"]
     )
     fusion_components, train_coverage = _fusion_inputs(
         train_rows, calibrated_oof, oof_available, component_calibrators
     )
+    stage("fitting_fusion")
     fusion = FusionModel.fit(
         fusion_components, train_coverage, _labels(train_rows),
         prediction_source="grouped_oof_training",
@@ -348,6 +333,7 @@ def train_candidate(store, request, siglip):
     final_components, unavailable_components = _fit_final_components(
         train_rows, siglip, encoder, component_calibrators
     )
+    stage("validating_candidate")
     validation_raw, validation_available = _predict_final_components(
         final_components, validation_rows, siglip
     )
@@ -395,6 +381,7 @@ def train_candidate(store, request, siglip):
     _finish_run(store, request["run_ids"]["fusion"], artifacts["fusion"], fusion_metrics)
 
     # Protected test is touched only after the complete candidate and calibration are fixed.
+    stage("protected_evaluation")
     test_components_raw, test_available = _predict_final_components(final_components, test_rows, siglip)
     test_inputs, test_coverage = _fusion_inputs(
         test_rows, test_components_raw, test_available,
@@ -459,6 +446,7 @@ def train_candidate(store, request, siglip):
     }
     validate_contract(manifest, "release")
     bundle_sha = hashlib.sha256(canonical_json(manifest).encode()).hexdigest()
+    stage("saving_candidate_release")
     from psycopg.types.json import Jsonb
     with store.database.connect() as db:
         release_version = db.execute(
@@ -545,7 +533,8 @@ def public_status(store):
             ).fetchone()
         if row:
             release = {**dict(row), "id": str(row["id"]), "created_at": str(row["created_at"])}
-    return {"request": request, "runs": runs, "release": release}
+    progress = store.document("actvision-v2-training-progress:" + str(request["id"])) if request.get("id") else None
+    return {"request": request, "runs": runs, "release": release, "progress": progress}
 
 
 def heartbeat(store, status, *, detail=None):
@@ -599,14 +588,14 @@ def poll_training(store, siglip):
             except Exception:
                 pass
         current = store.document(REQUEST_KEY) or request
-        if current.get("status") in {"queued", "running"}:
+        if current.get("id") == request.get("id") and current.get("status") in {"queued", "running"}:
             try:
                 store.save_document(
                     REQUEST_KEY,
                     {**{k: v for k, v in current.items() if k != "revision"},
                      "status": "failed", "failed_at": now(),
-                     "error_code": type(exc).__name__,
-                     "error": "ActVision v2 training failed; inspect worker logs and the saved component run states."},
+                     "error_code": type(exc).__name__, "diagnostic": safe_error(exc),
+                     "error": "ActVision v2 training failed; inspect saved stage diagnostics."},
                     current.get("revision", 0),
                 )
             except Exception:
