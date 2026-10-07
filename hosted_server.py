@@ -194,7 +194,9 @@ def create_server(port, app, auth):
                 if path.startswith("/api/"):
                     return self.data(401,{"error":"Your session expired. Sign in again.","login":"/login"})
                 return self.reply(303,b"",headers=[("Location","/login")])
-            if path=="/target-review" or (path=="/" and not parse_qs(urlparse(self.path).query).get("property")):
+            if path=="/paired-review" or (path=="/" and not parse_qs(urlparse(self.path).query).get("property")):
+                return self.reply(200,(CODE_ROOT/"paired_review.html").read_bytes(),"text/html; charset=utf-8")
+            if path=="/target-review":
                 return self.reply(200,(CODE_ROOT/"target_review.html").read_bytes(),"text/html; charset=utf-8")
             if path=="/" and parse_qs(urlparse(self.path).query).get("property"):
                 return self.reply(303,b"",headers=[("Location","/studio?"+urlparse(self.path).query)])
@@ -236,6 +238,21 @@ def create_server(port, app, auth):
                 )
             if path.startswith("/api/studio/"):
                 try:
+                    if path.startswith("/api/studio/paired-review/"):
+                        from paired_review import PairedReview
+                        review=PairedReview(app.get_studio().store)
+                        args=parse_qs(urlparse(self.path).query)
+                        if path.endswith("/list"):
+                            return self.data(200,{**review.queue(),"token":app.token})
+                        if path.endswith("/property"):
+                            return self.data(200,review.detail(args.get("id",[""])[0]))
+                        if path.endswith("/image"):
+                            file=review.image(args.get("evidence",[""])[0],args.get("photo",[""])[0])
+                            if args.get("thumbnail",[""])[0]=="1":
+                                info=file.stat()
+                                return self.reply(200,thumbnail(file,info.st_mtime_ns,info.st_size),"image/jpeg")
+                            return self.reply(200,file.read_bytes(),mimetypes.guess_type(file.name)[0] or "image/jpeg")
+                        return self.data(404,{"error":"Not found"})
                     if path.startswith("/api/studio/target-review/"):
                         from target_review import TargetReview
                         review=TargetReview(app.get_studio().store)
@@ -307,6 +324,9 @@ def create_server(port, app, auth):
                 from studio_v2 import TRAINING_ACTIONS, require_operator
                 if path in TRAINING_ACTIONS:
                     require_operator()
+                if path=="/api/studio/paired-review/save":
+                    from paired_review import PairedReview
+                    return self.data(200,PairedReview(app.get_studio().store).save(payload,auth.username))
                 if path=="/api/studio/target-review/save":
                     from target_review import TargetReview
                     return self.data(200,TargetReview(app.get_studio().store).save(payload,auth.username))
