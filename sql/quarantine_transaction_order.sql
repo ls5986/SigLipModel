@@ -5,5 +5,5 @@ SELECT r.workspace_id,r.source_row_id,r.group_id,r.listing_event_id,r.transactio
  encode(sha256(convert_to(r.evidence_sha256||':transaction-order-review','UTF8')),'hex')
 FROM (SELECT DISTINCT ON(workspace_id,source_row_id,event_role) * FROM acq_training.property_event_roles ORDER BY workspace_id,source_row_id,event_role,revision DESC)r
 JOIN acq_training.source_rows s ON s.workspace_id=r.workspace_id AND s.id=r.source_row_id
-WHERE s.last_sale_date<s.prior_sale_date AND NOT(r.audit->'reasons' @> '["SOURCE_TRANSACTION_ORDER_CONFLICT"]'::jsonb)
+WHERE r.listing_event_id IS NOT NULL AND s.last_sale_date<s.prior_sale_date AND NOT(r.audit->'reasons' @> '["SOURCE_TRANSACTION_ORDER_CONFLICT"]'::jsonb)
 AND r.provenance='RULE_DRAFT' ON CONFLICT DO NOTHING;
