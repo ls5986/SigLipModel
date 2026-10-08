@@ -194,7 +194,9 @@ def create_server(port, app, auth):
                 if path.startswith("/api/"):
                     return self.data(401,{"error":"Your session expired. Sign in again.","login":"/login"})
                 return self.reply(303,b"",headers=[("Location","/login")])
-            if path=="/paired-review" or (path=="/" and not parse_qs(urlparse(self.path).query).get("property")):
+            if path=="/model-test" or (path=="/" and not parse_qs(urlparse(self.path).query).get("property")):
+                return self.reply(200,(CODE_ROOT/"paired_condition.html").read_bytes(),"text/html; charset=utf-8")
+            if path=="/paired-review":
                 return self.reply(200,(CODE_ROOT/"paired_review.html").read_bytes(),"text/html; charset=utf-8")
             if path=="/target-review":
                 return self.reply(200,(CODE_ROOT/"target_review.html").read_bytes(),"text/html; charset=utf-8")
@@ -238,6 +240,18 @@ def create_server(port, app, auth):
                 )
             if path.startswith("/api/studio/"):
                 try:
+                    if path.startswith("/api/studio/paired-condition/"):
+                        from paired_condition import public_status, detail
+                        from paired_review import PairedReview
+                        store=app.get_studio().store
+                        args=parse_qs(urlparse(self.path).query)
+                        if path.endswith("/status"):
+                            return self.data(200,{**public_status(store),"token":app.token})
+                        if path.endswith("/list"):
+                            return self.data(200,PairedReview(store).queue())
+                        if path.endswith("/property"):
+                            return self.data(200,detail(store,args.get("id",[""])[0]))
+                        return self.data(404,{"error":"Not found"})
                     if path.startswith("/api/studio/paired-review/"):
                         from paired_review import PairedReview
                         review=PairedReview(app.get_studio().store)
@@ -322,6 +336,17 @@ def create_server(port, app, auth):
                 payload=json.loads(self.body(2_000_000))
                 if not isinstance(payload,dict): raise ValueError("Expected a JSON object")
                 from studio_v2 import TRAINING_ACTIONS, require_operator
+                if path.startswith("/api/studio/paired-condition/"):
+                    from paired_condition import enqueue, queue_prediction, correction
+                    store=app.get_studio().store
+                    if path.endswith("/train"):
+                        require_operator()
+                        return self.data(200,enqueue(store,payload,auth.username))
+                    if path.endswith("/predict"):
+                        return self.data(200,queue_prediction(store,payload,auth.username))
+                    if path.endswith("/correct"):
+                        return self.data(200,correction(store,payload,auth.username))
+                    return self.data(404,{"error":"Not found"})
                 if path in TRAINING_ACTIONS:
                     require_operator()
                 if path=="/api/studio/paired-review/save":
@@ -359,3 +384,4 @@ def main():
         server.server_close()
 
 if __name__=="__main__": main()
+

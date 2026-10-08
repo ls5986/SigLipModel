@@ -92,6 +92,9 @@ def optional_openai(store, factory=None):
 
 
 def main():
+    if os.environ.get("STUDIO_PAIRED_CONDITION_ENABLED", "false").lower() == "true":
+        from paired_condition import run
+        return run()
     if os.environ.get("STUDIO_PAIRED_AUTO_BATCH", ""):
         from paired_auto_score import run
         return run()
@@ -237,3 +240,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
