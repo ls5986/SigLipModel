@@ -92,6 +92,9 @@ def optional_openai(store, factory=None):
 
 
 def main():
+    if os.environ.get("STUDIO_PAIRED_AUTO_BATCH", ""):
+        from paired_auto_score import run
+        return run()
     signal.signal(signal.SIGTERM, lambda *_: STOP.set())
     signal.signal(signal.SIGINT, lambda *_: STOP.set())
     if os.environ.get("STUDIO_LABEL_WORKER_PAUSED", "true").lower() != "false":
