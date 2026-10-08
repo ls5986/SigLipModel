@@ -47,15 +47,8 @@ def verify_dataset(store, identifier):
           (store.workspace, identifier, DATASET_NAME)).fetchone()
         if not d:
             raise ValueError('Select a frozen paired condition dataset')
-        verified = db.execute('''SELECT encode(extensions.digest(convert_to(jsonb_build_object(
-          'policy',d.label_policy,
-          'groups',(SELECT jsonb_agg(jsonb_build_object('group_id',g.group_id,'split',g.split) ORDER BY g.group_id)
-            FROM acq_training.dataset_groups g WHERE g.workspace_id=d.workspace_id AND g.dataset_id=d.id),
-          'items',(SELECT jsonb_agg(jsonb_build_object('example_id',i.example_id,'group_id',i.group_id,
-            'photo_hashes',i.photo_hashes,'label_sha256',encode(extensions.digest(convert_to(i.label_snapshot::text,'UTF8'),'sha256'),'hex'))
-            ORDER BY i.example_id) FROM acq_training.dataset_items i WHERE i.workspace_id=d.workspace_id AND i.dataset_id=d.id)
-          )::text,'UTF8'),'sha256'),'hex') hash
-          FROM acq_training.datasets d WHERE d.workspace_id=%s AND d.id=%s''', (store.workspace, identifier)).fetchone()
+        verified = db.execute('SELECT acq_training.paired_condition_dataset_sha(%s,%s) hash',
+                              (store.workspace, identifier)).fetchone()
         if verified['hash'] != d['manifest_sha256']:
             raise ValueError('Frozen dataset checksum no longer matches')
         rows = db.execute('''SELECT i.example_id::text id,i.group_id::text group_id,g.split,i.label_snapshot
