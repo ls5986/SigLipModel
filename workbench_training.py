@@ -50,6 +50,13 @@ def property_rows(store,scorer,dataset):
             coverage = "selected_mls_media" if blobs else "metadata_only"
         else:
             detail = store.property(item["property_id"])
+            if item.get("origin") == "training-studio-v2":
+                from studio_v2 import label_evidence
+                prop = detail["property"]
+                if item.get("label_evidence_id") != label_evidence(
+                    prop["id"], prop.get("mls_remarks") or "", detail["images"], prop.get("metadata")
+                ):
+                    raise ValueError("Reviewed evidence changed after dataset freeze; training is blocked")
             images = [
                 image for image in detail["images"]
                 if image["id"] not in excluded
@@ -80,6 +87,8 @@ def property_rows(store,scorer,dataset):
 
 
 def labels(rows):
+    if any(row.get("target_label") not in {"TARGET", "NOT_TARGET"} for row in rows):
+        raise ValueError("UNKNOWN acquisition fit cannot become a negative training label")
     return np.asarray([int(row["target_label"]=="TARGET") for row in rows])
 
 
@@ -105,13 +114,13 @@ def grouped_folds(rows,maximum=5):
                    "policy":"stratified-group-kfold-seed-20260922"}
 
 
-def metadata_oof(rows,folds):
+def metadata_oof(rows,folds,*,text_encoder=None):
     scores = np.full(len(rows),np.nan)
     for fit,holdout in folds:
         model = MetadataClassifier.fit(
             [rows[i]["metadata"] for i in fit],
             [rows[i]["remarks"] for i in fit],
-            labels([rows[i] for i in fit]),
+            labels([rows[i] for i in fit]), text_encoder=text_encoder,
         )
         scores[holdout] = model.predict(
             [rows[i]["metadata"] for i in holdout],
@@ -134,7 +143,7 @@ def vision_oof(rows,folds,aggregation):
     return scores
 
 
-def train_candidate(rows, progress=lambda stage: None):
+def train_candidate(rows, progress=lambda stage: None, *, text_encoder=None):
     train = [row for row in rows if row["split"]=="train"]
     validation = [row for row in rows if row["split"]=="validation"]
     test = [row for row in rows if row["split"]=="test"]
@@ -171,7 +180,7 @@ def train_candidate(rows, progress=lambda stage: None):
     )
     progress("generating_grouped_oof_predictions")
     folds,fold_report = grouped_folds(train)
-    oof_metadata = metadata_oof(train,folds)
+    oof_metadata = metadata_oof(train,folds,text_encoder=text_encoder)
     oof_vision = vision_oof(train,folds,selected_mode)
     progress("training_fusion_from_oof")
     fusion = FusionClassifier.fit(
@@ -179,7 +188,7 @@ def train_candidate(rows, progress=lambda stage: None):
     )
     metadata = MetadataClassifier.fit(
         [row["metadata"] for row in train],[row["remarks"] for row in train],
-        labels(train),
+        labels(train), text_encoder=text_encoder,
     )
     vision = VisionClassifier.fit(
         [row["vectors"] for row in vision_train],labels(vision_train),selected_mode,
@@ -222,6 +231,8 @@ def train_candidate(rows, progress=lambda stage: None):
     metrics = {
         "objective":"target-vs-not-target-v1",
         "feature_policy":FEATURE_POLICY,
+        "text_features": {"schema_version":getattr(metadata.text,"feature_schema_version","actvision-text-tfidf-v2"),
+                          "checkpoint_sha256":getattr(metadata.text,"checkpoint_sha256",None)},
         "counts":{
             "train":len(train),"validation":len(validation),"test":len(test),
             "targets":sum(row["target_label"]=="TARGET" for row in rows),
@@ -248,7 +259,9 @@ def train_candidate(rows, progress=lambda stage: None):
     }
     return {
         "metadata_model":metadata,"vision_model":vision,"fusion_model":fusion,
-        "feature_policy":FEATURE_POLICY,"metrics":metrics,
+        "feature_policy":FEATURE_POLICY,
+        "text_features": {"schema_version":getattr(metadata.text,"feature_schema_version","actvision-text-tfidf-v2"),
+                          "checkpoint_sha256":getattr(metadata.text,"checkpoint_sha256",None)},"metrics":metrics,
     }
 
 
@@ -331,3 +344,4 @@ def process_training_request(store,scorer):
             "workbench-training-latest",failure,training_latest.get("revision",0)
         )
     return True
+

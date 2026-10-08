@@ -1,0 +1,25 @@
+{
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "library": "sentence-transformers==5.1.2",
+  "weight_format": "safetensors",
+  "weights_bytes": 90868376,
+  "execution_verified": {
+    "service": "srv-db1t8o2jnfac73ehen70",
+    "date": "2026-10-05",
+    "approved_legacy_property_descriptions": 7,
+    "embedding_dimensions": 384,
+    "long_description_chunk_tokens": 192,
+    "training_performed": false,
+    "canonical_era_verified": 0,
+    "canonical_evidence_blocked": 6,
+    "unblocked_without_verified_photo_era": 1
+  },
+  "limitations": [
+    "Checkpoint currently provisioned in an isolated ephemeral directory on the live dev worker, not its deployment build.",
+    "Real encoding execution verified; semantic label accuracy and negation understanding unverified.",
+    "Six reviewed properties have blocked canonical evidence. One is unblocked without a verified photo era and requires separate metadata/remarks eligibility checks; no examples were admitted to training.",
+    "No trained classifier or v2 inference release created."
+  ],
+  "checkpoint_sha256_live_directory": "18ab81ed2bfd9ae663acc77455c5e979130cb82cd8e66412ffca14d5a8fdef73"
+}

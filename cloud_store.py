@@ -12,9 +12,44 @@ from photo_view import effective_photo
 from studio_data import FEATURES, StudioStore, now, trim_metadata, validate_review
 
 
+
+def source_transaction_candidate(example):
+    snapshot = example.get('source_snapshot', {})
+    source = snapshot.get('spreadsheet', {})
+    event_map = snapshot.get('event_map') or {}
+    return {
+        'listing': {
+            'ListingKey': None,
+            'ListingId': None,
+            'UnparsedAddress': source.get('Address'),
+            'City': source.get('City'),
+            'PostalCode': source.get('Zip'),
+            'YearBuilt': source.get('Effective Year Built'),
+            'LivingArea': source.get('Building Sqft'),
+            'BedroomsTotal': source.get('Bedrooms'),
+            'BathroomsTotalInteger': source.get('Total Bathrooms'),
+            'PropertyType': source.get('Property Type'),
+            'PropertySubType': source.get('Property Type'),
+            'PhotosCount': 0,
+            'PublicRemarks': '',
+            'CloseDate': None,
+            'ClosePrice': None,
+            'StandardStatus': 'SourceTransactionOnly',
+        },
+        'match': {
+            'source_transaction_only': True,
+            'event_recovery_status': event_map.get('recovery_status'),
+        },
+    }
+
+
 def validation_candidate(example):
-    candidates = example.get('source_snapshot',{}).get('mls_candidates',[])
-    selected = str(example.get('listing_key') or '')
+    snapshot = example.get('source_snapshot',{})
+    candidates = snapshot.get('mls_candidates',[])
+    event_map = snapshot.get('event_map') or {}
+    if event_map.get('recovery_status') == 'acquisition_mls_unavailable':
+        return source_transaction_candidate(example)
+    selected = str(event_map.get('acquisition_listing_key') or example.get('listing_key') or '')
     if selected:
         match = next((c for c in candidates if str(c.get('listing',{}).get('ListingKey'))==selected),None)
         if match: return match
@@ -137,16 +172,35 @@ class SupabaseStore:
               WHERE sibling.workspace_id=e.workspace_id AND sibling.group_id=e.group_id
               AND sale.key IN ('Prior Sale Date','Last Sale Date') AND sale.value ~ '^2026-[0-9]{2}-[0-9]{2}') AS first_sale_date FROM acq_training.examples e
              JOIN acq_training.property_groups g ON g.workspace_id=e.workspace_id AND g.id=e.group_id
-             WHERE e.workspace_id=%s AND e.listing_key=%s ORDER BY e.id''',
-             (self.workspace, identifier)).fetchall()
+             WHERE e.workspace_id=%s AND (
+               e.listing_key=%s OR
+               e.source_snapshot->'event_map'->>'acquisition_listing_key'=%s
+             ) ORDER BY e.id''',
+             (self.workspace, identifier, identifier)).fetchall()
         if not rows:
             raise ValueError('Unknown property')
         return rows
 
     @staticmethod
     def _selected(example):
-        candidate = next((c for c in example['source_snapshot'].get('mls_candidates', [])
-                     if str(c.get('listing', {}).get('ListingKey')) == example['listing_key']), {})
+        snapshot = example['source_snapshot']
+        event_map = snapshot.get('event_map') or {}
+        if event_map.get('recovery_status') == 'acquisition_mls_unavailable':
+            return source_transaction_candidate(example)
+        selected_key = str(event_map.get('acquisition_listing_key') or example['listing_key'])
+        candidate = next((c for c in snapshot.get('mls_candidates', [])
+                     if str(c.get('listing', {}).get('ListingKey')) == selected_key), {})
+        if candidate and event_map.get('recovery_status') == 'mapped':
+            candidate = {
+                **candidate,
+                'match': {
+                    **candidate.get('match', {}),
+                    'identity_chronology_override': {
+                        'prior_sale_date': event_map.get('prior_sale_date'),
+                        'after_close_date': event_map.get('after_close_date'),
+                    },
+                },
+            }
         if candidate and example.get('first_sale_date'):
             candidate = {**candidate,'match':{**candidate.get('match',{}),'first_actual_sale_date_2026':example['first_sale_date']}}
         return candidate
@@ -162,9 +216,13 @@ class SupabaseStore:
              FROM acq_training.photos p
              JOIN acq_training.examples e ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
              JOIN acq_training.property_groups g ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
-             WHERE e.workspace_id=%s AND e.listing_key=%s
+             WHERE e.workspace_id=%s AND (
+               e.listing_key=%s OR
+               e.source_snapshot->'event_map'->>'acquisition_listing_key'=%s
+             )
+               AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
                AND p.revoked_at IS NULL AND (p.retention_until IS NULL OR p.retention_until>now())
-             ORDER BY p.provider_media_key,p.id''', (self.workspace, identifier)).fetchall()
+             ORDER BY p.provider_media_key,p.id''', (self.workspace, identifier, identifier)).fetchall()
         unique = {}
         for row in rows:
             key = identifier+':'+str(row['provider_media_key'])
@@ -174,6 +232,33 @@ class SupabaseStore:
                 unique[key]['protected_test'] |= row['protected_test']
             else:
                 unique[key] = dict(row, image_id=key)
+        recovered = db.execute('''SELECT e.id AS example_id,e.group_id,g.protected_test,s.payload
+             FROM acq_training.examples e
+             JOIN acq_training.property_groups g ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
+             JOIN acq_training.studio_state s ON s.workspace_id=e.workspace_id
+               AND s.kind='document' AND s.item_id='mls-validation-media:'||e.id::text
+             WHERE e.workspace_id=%s
+               AND e.source_snapshot->'event_map'->>'acquisition_listing_key'=%s
+               AND e.source_snapshot->'event_map'->>'recovery_status'='mapped' ''',
+             (self.workspace, identifier)).fetchall()
+        for record in recovered:
+            for image in record['payload'].get('images', []):
+                if image.get('context_evidence', {}).get('event_role') != 'acquisition':
+                    continue
+                media_key = str(image.get('provider_media_key') or '')
+                if not media_key or not image.get('image_sha256'):
+                    continue
+                key = 'validation:'+str(record['example_id'])+':'+media_key
+                candidate = {
+                    **image,
+                    'id': None,
+                    'image_id': key,
+                    'group_id': record['group_id'],
+                    'protected_test': bool(record['protected_test']),
+                }
+                if key in unique and unique[key]['image_sha256'] != candidate['image_sha256']:
+                    raise ValueError('Conflicting recovered photo versions require reconciliation')
+                unique[key] = candidate
         return sorted(unique.values(), key=lambda r:(r['context_evidence'].get('provider_metadata', {}).get('Order') or 0,r['image_id']))
 
     def _legacy(self, db, identifiers, fields=None):
@@ -227,22 +312,63 @@ class SupabaseStore:
         return StudioStore.reviews(None, Empty(), kind, identifier, legacy)
 
     def _history(self, examples, photos, review):
-        supported = all(supports_prior(self._selected(e),e['source_snapshot'].get('spreadsheet'),e['source_snapshot'].get('mls_candidates')) for e in examples)
+        event_map = examples[0]['source_snapshot'].get('event_map') or {}
+        source_only = event_map.get('recovery_status') == 'acquisition_mls_unavailable'
+        supported = True if source_only else all(
+            supports_prior(
+                self._selected(e),
+                e['source_snapshot'].get('spreadsheet'),
+                e['source_snapshot'].get('mls_candidates'),
+            )
+            for e in examples
+        )
         digest = hashlib.sha256(json.dumps(sorted(p['image_sha256'] for p in photos)).encode()).hexdigest()
-        policy = first_sale_policy(self._selected(examples[0]),examples[0]['source_snapshot'].get('spreadsheet'),examples[0]['source_snapshot'].get('mls_candidates'))
-        wrong = review and review.get('decision')=='wrong_era'
+        policy = ({
+            'policy':'source-transaction-only-v1',
+            'target_sale_date':event_map.get('prior_sale_date'),
+            'selected_close_date':None,
+            'actual_date_gap_days':None,
+            'supported':True,
+            'price_match_required':False,
+            'reason':'Original acquisition MLS listing is unavailable; source transaction retained without MLS photo evidence.',
+        } if source_only else first_sale_policy(
+            self._selected(examples[0]),
+            examples[0]['source_snapshot'].get('spreadsheet'),
+            examples[0]['source_snapshot'].get('mls_candidates'),
+        ))
+        mapped_at = str(event_map.get('mapped_at') or '')
+        review_at = str((review or {}).get('at') or '')
+        stale_pre_mapping_wrong = bool(
+            review and review.get('decision')=='wrong_era'
+            and event_map.get('recovery_status')=='mapped'
+            and (not review_at or review_at <= mapped_at)
+        )
+        wrong = bool(review and review.get('decision')=='wrong_era' and not stale_pre_mapping_wrong)
+        event_verified = bool(
+            event_map.get('recovery_status')=='mapped' and photos
+            and any(str(e.get('listing_key')) == str(event_map.get('acquisition_listing_key'))
+                    for e in examples)
+        )
         blocked = bool(wrong or not supported)
         return {'sale_policy':policy,
                 'source_rows':sorted({n for e in examples for n in e['source_rows']}),
                 'source':examples[0]['source_snapshot'].get('spreadsheet', {}),
+                'event_map':event_map,
                 'mls_listing':trim_metadata(self._selected(examples[0]).get('listing', {})),
                 'evidence_hash':digest, 'review':review, 'blocked':blocked,
-                'photo_coverage':review.get('photo_coverage','unknown') if review and review.get('evidence_hash')==digest else 'unknown',
-                'acquisition_status':'wrong_era' if wrong else 'prior_acquisition_candidate' if supported else 'needs_prior_listing',
+                'photo_coverage':'no_interior' if source_only else (
+                    review.get('photo_coverage','unknown')
+                    if review and review.get('evidence_hash')==digest else 'unknown'
+                ),
+                'acquisition_status':'acquisition_mls_unavailable' if source_only else
+                  'wrong_era' if wrong else 'prior_acquisition_candidate' if supported else 'needs_prior_listing',
                 'block_reason':'You flagged these photos as the wrong property or era.' if wrong else
                   policy.get('reason') or 'First acquisition listing/photos need rematching.' if blocked else None,
-                'timing_verified':bool(photos and review and review.get('decision')=='correct_era' and
-                                       review.get('evidence_hash')==digest and not blocked),
+                'timing_verified':bool(not blocked and (
+                    event_verified or
+                    photos and review and review.get('decision')=='correct_era'
+                    and review.get('evidence_hash')==digest
+                )),
                 'trainable':False,'training_gate':'Review labels and protected groups remain separate checks'}
 
     def property(self, identifier):
@@ -262,7 +388,8 @@ class SupabaseStore:
         history = self._history(examples,photos,live.get(('era',identifier)))
         mismatched = bool(history['sale_policy']['target_sale_date'] and not history['sale_policy']['supported'])
         images, coverage = [], {r:'unknown' for r in ('kitchen','bathroom','living')}
-        if mismatched: photos = []
+        # Retained photos remain visible as source-review references. Their
+        # acquisition eligibility is enforced separately, not by hiding them.
         for p in photos:
             review = self._review('image',p['image_id'],legacy,live)
             machine = proposed_images.get(p['image_id'],{})
@@ -292,7 +419,8 @@ class SupabaseStore:
                      'suggestions':[machine] if machine else [],'local_model':None,'provider_context':context,'provider_description':description,
                      'provider_context_source':context_source,
                      'sha256':p['image_sha256'],'sequence':provider.get('Order'),
-                     'split':'test' if p['protected_test'] else 'learning','training_allowed':not p['protected_test'],
+                     'split':'test' if p['protected_test'] else 'learning','training_allowed':not p['protected_test'] and not history['blocked'],
+                     'source_quarantined':history['blocked'],
                      'warnings':['Protected test group: evaluation only'] if p['protected_test'] else []}
             image['effective'] = effective_photo(image)
             from photo_selection import selection
@@ -300,13 +428,30 @@ class SupabaseStore:
             image['synthetic_evidence'] = image_evidence(listing,description)
             image['selection'] = selection(image['effective']['context'],review,image['synthetic_evidence'])
             images.append(image)
+        try:
+            provider_photo_count = int(metadata.get('PhotosCount')) if metadata.get('PhotosCount') not in {None, ''} else None
+        except (TypeError, ValueError):
+            provider_photo_count = None
+        if photos and history['blocked']:
+            photo_notice = 'Stored listing photos are shown for source review only; source/listing identity is unresolved.'
+        elif photos and not history.get('timing_verified'):
+            photo_notice = 'Stored listing photos are available, but acquisition-era photo identity is not verified yet.'
+        elif not photos and provider_photo_count == 0:
+            photo_notice = 'The MLS provider reports zero listing photos for this record.'
+        elif not photos and provider_photo_count and provider_photo_count > 0:
+            photo_notice = f'The MLS provider reports {provider_photo_count} photo(s), but none are retained in the training workspace. Media recovery is required.'
+        elif not photos:
+            photo_notice = 'No retained listing photos are stored, and the provider photo count is unknown.'
+        else:
+            photo_notice = None
         return {'property':{'id':identifier,'address':metadata.get('UnparsedAddress',identifier),
                  'city':metadata.get('City'),'year_built':metadata.get('YearBuilt'),
                  'property_type':metadata.get('PropertySubType'),'metadata':metadata,
                  'review':self._review('property',identifier,legacy,live),
                  'mls_remarks':__import__('listing_text').remarks(listing),
                  'synthetic_evidence':__import__('listing_text').image_evidence(listing)},
-                'images':images,'coverage':coverage,'property_suggestions':[], 'assessment':None,
+                'images':images,'stored_photo_count':len(photos),'provider_photo_count':provider_photo_count,
+                'photo_display_notice':photo_notice,'coverage':coverage,'property_suggestions':[], 'assessment':None,
                 'historical_source':history,
                 'capabilities':{'review':True,'assessment':False,'training':False,'autolabel':not mismatched and any(not i['synthetic_evidence']['excluded'] for i in images),'storage':'supabase'}}
 
@@ -326,6 +471,16 @@ class SupabaseStore:
             if source and kind=='image':
                 source = {**source,'split':'test' if source['protected_test'] else 'learning'}
             current = self.database.state(db,kind,identifier)
+            if payload.get('label_schema_version'):
+                from studio_v2 import label_evidence, validate_text_reviews
+                detail = self.property(identifier)
+                prop = detail['property']
+                expected_evidence = label_evidence(
+                    identifier, prop.get('mls_remarks') or '', detail['images'], prop.get('metadata'),
+                )
+                if payload.get('label_evidence_id') != expected_evidence:
+                    raise RuntimeError('Evidence changed; reload before saving labels')
+                validate_text_reviews(payload.get('text_signals', []), prop.get('mls_remarks') or '')
             effective = dict(payload)
             if kind=='image' and 'context' not in effective and current and current.get('context'):
                 effective['context'] = current['context']
@@ -335,6 +490,40 @@ class SupabaseStore:
             }:
                 raise ValueError('Standout photo belongs to another property')
             result = self.database.save(db,kind,identifier,payload.get('expected_revision'),record)
+            if payload.get('label_schema_version'):
+                from psycopg.types.json import Jsonb
+                reviewed_signals = {item['signal'] for item in record['text_signals']}
+                retractions = [
+                    {'signal': item['signal'], 'state': 'UNKNOWN', 'probability': None,
+                     'snippet': None, 'start': None, 'end': None}
+                    for item in (current or {}).get('text_signals', [])
+                    if item['signal'] not in reviewed_signals
+                ]
+                answers = [
+                    ('property_condition', {'value': record.get('physical_condition', 'UNKNOWN')}),
+                    ('property_modernization', {'value': record.get('modernization_state', 'UNKNOWN')}),
+                    ('property_target', {'value': record.get('target_fit') or 'unsure', 'fit_basis': record.get('fit_basis')}),
+                    *[('property_text_signal', item) for item in [*record['text_signals'], *retractions]],
+                ]
+                for task, answer in answers:
+                    previous = db.execute('''SELECT id FROM acq_training.review_events
+                        WHERE workspace_id=%s AND example_id=%s AND task=%s
+                          AND (%s::text IS NULL OR answer->>'signal'=%s)
+                        ORDER BY created_at DESC,id DESC LIMIT 1''',
+                        (self.workspace, examples[0]['id'], task, answer.get('signal'), answer.get('signal'))).fetchone()
+                    db.execute('''INSERT INTO acq_training.review_events
+                        (workspace_id,example_id,task,answer,status,reviewer_id,prediction_was_visible,
+                         prior_event_id,label_schema_version,source_evidence)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+                        (self.workspace, examples[0]['id'], task, Jsonb(answer), record['status'],
+                         record['reviewer'], bool(record.get('assistant_proposal')), previous['id'] if previous else None,
+                         record['label_schema_version'], Jsonb({
+                             'label_evidence_id': expected_evidence, 'property_id': identifier,
+                             'assistant_proposal': record.get('assistant_proposal'),
+                             'remarks_sha256': hashlib.sha256((prop.get('mls_remarks') or '').encode()).hexdigest(),
+                             'photo_hashes': [{'id': image['id'], 'sha256': image.get('sha256')}
+                                              for image in detail['images']],
+                         })))
         self._index = None
         return result
 
@@ -465,8 +654,8 @@ class SupabaseStore:
     def queue(self, args):
         scope, queue = args.get('scope','acquisitions'), args.get('queue','all')
         evidence_filter = args.get('evidence','all')
-        if scope not in {'acquisitions','quarantine','reference','training'} or queue not in {
-            'all','ready','unscored','reviewed','photo_match','tagged','todo','opportunity','complete'
+        if scope not in {'all','acquisitions','quarantine','reference','training'} or queue not in {
+            'all','ready','unscored','reviewed','photo_match','tagged','todo','opportunity','complete','missing_text'
         }:
             raise ValueError('Unknown review queue')
         if evidence_filter not in {'all','interior','limited','metadata_only'}:
@@ -475,27 +664,90 @@ class SupabaseStore:
         with self.lock:
             if self._index is None or time.monotonic()-self._index[0]>15:
                 with self.database.connect() as db:
+                    inventory = dict(db.execute('''SELECT count(*) AS imported_rows,
+                        count(DISTINCT group_id) AS physical_groups,
+                        count(DISTINCT listing_key) AS matched_listings,
+                        count(*) FILTER (WHERE match_status='confirmed') AS confirmed_match_rows,
+                        count(DISTINCT listing_key) FILTER (WHERE match_status='confirmed') AS confirmed_match_listings,
+                        count(*) FILTER (WHERE listing_key IS NULL) AS unresolved_rows
+                        FROM acq_training.examples WHERE workspace_id=%s''', (self.workspace,)).fetchone())
+                    inventory['human_source_confirmations'] = db.execute('''SELECT count(*) AS count
+                        FROM acq_training.studio_state WHERE workspace_id=%s AND kind='document'
+                        AND item_id LIKE 'mls-validation:%%' AND payload->>'decision'='confirmed'
+                        ''', (self.workspace,)).fetchone()['count']
                     # Compact listing summary only: no full source snapshots, review history, or photo bytes.
-                    rows = db.execute('''SELECT e.listing_key,e.source_rows,e.group_id,
-                        c.item->'listing'->>'UnparsedAddress' AS address,
-                        c.item->'listing'->>'City' AS city,
-                        c.item->'listing'->>'ListingId' AS listing_id,
-                        jsonb_build_object('listing',jsonb_build_object('StandardStatus',c.item->'listing'->>'StandardStatus','CloseDate',c.item->'listing'->>'CloseDate'),
-                          'match',c.item->'match') AS candidate
+                    rows = db.execute('''SELECT e.id AS example_id,
+                        coalesce(nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),e.listing_key) AS listing_key,
+                        e.source_rows,e.group_id,
+                        e.source_snapshot->'event_map'->>'recovery_status' AS recovery_status,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN e.source_snapshot->'spreadsheet'->>'Address'
+                          ELSE c.item->'listing'->>'UnparsedAddress' END AS address,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN e.source_snapshot->'spreadsheet'->>'City'
+                          ELSE c.item->'listing'->>'City' END AS city,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN NULL ELSE c.item->'listing'->>'ListingId' END AS listing_id,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN '0' ELSE c.item->'listing'->>'PhotosCount' END AS provider_photo_count,
+                        CASE WHEN e.source_snapshot->'event_map'->>'recovery_status'='acquisition_mls_unavailable'
+                          THEN jsonb_build_object('listing',jsonb_build_object('StandardStatus','SourceTransactionOnly','CloseDate',NULL),
+                            'match',jsonb_build_object('source_transaction_only',true))
+                          ELSE jsonb_build_object(
+                            'listing',jsonb_build_object(
+                              'StandardStatus',c.item->'listing'->>'StandardStatus',
+                              'CloseDate',c.item->'listing'->>'CloseDate'
+                            ),
+                            'match',c.item->'match' || CASE
+                              WHEN e.source_snapshot->'event_map'->>'recovery_status'='mapped'
+                              THEN jsonb_build_object('identity_chronology_override',
+                                jsonb_strip_nulls(jsonb_build_object(
+                                  'prior_sale_date',e.source_snapshot->'event_map'->>'prior_sale_date',
+                                  'after_close_date',e.source_snapshot->'event_map'->>'after_close_date'
+                                )))
+                              ELSE '{}'::jsonb END
+                          ) END AS candidate
                       FROM acq_training.examples e
-                      LEFT JOIN LATERAL (SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
-                         WHERE item->'listing'->>'ListingKey'=e.listing_key LIMIT 1)c ON true
-                      WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL ORDER BY e.listing_key,e.id''',
+                      LEFT JOIN LATERAL (
+                        SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
+                        WHERE item->'listing'->>'ListingKey'=coalesce(
+                          nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),
+                          e.listing_key
+                        ) LIMIT 1
+                      ) c ON true
+                      WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL
+                      ORDER BY listing_key,e.id''',
                       (self.workspace,)).fetchall()
                     photos = {r['listing_key']:r for r in db.execute('''WITH unique_photos AS (
-                       SELECT DISTINCT e.listing_key,p.provider_media_key,p.image_sha256
+                       SELECT DISTINCT
+                         coalesce(nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),e.listing_key) AS listing_key,
+                         p.provider_media_key,p.image_sha256,
+                         coalesce(nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),e.listing_key)
+                           ||':'||p.provider_media_key AS image_id
                        FROM acq_training.photos p JOIN acq_training.examples e
                        ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
-                       WHERE e.workspace_id=%s AND p.revoked_at IS NULL
-                       AND (p.retention_until IS NULL OR p.retention_until>now()))
-                       SELECT listing_key,count(*) AS count,min(listing_key||':'||provider_media_key) AS hero,
+                       WHERE e.workspace_id=%s
+                       AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
+                       AND p.revoked_at IS NULL
+                       AND (p.retention_until IS NULL OR p.retention_until>now())
+                       UNION ALL
+                       SELECT DISTINCT
+                         e.source_snapshot->'event_map'->>'acquisition_listing_key' AS listing_key,
+                         image->>'provider_media_key' AS provider_media_key,
+                         image->>'image_sha256' AS image_sha256,
+                         'validation:'||e.id::text||':'||(image->>'provider_media_key') AS image_id
+                       FROM acq_training.examples e
+                       JOIN acq_training.studio_state s ON s.workspace_id=e.workspace_id
+                         AND s.kind='document' AND s.item_id='mls-validation-media:'||e.id::text
+                       CROSS JOIN LATERAL jsonb_array_elements(coalesce(s.payload->'images','[]'::jsonb)) image
+                       WHERE e.workspace_id=%s
+                         AND e.source_snapshot->'event_map'->>'recovery_status'='mapped'
+                         AND image->'context_evidence'->>'event_role'='acquisition')
+                       SELECT listing_key,count(*) AS count,min(image_id) AS hero,
                        encode(sha256(convert_to(jsonb_agg(image_sha256 ORDER BY image_sha256)::text,'UTF8')),'hex') AS evidence_hash
-                       FROM unique_photos GROUP BY listing_key''',(self.workspace,))}
+                       FROM unique_photos
+                       WHERE listing_key IS NOT NULL
+                       GROUP BY listing_key''',(self.workspace,self.workspace))}
                     states = {(r['kind'],r['item_id']):r['payload'] for r in db.execute('''SELECT kind,item_id,payload
                        FROM acq_training.studio_state WHERE workspace_id=%s AND (
                          kind IN ('property','era') OR kind='document' AND (
@@ -507,7 +759,8 @@ class SupabaseStore:
                 items = {}
                 for row in rows:
                     key = row['listing_key']
-                    blocked = not supports_prior(row['candidate'])
+                    recovery_status = row.get('recovery_status')
+                    blocked = False if recovery_status in {'mapped','acquisition_mls_unavailable'} else not supports_prior(row['candidate'])
                     if key in items:
                         items[key]['blocked'] |= blocked
                         continue
@@ -527,13 +780,48 @@ class SupabaseStore:
                         'interior' if interior_tags else
                         'limited' if photo.get('count',0) else 'metadata_only'
                     )
+                    try:
+                        provider_photo_count = int(row['provider_photo_count']) if row['provider_photo_count'] not in {None, ''} else None
+                    except (TypeError, ValueError):
+                        provider_photo_count = None
+                    retained_count = photo.get('count',0)
+                    if recovery_status == 'acquisition_mls_unavailable':
+                        photo_state = 'acquisition_mls_unavailable'
+                    elif blocked:
+                        photo_state = 'source_conflict'
+                    elif retained_count == 0 and provider_photo_count == 0:
+                        photo_state = 'provider_no_photos'
+                    elif retained_count == 0 and provider_photo_count and provider_photo_count > 0:
+                        photo_state = 'provider_photos_not_imported'
+                    elif era.get('decision') == 'wrong_era':
+                        photo_state = 'wrong_acquisition_era'
+                    elif retained_count and era.get('decision') != 'correct_era':
+                        photo_state = 'acquisition_era_unverified'
+                    elif retained_count and era.get('evidence_hash') != photo.get('evidence_hash'):
+                        photo_state = 'photo_inventory_changed'
+                    elif retained_count:
+                        photo_state = 'photos_verified'
+                    else:
+                        photo_state = 'photo_status_unknown'
                     items[key] = {'id':key,'address':row['address'] or key,'city':row['city'],
-                        'listing_id':row['listing_id'],'image_count':photo.get('count',0),'hero_image_id':photo.get('hero'),
+                        'listing_id':row['listing_id'],'image_count':retained_count,'hero_image_id':photo.get('hero'),
+                        'provider_photo_count':provider_photo_count,
+                        'photo_status':{'state':photo_state,'provider_photo_count':provider_photo_count,
+                            'retained_photo_count':retained_count,
+                            'era_decision':era.get('decision'),'retained_evidence_hash':photo.get('evidence_hash'),
+                            'verified_evidence_hash':era.get('evidence_hash')},
                         'status':'reviewed' if review.get('status')=='approved' else 'unscored',
                         'human_target':review.get('target_fit'),
                         'human_score':review.get('target_score'),'target':None,
+                        'missing_text':not bool(review.get('text_signals')),
                         # Queue is conservative; property detail verifies exact evidence hash.
-                        'needs_photo_match':not(photo.get('count') and era.get('decision')=='correct_era' and era.get('evidence_hash')==photo.get('evidence_hash')),'blocked':blocked or era.get('decision')=='wrong_era',
+                        'needs_photo_match':False if recovery_status=='acquisition_mls_unavailable' else not(
+                            photo.get('count') and (
+                                recovery_status=='mapped' or
+                                era.get('decision')=='correct_era' and era.get('evidence_hash')==photo.get('evidence_hash')
+                            )
+                        ),
+                        'blocked':blocked or (era.get('decision')=='wrong_era' and recovery_status!='mapped'),
                         'autolabel_status':label_request.get('status','not_requested'),
                         'tagged_photo_count':len(tagged_images),
                         'interior_tagged_count':len(interior_tags),
@@ -544,9 +832,9 @@ class SupabaseStore:
                     )
                 for item in items.values():
                     if item['blocked']: item['acquisition_status']='needs_prior_listing'
-                self._index = time.monotonic(),list(items.values())
+                self._index = time.monotonic(),list(items.values()),inventory
             items = deepcopy(self._index[1])
-        items = [i for i in items if scope=='training' or scope!='reference' and (i['blocked']==(scope=='quarantine'))]
+        items = [i for i in items if scope in {'all','training'} or scope!='reference' and (i['blocked']==(scope=='quarantine'))]
         if scope=='training':
             cohort = self.document('training-cohort-acquisition-250-v1')
             keys = set((cohort or {}).get('listing_keys', []))
@@ -554,6 +842,7 @@ class SupabaseStore:
         counts = {'all':len(items),'ready':0,'unscored':sum(i['status']=='unscored' for i in items),
                   'reviewed':sum(i['status']=='reviewed' for i in items),'photo_match':sum(i['needs_photo_match'] for i in items)}
         counts['verified'] = sum(not i['needs_photo_match'] for i in items)
+        counts['source_conflicts'] = sum(i['blocked'] for i in items)
         counts['opportunity'] = sum(
             not i['needs_photo_match'] and i['status']!='reviewed' for i in items
         )
@@ -565,6 +854,12 @@ class SupabaseStore:
         counts['interior'] = sum(i['evidence_mode']=='interior' for i in items)
         counts['limited'] = sum(i['evidence_mode']=='limited' for i in items)
         counts['metadata_only'] = sum(i['evidence_mode']=='metadata_only' for i in items)
+        counts['missing_text'] = sum(i['missing_text'] for i in items)
+        counts['with_photos'] = sum(i['image_count'] > 0 for i in items)
+        counts['without_photos'] = sum(i['image_count'] == 0 for i in items)
+        counts['photo_states'] = dict(__import__('collections').Counter(
+            i.get('photo_status',{}).get('state','photo_status_unknown') for i in items
+        ))
         photo_count = sum(i['image_count'] for i in items)
         search = args.get('search','').strip().casefold()
         items = [i for i in items if (queue=='all' or queue=='todo' and not i['review_complete']
@@ -572,6 +867,7 @@ class SupabaseStore:
                   or queue=='complete' and i['review_complete']
                   or queue=='photo_match' and i['needs_photo_match']
                   or queue=='tagged' and i['autolabel_status']=='completed' and i['tagged_photo_count']
+                  or queue=='missing_text' and i['missing_text']
                   or i['status']==queue)
                  and (evidence_filter=='all' or evidence_filter=='limited' and i['evidence_mode']!='interior'
                       or i['evidence_mode']==evidence_filter)
@@ -580,7 +876,7 @@ class SupabaseStore:
         items.sort(key=lambda i:(i['review_complete'],not i['needs_photo_match'],
                                 evidence_priority[i['evidence_mode']],i['address']))
         return {'items':items[offset:offset+limit],'counts':counts,'total':len(items),'offset':offset,'limit':limit,
-                'photo_count':photo_count,
+                'photo_count':photo_count,'inventory':deepcopy(self._index[2]),
                 'capabilities':{'review':True,'assessment':False,'training':False,'storage':'supabase'}}
 
     def document(self, key):
@@ -685,10 +981,10 @@ class SupabaseStore:
         limit = min(40, max(1, int(args.get('limit', 20))))
         search = args.get('search', '').strip().casefold()
         state_filter = args.get('status', 'all')
-        if state_filter not in {'all','verified','verify','rematch','missing_photos'}:
+        if state_filter not in {'all','verified','verify','rematch','missing_photos','match_confirmed'}:
             raise ValueError('Unknown source-row status')
         with self.database.connect() as db:
-            rows = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,e.source_snapshot,
+            rows = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,e.source_snapshot,e.match_status,
                 (SELECT count(*) FROM acq_training.photos p WHERE
                  (p.workspace_id,p.example_id)=(e.workspace_id,e.id) AND p.revoked_at IS NULL
                  AND (p.retention_until IS NULL OR p.retention_until>now())) AS photo_count
@@ -700,7 +996,9 @@ class SupabaseStore:
             photo_rows = db.execute('''SELECT e.listing_key,p.provider_media_key,p.image_sha256
                 FROM acq_training.photos p JOIN acq_training.examples e
                 ON (p.workspace_id,p.example_id)=(e.workspace_id,e.id)
-                WHERE p.workspace_id=%s AND p.revoked_at IS NULL
+                WHERE p.workspace_id=%s
+                AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
+                AND p.revoked_at IS NULL
                 AND (p.retention_until IS NULL OR p.retention_until>now())''',(self.workspace,)).fetchall()
         annotate_first_sales(rows)
         by_listing = {}
@@ -714,6 +1012,7 @@ class SupabaseStore:
             selected = self._selected(row)
             source = trim_metadata(row['source_snapshot'].get('spreadsheet', {}))
             era = states.get(('era',row['listing_key']),{})
+            validation = states.get(('document','mls-validation:'+str(row['id'])),{})
             attached = by_listing.get(row['listing_key'],{})
             photo_count = len(attached)
             status = 'rematch' if not supported[row['listing_key']] or era.get('decision')=='wrong_era' else (
@@ -724,7 +1023,9 @@ class SupabaseStore:
                 if all(len(hashes)==1 for hashes in attached.values()) and era.get('evidence_hash')==digest: status='verified'
             for source_row in row['source_rows']:
                 note = states.get(('document','source-row:'+str(source_row)),{})
-                items.append({'source_row':source_row,'listing_key':row['listing_key'],
+                items.append({'source_row':source_row,'listing_key':row['listing_key'],'import_match_status':row['match_status'],
+                    'validation_record_id':str(row['id']),'validation_decision':validation.get('decision'),
+                    'match_confirmed':row['match_status']=='confirmed' or validation.get('decision')=='confirmed',
                     'address':source.get('Address') or source.get('UnparsedAddress') or selected.get('listing',{}).get('UnparsedAddress') or 'Unresolved source row',
                     'source':source,'status':status,'photo_count':photo_count,
                     'photo_coverage':era.get('photo_coverage','unknown') if status=='verified' else 'unknown',
@@ -736,8 +1037,9 @@ class SupabaseStore:
         unique = {item['source_row']:item for item in items}
         items = sorted(unique.values(),key=lambda item:item['source_row'])
         counts = {state:sum(i['status']==state for i in items) for state in ('verified','verify','rematch','missing_photos')}
+        counts['match_confirmed'] = sum(i['match_confirmed'] for i in items)
         total_rows = len(items)
-        items = [i for i in items if (state_filter=='all' or i['status']==state_filter)
+        items = [i for i in items if (state_filter=='all' or i['status']==state_filter or state_filter=='match_confirmed' and i['match_confirmed'])
                  and (not search or search in (str(i['source_row'])+' '+i['address']+' '+str(i['listing_key'])).casefold())]
         return {'items':items[offset:offset+limit],'counts':counts,'source_rows':total_rows,
                 'total':len(items),'offset':offset,'limit':limit}

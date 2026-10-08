@@ -1,0 +1,116 @@
+{
+  "kind": "prediction",
+  "schema_version": "actvision-v2",
+  "label_schema_version": "actvision-labels-v2",
+  "prediction_id": "fixture-prediction",
+  "request_id": "fixture-request",
+  "evidence_id": "c5225a77ae8ae34e8eada050c347da2ac9c702bbce6622640893824ab44390fd",
+  "evidence": {
+    "workspace_id": "fixture-workspace",
+    "property_id": "fixture-property",
+    "listing_id": "fixture-listing",
+    "snapshot_at": "2026-10-02T00:00:00Z",
+    "visual_generation": 0,
+    "photos_change_timestamp": null,
+    "selected_photos": [],
+    "remarks_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "structured_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "release_id": "fixture-candidate-v2"
+  },
+  "release_id": "fixture-candidate-v2",
+  "status": "unavailable",
+  "components": {
+    "vision": {
+      "status": "missing",
+      "version": null,
+      "calibration_version": null,
+      "result": {
+        "physical_condition": "UNKNOWN",
+        "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
+        "condition_probabilities": {},
+        "modernization_probabilities": {},
+        "acquisition_fit_probabilities": {},
+        "value_add_score": null,
+        "confidence": null,
+        "text_signals": []
+      },
+      "reason": "No input evidence"
+    },
+    "text": {
+      "status": "missing",
+      "version": null,
+      "calibration_version": null,
+      "result": {
+        "physical_condition": "UNKNOWN",
+        "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
+        "condition_probabilities": {},
+        "modernization_probabilities": {},
+        "acquisition_fit_probabilities": {},
+        "value_add_score": null,
+        "confidence": null,
+        "text_signals": []
+      },
+      "reason": "No input evidence"
+    },
+    "structured": {
+      "status": "missing",
+      "version": null,
+      "calibration_version": null,
+      "result": {
+        "physical_condition": "UNKNOWN",
+        "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
+        "condition_probabilities": {},
+        "modernization_probabilities": {},
+        "acquisition_fit_probabilities": {},
+        "value_add_score": null,
+        "confidence": null,
+        "text_signals": []
+      },
+      "reason": "No input evidence"
+    },
+    "fusion": {
+      "status": "unavailable",
+      "version": null,
+      "calibration_version": null,
+      "result": {
+        "physical_condition": "UNKNOWN",
+        "modernization": "UNKNOWN",
+        "acquisition_fit": "UNKNOWN",
+        "condition_probabilities": {},
+        "modernization_probabilities": {},
+        "acquisition_fit_probabilities": {},
+        "value_add_score": null,
+        "confidence": null,
+        "text_signals": []
+      },
+      "reason": "No trained fusion artifact"
+    }
+  },
+  "result": {
+    "physical_condition": "UNKNOWN",
+    "modernization": "UNKNOWN",
+    "acquisition_fit": "UNKNOWN",
+    "condition_probabilities": {},
+    "modernization_probabilities": {},
+    "acquisition_fit_probabilities": {},
+    "value_add_score": null,
+    "confidence": null,
+    "text_signals": []
+  },
+  "modalities_used": [],
+  "coverage": {
+    "selected_photo_count": 0,
+    "usable_photo_count": 0,
+    "text_available": false,
+    "structured_completeness": 0
+  },
+  "observed_photo_hashes": [],
+  "created_at": "2026-10-02T00:00:01Z",
+  "latency_ms": 0,
+  "warnings": [
+    "Synthetic conformance fixture; not a trained prediction"
+  ]
+}

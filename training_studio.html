@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ActVision Training Studio</title>
+<script>
+(() => {
+  const param = new URLSearchParams(window.location.search).get("scoutTheme");
+  const theme = param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", theme);
+})();
+</script>
+<style>
+
+:root {
+  color-scheme: light;
+  --cp-bg: #f3f6fa;
+  --cp-bg-elevated: #e9eff5;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #edf3f8;
+  --cp-border: #cfdae5;
+  --cp-border-strong: #7890a5;
+  --cp-text: #09253e;
+  --cp-text-muted: #526b80;
+  --cp-text-soft: #6c8193;
+  --cp-accent: #155eef;
+  --cp-accent-hover: #0b4dcc;
+  --cp-accent-soft: rgba(21, 94, 239, 0.1);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #079c88;
+  --cp-danger: #cf3349;
+  --cp-warning: #bb6812;
+  --cp-link: #155eef;
+  --cp-shadow: 0 14px 38px rgba(7, 31, 53, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(7, 156, 136, 0.1);
+  --cp-brand-navy: #071f35;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #155eef;
+  --cp-brand-blue-bright: #2f72ff;
+  --cp-brand-teal: #12bfa7;
+  --cp-brand-glow: rgba(21, 94, 239, 0.2);
+  --cp-nav-bg: #071f35;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(47, 114, 255, 0.22);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #071722;
+  --cp-bg-elevated: #0a1d2d;
+  --cp-surface: #0d263a;
+  --cp-surface-soft: #102d43;
+  --cp-border: #29475f;
+  --cp-border-strong: #668198;
+  --cp-text: #eaf3fa;
+  --cp-text-muted: #9eb1c2;
+  --cp-text-soft: #bdcad5;
+  --cp-accent: #4b83ff;
+  --cp-accent-hover: #6b99ff;
+  --cp-accent-soft: rgba(75, 131, 255, 0.16);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #2bd3b8;
+  --cp-danger: #ff7181;
+  --cp-warning: #f5b451;
+  --cp-link: #70a0ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(7, 23, 34, 0.88);
+  --cp-panel: rgba(13, 38, 58, 0.76);
+  --cp-panel-strong: rgba(13, 38, 58, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(43, 211, 184, 0.12);
+  --cp-brand-navy: #061827;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #4b83ff;
+  --cp-brand-blue-bright: #70a0ff;
+  --cp-brand-teal: #2bd3b8;
+  --cp-brand-glow: rgba(75, 131, 255, 0.28);
+  --cp-nav-bg: #061827;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(75, 131, 255, 0.24);
+}
+*{box-sizing:border-box}body{margin:0;min-width:320px;background:var(--cp-bg);background-image:linear-gradient(var(--cp-accent-soft) 1px,transparent 1px),linear-gradient(90deg,var(--cp-accent-soft) 1px,transparent 1px);background-size:40px 40px;color:var(--cp-text);font:14px/1.5 "Segoe UI",Aptos,Calibri,-apple-system,BlinkMacSystemFont,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}button,input,select,textarea{border:1px solid var(--cp-border);border-radius:var(--radius-sm);padding:9px 12px;background:var(--cp-surface);min-height:42px}button{cursor:pointer;font-weight:600}button:hover:not(:disabled){border-color:var(--cp-accent);background:var(--cp-accent-soft)}button:disabled{opacity:.5;cursor:not-allowed}.primary{background:var(--cp-accent);color:var(--cp-accent-fg);border-color:var(--cp-accent)}.primary:hover:not(:disabled){background:var(--cp-accent-hover);color:var(--cp-accent-fg)}a{color:var(--cp-link)}:focus-visible{outline:2px solid var(--cp-accent);outline-offset:3px}
+.sidebar{position:fixed;inset:0 auto 0 0;z-index:20;width:236px;display:flex;flex-direction:column;background:var(--cp-nav-bg);border-right:1px solid var(--cp-brand-navy-soft);padding:24px 16px;color:var(--cp-nav-text)}.sidebar:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,var(--cp-brand-blue),var(--cp-brand-teal))}.brand{display:flex;align-items:center;gap:10px;padding:0 8px 28px}.brand-mark{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border:1px solid var(--cp-brand-blue-bright);border-radius:8px;background:var(--cp-nav-active);color:var(--cp-brand-teal);font-weight:800;font-size:17px}.brand strong{font-size:20px;letter-spacing:-.02em}.brand strong span{color:var(--cp-brand-blue-bright)}.brand small{display:block;color:var(--cp-nav-muted);font-size:11px}.nav-caption{padding:0 12px 10px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--cp-nav-muted)}nav{display:grid;gap:4px}nav button{display:flex;align-items:center;gap:12px;min-height:44px;text-align:left;border:0;background:transparent;color:var(--cp-nav-muted);padding:0 12px}nav button svg{width:18px;height:18px;flex-shrink:0}nav button:hover:not(:disabled),nav button.active{background:var(--cp-nav-active);color:var(--cp-nav-text)}nav button.active svg{color:var(--cp-brand-teal)}.sidebar-note{margin-top:auto;padding:18px 12px 0;border-top:1px solid var(--cp-brand-navy-soft);color:var(--cp-nav-muted);font-size:11px}.sidebar-note strong{display:block;color:var(--cp-nav-text);font-size:12px;margin-bottom:5px}
+header{margin-left:236px;min-height:74px;padding:16px 28px;background:var(--cp-surface);border-bottom:1px solid var(--cp-border);display:flex;justify-content:space-between;align-items:center;gap:16px}header strong{font-size:18px}header small{display:block;color:var(--cp-text-muted);font-size:12px}#actor{font-size:12px;text-align:right;overflow-wrap:anywhere}.header-context{display:flex;align-items:center;gap:16px}.pill{display:inline-flex;align-items:center;border:1px solid var(--cp-border);border-radius:999px;padding:4px 9px;font-size:11px;font-weight:650;background:var(--cp-surface-soft);white-space:nowrap}.pill.accent{border-color:var(--cp-accent);background:var(--cp-accent-soft);color:var(--cp-accent)}.pill.pending{color:var(--cp-text-muted)}
+main{margin:0 0 0 236px;padding:26px 28px 48px;max-width:1680px}h1{font-size:26px;letter-spacing:-.025em;line-height:1.2;margin:0 0 8px}h2{overflow-wrap:anywhere;font-size:18px;line-height:1.35;margin:0 0 12px}h3{font-size:15px;margin:18px 0 10px}p{margin:0 0 16px}.muted{color:var(--cp-text-muted)}.eyebrow{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--cp-text-muted);margin-bottom:7px}.page-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:22px}.page-heading p{max-width:760px;margin:0}.card{background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:var(--radius-md);padding:20px;margin-bottom:16px;min-width:0}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.cards .card{margin-bottom:0}.metric{overflow-wrap:anywhere;font-size:28px;font-weight:750;line-height:1.2;display:block;color:var(--cp-accent);margin:6px 0 10px}#counts{margin-bottom:20px}#counts .card{padding:16px 18px}#counts .card>span:last-child{font-size:12px;color:var(--cp-text-muted)}.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.row>*{min-width:0}.queue-toolbar{align-items:flex-end;padding:16px 18px;margin-bottom:18px;background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:var(--radius-md)}.queue-toolbar label{margin:0;flex:1;min-width:150px}.queue-toolbar input{width:100%}.queue-toolbar #queue-total{flex-basis:100%;font-size:11px}.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px}.evidence{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px}.queue{max-height:740px;overflow:auto;padding:12px}.queue button{display:block;width:100%;text-align:left;margin:0 0 8px;padding:12px;background:var(--cp-surface-soft)}.queue button[aria-current=true]{border-color:var(--cp-accent);background:var(--cp-accent-soft)}.queue small{display:block;margin-top:6px;color:var(--cp-text-muted);font-weight:400;font-size:11px}.hero{display:block;width:100%;height:340px;object-fit:contain;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:var(--radius-md)}.thumbs{display:flex;gap:8px;overflow:auto;padding:10px 0;margin:0 0 8px}.thumbs img{display:block;width:72px;height:54px;object-fit:cover}.thumbs button{padding:0;border:2px solid transparent;min-height:0;flex-shrink:0;overflow:hidden}.thumbs button[aria-pressed=true]{border-color:var(--cp-accent)}.remarks{white-space:pre-wrap;max-height:330px;overflow:auto;user-select:text;line-height:1.7;padding:14px;background:var(--cp-surface-soft);border-radius:var(--radius-sm)}.decisions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}label{display:grid;gap:7px;margin-bottom:12px;font-size:12px;font-weight:600}textarea{width:100%;min-height:90px;resize:vertical}select{max-width:100%;width:100%}input[type=checkbox]{min-height:auto}.warning{border:1px solid var(--cp-border);border-left:3px solid var(--cp-warning);border-radius:var(--radius-sm);padding:12px 14px;background:var(--cp-surface-soft);margin-bottom:16px;font-size:12px}#era{margin:12px 0 18px}#message{margin:0 28px 0 264px;white-space:pre-wrap;color:var(--cp-danger);overflow-wrap:anywhere}#message:not(:empty){border:1px solid var(--cp-border);background:var(--cp-surface);border-left:3px solid var(--cp-danger);padding:12px 16px;margin-top:16px;border-radius:var(--radius-sm)}#message.ok{color:var(--cp-success);border-left-color:var(--cp-success)}.evidence-tabs{display:flex;gap:4px;border-bottom:1px solid var(--cp-border);margin-bottom:18px;padding-bottom:0;flex-wrap:wrap}.evidence-tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--cp-text-muted);padding:10px 12px}.evidence-tabs button[aria-pressed=true]{border-bottom-color:var(--cp-accent);color:var(--cp-accent)}#label-form{margin-top:24px;border-top:1px solid var(--cp-border);padding-top:8px}.save-bar{border-top:1px solid var(--cp-border);padding-top:16px;margin-top:16px}.save-bar small{font-weight:400;font-size:11px}.save-bar .primary{min-width:150px}.model-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.model-card{padding:18px;display:flex;flex-direction:column;gap:12px;margin:0}.model-card h2{margin:0}.model-card p{font-size:12px;margin:0}.model-card .pill{align-self:flex-start;margin-top:auto}.section-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.section-heading h2{margin:0}.workflow-note{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:var(--radius-sm);margin-bottom:20px;font-size:12px}.workflow-note strong{color:var(--cp-accent)}.workflow-note p{margin:0}.legacy-tools{border-left:3px solid var(--cp-warning)}.legacy-tools p{font-size:12px}.legacy-tools .row{margin:16px 0}.model-table{overflow-x:auto}.model-table table{min-width:510px}.model-table th{font-size:11px;color:var(--cp-text-muted);font-weight:650;background:var(--cp-surface-soft)}pre{font:12px/1.6 Consolas,"Courier New",monospace;white-space:pre-wrap;overflow-wrap:anywhere;padding:14px;background:var(--cp-surface-soft);border:1px solid var(--cp-border);border-radius:var(--radius-sm)}.tag{border:1px solid var(--cp-border);padding:12px;border-radius:var(--radius-sm);margin:8px 0;background:var(--cp-surface-soft)}.tag button{float:right}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:10px 12px;border-bottom:1px solid var(--cp-border);overflow-wrap:anywhere}td{max-width:380px}summary{cursor:pointer;font-size:12px;color:var(--cp-text-muted)}details{margin:14px 0}details[open] summary{margin-bottom:16px}.tool-link{display:block;text-decoration:none;color:var(--cp-text);border-radius:var(--radius-md)}.tool-link:hover{border-color:var(--cp-accent)}.tool-link small{display:block;color:var(--cp-text-muted);margin-top:8px;font-size:12px}.hidden,[hidden]{display:none!important}
+@media(max-width:1180px){main{padding:24px 20px}.layout{grid-template-columns:200px minmax(0,1fr)}.evidence{grid-template-columns:1fr}.model-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hero{height:360px}.header-context .pill{display:none}}
+@media(max-width:900px){.sidebar{position:relative;inset:auto;width:100%;padding:16px;gap:8px}.brand{padding:0 4px 10px}.brand small,.nav-caption,.sidebar-note{display:none}nav{display:flex;overflow-x:auto;max-width:100%;padding-bottom:3px}nav button{flex-shrink:0;white-space:nowrap;padding:0 12px;gap:8px}header{margin-left:0;padding:16px;min-height:66px}main{margin-left:0;padding:22px 16px 28px}.layout{grid-template-columns:1fr}.queue{max-height:180px}.decisions{grid-template-columns:1fr 1fr}.hero{height:280px}#message{margin:0 16px}#message:not(:empty){margin-top:12px}.page-heading{flex-direction:column;gap:12px}.model-grid{grid-template-columns:1fr 1fr}.section-heading{align-items:flex-start;flex-direction:column}.card{padding:16px}.queue-toolbar button{flex:1}.save-bar{align-items:flex-start;flex-direction:column}.save-bar .primary{width:100%}#actor{max-width:46%}}
+@media(max-width:500px){.model-grid,.decisions{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}.model-card{gap:10px}.hero{height:250px}.row>label{width:100%}.queue-toolbar label{min-width:0}.header-context strong{font-size:16px}.brand strong{font-size:18px}h1{font-size:24px}.evidence-tabs button{padding:9px}.workflow-note{display:block}.workflow-note strong{display:block;margin-bottom:5px}}
+
+</style></head>
+<body>
+<aside class="sidebar" aria-label="Studio navigation"><div class="brand"><span class="brand-mark" aria-hidden="true">AV</span><div><strong>ACQ <span>Vision</span></strong><small>Human evidence. Better models.</small></div></div><div class="nav-caption">Training workspace</div><nav aria-label="Primary"><a href="/" style="display:block;padding:12px;color:inherit">Overview</a><button data-page="label" class="active" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z M8 9h8 M8 13h5"/></svg>Review properties</button><button data-page="review"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4 M5 4h14v16H5z"/></svg>Feedback inbox</button><button data-page="train"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z M8 9h8 M8 13h5"/></svg>Datasets & models</button><button data-page="releases"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5"/></svg>Releases</button><button data-page="operations"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Worker & connections</button><button data-page="advanced"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16 M4 17h16 M8 4v6 M16 14v6"/></svg>Advanced tools</button></nav><div class="sidebar-note"><strong>Review where it matters</strong>AI drafts stay unreviewed. Experimental training can use them; your approved corrections take priority.</div></aside><header><div class="header-context"><div><strong>Review properties</strong><small>Review evidence and prepare model candidates</small></div><span class="pill accent">Human review workspace</span></div><div id="actor" class="muted"></div></header>
+<div id="message" role="status" aria-live="polite"></div>
+<main>
+<section id="label" data-panel>
+ <div class="page-heading"><div><span class="eyebrow">AI drafts + optional human corrections</span><h1>Review properties</h1><p class="muted">Your acquisition cohort already provides TARGET provenance for Candidate 001. Review only the properties you want to correct or use as gold-standard examples. Human corrections override AI drafts.</p></div><span class="pill">Optional corrections</span></div>
+ <div class="cards" id="counts"></div>
+ <div class="card"><h2>Batch AI drafts</h2><p>Queue once, then review only the suggestions you care about. Existing current drafts are reused automatically. Human reviews stay intact. Candidate 001 does not require you to approve every property.</p><label><span><input id="select-all-drafts" type="checkbox"> Select all acquisition MLS listings (entire cohort, not just this page)</span></label><div class="row"><button id="queue-draft-batch" type="button" class="primary">Queue selected drafts</button><button id="refresh-draft-batch" type="button">Refresh batch progress</button></div><p class="muted">Drafts use acquisition-era descriptions, safe listing facts and existing photo tags. This starts paid OpenAI requests only where a current draft is missing; existing evidence-matched drafts are reused. The 2 source-only acquisitions are not treated as normal MLS draft jobs. This does not train a model.</p><div id="draft-batch-progress" aria-live="polite"></div></div><details class="card"><summary>My gold-standard samples</summary><p>Add a small set of properties you know well. These are useful for checking condition, modernization and acquisition-fit quality, but Candidate 001 does not wait for you to review the full cohort. This list does not change protected test splits.</p><button id="add-sample" type="button">Add current listing to my samples</button><button id="load-samples" type="button">Show my samples</button><div id="sample-list"></div><p class="muted">If an MLS ID is not found, it is not imported into this workspace yet. No new listing, photos or acquisition verification will be invented.</p></details><div class="row queue-toolbar"><label>Review queue<select id="queue-filter"><option value="all">All properties</option><option value="unscored">Unlabeled</option><option value="reviewed">Reviewed</option><option value="missing_text">Missing text labels</option><option value="photo_match">Source / photo recovery exceptions</option></select></label><label>Search<input id="search" type="search" placeholder="Address or MLS ID"></label><button id="refresh">Refresh</button><button id="more">Next page</button><span id="queue-total" class="muted"></span></div>
+ <div class="layout"><aside class="card queue" id="queue" aria-label="Property inbox"></aside>
+ <div class="card"><div id="empty">Select a property to start labeling.</div><div id="property" hidden>
+  <h2 id="address"></h2><div class="card"><h3>Text + Metadata Bootstrap</h3><p class="muted">A saved prediction from the experimental description + listing-facts bootstrap. It does not use a trained vision component and never overwrites your review.</p><div id="property-prediction" aria-live="polite">Loading saved prediction…</div><button id="property-predict" type="button">Run Text + Metadata Bootstrap</button></div><div class="card"><h3>ActVision v2 Candidate</h3><p class="muted">The real multimodal candidate. It uses the versioned vision, semantic text, structured-facts and calibrated fusion artifacts that were trained together. It never overwrites your review.</p><div id="actvision-prediction" aria-live="polite">Loading saved ActVision result…</div><button id="actvision-predict" type="button">Run ActVision v2 Candidate</button></div><div class="card"><h3 id="draft-status">Loading saved analysis…</h3><p id="draft-help" class="muted">Existing results load automatically. Opening a property never starts a paid analysis.</p><div id="proposal-result" aria-live="polite"></div><div class="row"><button id="use-proposal" type="button" disabled>Review saved AI draft</button><button id="refresh-proposal" type="button">Refresh status</button></div><details><summary>Generate a new AI draft</summary><p>Uses one paid OpenAI request to propose editable labels from the stored evidence. It does not train a model.</p><label><span><input id="confirm-proposal" type="checkbox"> Generate one AI draft for this property</span></label><button id="request-proposal" type="button">Generate AI draft</button></details></div><p id="identity" class="muted"></p><div id="era" class="warning"></div>
+  <form id="label-form"><h3>Correct these answers if needed</h3><p class="muted">AI suggestions are editable drafts. Saving creates a human override for this property. Skipping it leaves the AI draft unreviewed and does not block Candidate 001.</p><div class="decisions">
+   <label>What repairs are needed?<small class="muted">Judge repair needs, separately from dated finishes. Year built alone is not enough.</small><select id="physical"></select></label><label>How updated is it?<small class="muted">Original can still be well maintained.</small><select id="modernization"></select></label><label>Does it fit our renovation strategy?<small class="muted">Review the evidence, not just the listing age.</small><select id="fit"></select></label></div><details><summary>Advanced review details</summary><div class="decisions"><label>Review confidence<select id="confidence"><option value="">Not assessed</option><option>low</option><option>medium</option><option>high</option></select></label>
+  </div><div class="row"><label>Fit basis<select id="fit-basis"><option value="unknown">Unknown</option><option value="renovation">Physical renovation evidence</option><option value="pricing">Pricing (separate economics)</option><option value="layout_location">Layout / location</option><option value="mixed">Mixed</option></select></label><label>Evidence source<select id="evidence-source"><option value="">Not assessed</option><option value="images">Photos</option><option value="metadata">Remarks / facts</option><option value="both">Both</option><option value="insufficient">Insufficient evidence</option></select></label></div>
+  </details><label>Why these answers? <small class="muted">AI explanation is filled in when available. Correct it if needed.</small><textarea id="reason" maxlength="2000" required></textarea></label><div class="row save-bar"><button class="primary" type="submit" id="save-next">Save correction &amp; Next</button><button id="skip-property" type="button">Skip for now</button><small class="muted">Ctrl+Enter to approve. This never trains or promotes a model.</small></div></form>
+  <div class="evidence-tabs" aria-label="Property evidence"><button data-tab="photos" aria-pressed="true">Photos</button><button data-tab="text">Description evidence</button><button data-tab="facts">Listing facts</button></div>
+  <div id="photos-panel" class="evidence">
+   <div><p id="photo-source-notice" class="warning" hidden></p><img id="hero" class="hero" alt="Selected property evidence" hidden><p id="no-photos">No photos available. Physical evidence remains unknown unless supported by other reviewed evidence.</p><div id="thumbnails" class="thumbs"></div><p id="photo-status" class="muted"></p>
+    <details><summary>Review this photo</summary><form id="photo-form"><div class="row"><label>Context<select id="photo-context"><option>unknown</option><option>subject</option><option>subject_interior</option><option>subject_exterior</option><option>shared_amenity</option><option>floor_plan</option><option>unrelated</option></select></label><label>Room<select id="photo-room"><option>other</option><option>kitchen</option><option>bathroom</option><option>living</option><option>bedroom</option><option>exterior</option><option>outdoor</option></select></label></div><div class="row"><label>Photo condition<select id="photo-physical"></select></label><label>Photo modernization<select id="photo-modernization"></select></label></div><label>Exclude from evidence<select id="photo-exclusion"><option value="">Keep existing selection</option><option value="amenity">Shared amenity</option><option value="floor_plan">Floor plan</option><option value="virtual_staging">Virtual staging</option><option value="duplicate">Duplicate</option><option value="unrelated">Unrelated</option><option value="unusable">Unusable</option></select></label><p class="muted">Subject-interior condition only. Use Unknown for excluded or insufficient photos. Detailed feature labels remain in Advanced.</p><button type="submit">Save photo review</button></form></details>
+   </div><div><h3>Listing remarks</h3><div id="remarks" class="remarks"></div><p class="muted">Highlighted quotes support the description suggestions. Check them in context; missing information stays Unknown.</p></div>
+  </div>
+  <div id="text-panel" hidden><h3>What the description supports</h3><p class="muted">The AI extracts the quotes. Review the suggestions below; you do not need to copy phrases. Not mentioned means Unknown, not No.</p><div id="text-remarks" class="remarks"></div><details><summary>Advanced: add or correct a description quote</summary><label>Topic<select id="signal"></select></label><label>What does the description say?<select id="signal-state"><option value="PRESENT">Supports this</option><option value="ABSENT">Explicitly contradicts this</option><option value="UNKNOWN">Not enough information</option></select></label><label>Select text in the description, or paste an exact quote<input id="snippet" maxlength="10000"></label><button id="capture-quote" type="button">Use selected description text</button><button id="add-signal" type="button">Save evidence correction</button></details></div>
+  <div id="facts-panel" hidden><h3>Structured listing facts</h3><p class="muted">Acquisition-time numeric/categorical allowlist only. Remarks and future sale outcomes are excluded.</p><table id="facts"></table></div><h3>Description suggestions to verify</h3><div id="signals"></div>
+
+ </div></div></div>
+</section>
+<section id="review" data-panel hidden><span class="eyebrow">Corrections need human judgment</span><h1>Feedback inbox</h1><p class="muted">Production feedback is immutable. Review decisions do not change frozen datasets or canonical MLS intelligence.</p><div class="row"><button id="load-feedback">Load production corrections</button><label>Legacy candidate review queue<select id="error-category"><option value="high_confidence_wrong">Highest confidence wrong</option><option value="disagreement">Target disagreement</option><option value="hard_negative">Hard negatives</option><option value="candidate_regression">Candidate regression</option><option value="limited_visual">Limited visual evidence</option></select></label><button id="load-errors">Load legacy review queue</button></div><p class="warning">Vision-vs-text semantic disagreement requires trained candidate artifacts and is not available yet.</p><div id="review-content"></div></section>
+<section id="train" data-panel hidden><h1>Train &amp; test</h1><p>Start with saved AI drafts, then correct the cases that need your judgment. You do not need to approve every property.</p><div class="card"><h2>1. Train the Text + Metadata Bootstrap</h2><p>This fits small supervised heads on semantic descriptions and listing metadata. AI drafts remain <strong>unreviewed</strong>; approved human corrections override them. No photo retraining, paid model calls or production promotion occurs.</p><p class="muted">Minimum experiment floor: 20 independent training groups and at least two known classes with three groups each for a task. Unknown stays unassessed. Protected groups stay excluded. This is not a quality guarantee.</p><label><input id="include-drafts" type="checkbox"> Use saved, unreviewed AI drafts for this experiment</label><div class="row"><button id="experimental-train" class="primary">Train Text + Metadata Bootstrap</button><button id="experimental-refresh">Refresh training status</button></div><div id="experimental-status"></div></div><div class="card"><h2>2. Test the bootstrap on a property</h2><p>Saved predictions also appear directly on each property in Review properties. Predictions are saved separately from your labels.</p><button id="experimental-predict">Run Text + Metadata Bootstrap</button><div id="experimental-prediction"></div></div><div class="card"><h2>3. Train ActVision v2 Candidate</h2><p>This is the real multimodal path: frozen SigLIP2 image embeddings, semantic listing text, safe structured MLS facts, grouped out-of-fold fusion and calibration. AI drafts remain unreviewed provenance; human corrections override them. Protected-test groups are not used for fitting, calibration or model selection.</p><div class="row"><button id="preview">Preview v2 dataset</button><button id="freeze" disabled>Freeze this dataset</button><button id="train-candidate" disabled class="primary">Train ActVision v2 Candidate</button></div><label><input id="confirm-training" type="checkbox"> I understand this creates a research candidate and cannot promote itself to MLS shadow or production.</label><p class="muted">Training uses saved evidence only. It does not make paid OpenAI calls. A completed run is not automatically an approved release.</p><div id="training-result"></div></div></section>
+<section id="releases" data-panel hidden><h1>Versioned releases</h1><p class="warning">No automatic promotion. Training never changes release status. Shadow and production require an explicit operator action and passing release gates.</p><button id="load-releases">Refresh registry</button><div id="release-content"></div><div class="row"><label>Selected release<select id="release-select"></select></label><button id="promote-shadow" disabled>Approve for Shadow</button><button id="promote-production" disabled>Approve for Production</button><button id="retire-release" disabled>Retire release</button></div><p class="muted">Rollback does not delete anything: point MLS back to a previously approved release ID. Historical predictions remain immutable.</p><div class="card"><h2>Compare existing legacy candidates</h2><p class="muted">Target-classifier metrics are not physical-condition metrics. Protected slices remain visible in each candidate report.</p><button id="load-candidates">Load saved candidates</button><div id="candidate-controls" class="row" hidden><label>Baseline<select id="candidate-left"></select></label><label>Candidate<select id="candidate-right"></select></label><button id="compare-candidates">Compare protected metrics</button></div><div id="comparison"></div></div></section>
+<section id="operations" data-panel hidden><div class="page-heading"><div><span class="eyebrow">Check the connection before testing</span><h1>Worker &amp; connections</h1><p class="muted">Label workers suggest drafts. Model workers run separate experiments. A ready label worker does not mean candidate analysis or the MLS feedback loop is connected.</p></div></div><div class="warning">Worker heartbeats must be recent. An old “ready” status is not proof a worker is online.</div><div class="card"><h2>Runtime status</h2><div id="operation-content"></div></div></section>
+<section id="advanced" data-panel hidden><h1>Advanced research tools</h1><p>Existing tools remain available. These are not the primary labeling workflow.</p><div class="cards"><a class="card" href="/workbench">Legacy Model Workbench / challenge batches</a><a class="card" href="/source-evidence">Verify listing and acquisition-era photos</a><a class="card" href="/mls-validation">Acquisition MLS Validation</a><a class="card" href="/source-rows">Source rows / provenance</a><a class="card" href="/status">Raw training / data status</a><a class="card" href="/research">Prompt lab / dataset tools (local research)</a></div></section>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const state={caps:null,items:[],detail:null,signals:[],offset:0,total:0,photo:0,busy:false,dirty:false,preview:null,frozen:null,load:0};
+const structuredKeys=['YearBuilt','PhotosCount','LivingArea','BedroomsTotal','BathroomsTotalInteger','ListPrice','OriginalListPrice','DaysOnMarket','PriorSaleCount','MonthsSinceMostRecentPriorSale','MostRecentPriorSalePrice','PropertyType','PropertySubType','PostalCode','City'];
+function message(text,ok=false){$('message').textContent=text;$('message').className=ok?'ok':''}
+function node(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}
+const friendly={C1_NEW:'New condition',C2_LIKE_NEW:'Like new',C3_WELL_MAINTAINED:'Well maintained',C4_AVERAGE_FUNCTIONAL:'Functional / normal wear',C5_REHAB_NEEDED:'Significant repairs needed',C6_SEVERE_DISTRESS:'Severe damage / distress',ORIGINAL:'Original finishes',PARTIALLY_UPDATED:'Partly updated',UPDATED:'Updated',FULLY_REMODELED:'Fully remodeled',TARGET:'Fits our renovation strategy',NOT_TARGET:'Does not fit',UNKNOWN:'Unknown / not enough evidence'};
+function options(id,values){$(id).replaceChildren(...values.map(v=>{const n=node('option',friendly[v]||v.replaceAll('_',' '));n.value=v;return n}));$(id).value=values.includes('UNKNOWN')?'UNKNOWN':values[0]}
+async function api(path,payload){
+ const response=await fetch(path,{method:payload===undefined?'GET':'POST',redirect:'error',headers:payload===undefined?{}:{'Content-Type':'application/json','X-Review-Token':state.caps.token},body:payload===undefined?undefined:JSON.stringify(payload)});
+ if(!response.headers.get('content-type')?.includes('application/json'))throw Error('Unexpected server response; sign in again before retrying.');
+ const data=await response.json();if(response.status===401){window.location.assign(data.login||'/login');throw Error('Session expired')}
+ if(!response.ok)throw Error(data.error||'Request failed');return data;
+}
+function guard(fn){return async event=>{try{await fn(event)}catch(error){message(error.message)}}}
+function showPage(name){
+ if(state.busy)throw Error('Wait for the current save to finish.');
+ if(state.dirty&&name!=='label')throw Error('Save your current property before leaving, or reload to discard unsaved changes.');
+ document.querySelector('header strong').textContent=({label:'Review properties',train:'Train & test',review:'Feedback inbox',releases:'Releases',operations:'Worker & connections',advanced:'Advanced tools'})[name]||name;
+ document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.id!==name);
+ document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b.dataset.page===name);if(b.dataset.page===name)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+}
+async function refreshBatch(){
+ const data=await api('/api/studio/v2/label/batch');const names={waiting:'Waiting to be checked',queued:'Queued',running:'Analyzing',completed:'Drafts saved',reused:'Existing current drafts reused',blocked_source:'Source/photo recovery still required',failed:'Failed: explicit retry needed',unavailable:'Acquisition listing unavailable'};const rows=Object.entries(data.counts||{}).map(([key,count])=>node('p',(names[key]||key)+': '+count));$('draft-batch-progress').replaceChildren(node('strong',data.status==='none'?'No batch queued':data.status==='running'?'Batch in progress · '+data.total+' listings':'Batch finished · '+data.total+' listings'),...rows,node('p','OpenAI requests used today: '+(data.budget_calls_used??0)+(data.daily_limit?' / '+data.daily_limit:' · no daily cap'),'muted'));if(data.needs_attention?.length){const attention=node('details');attention.append(node('summary','Listings needing attention: '+data.needs_attention.length));for(const item of data.needs_attention){const button=node('button','MLS '+item.id+' · '+(names[item.status]||item.status));button.type='button';button.onclick=guard(()=>loadProperty(item.id));attention.append(button)}$('draft-batch-progress').append(attention)}if(state.batchPoll)clearTimeout(state.batchPoll);if(data.status==='running')state.batchPoll=setTimeout(()=>refreshBatch().catch(e=>message(e.message)),10000);
+}
+function renderSamples(){
+ $('sample-list').replaceChildren(...state.samples.items.map(item=>{const row=node('div',undefined,'row');const open=node('button',item.address+' · MLS '+item.id);open.type='button';open.onclick=guard(()=>loadProperty(item.id));const remove=node('button','Remove from my list');remove.type='button';remove.onclick=guard(async()=>{state.samples=await api('/api/studio/v2/samples',{action:'remove',id:item.id,expected_revision:state.samples.revision});renderSamples()});row.append(open,remove);return row}));if(!state.samples.items.length)$('sample-list').textContent='No samples selected yet. Open a property and add it above.';
+}
+function renderQueue(){
+ $('queue').replaceChildren();state.selectedDrafts??=new Set();for(const item of state.items){const row=node('div');const choose=node('input');choose.type='checkbox';choose.setAttribute('aria-label','Select draft for '+(item.address||item.id));choose.checked=state.selectedDrafts.has(item.id);choose.onchange=()=>{if(choose.checked)state.selectedDrafts.add(item.id);else state.selectedDrafts.delete(item.id)};const b=node('button');b.append(node('strong',item.address||item.id),node('small',`${item.image_count||0} photos | ${item.blocked?'Source/photo recovery needed':item.status||'unreviewed'}`));b.onclick=guard(()=>loadProperty(item.id));row.append(choose,b);$('queue').append(row)}
+ if(!state.items.length)$('queue').textContent='No properties in this queue.';
+ $('queue-total').textContent=`${state.offset+1 > state.total?0:state.offset+1}-${Math.min(state.offset+state.items.length,state.total)} of ${state.total}`;
+ $('more').disabled=state.offset+state.items.length>=state.total;
+}
+async function loadQueue(){
+ if(state.dirty)throw Error('Save the current property before changing queues.');
+ const data=await api('/api/studio/review-queue?scope=all&queue='+encodeURIComponent($('queue-filter').value)+'&search='+encodeURIComponent($('search').value)+'&offset='+state.offset+'&limit=20');
+ state.items=data.items;state.total=data.total;state.inventoryTotal=data.counts.all;renderQueue();await refreshInventoryTruth();
+ if(!state.detail){const wanted=!state.deepLinkUsed&&new URLSearchParams(location.search).get('property');state.deepLinkUsed=true;if(wanted)await loadProperty(wanted);else if(state.items.length)await loadProperty(state.items[0].id)}
+}
+async function refreshInventoryTruth(){
+ const data=await api('/api/studio/v2/inventory/status');const x=data.counts||{};
+ $('counts').replaceChildren();
+ const metrics=[
+   ['Acquisition targets',x.target_properties,'Imported cohort; TARGET provenance already established'],
+   ['Acquisition MLS',x.acquisition_mls_listings,'Current before-state listings'],
+   ['Source issues',x.unresolved_source_issues,'True unresolved source recovery only'],
+   ['AI drafts ready',x.current_acquisition_ai_drafts,'Unreviewed machine suggestions'],
+   ['AI drafts missing',x.missing_acquisition_ai_drafts,'Eligible acquisition listings without a current draft'],
+   ['Human corrections',x.human_reviewed,'Optional overrides; not required on every target'],
+ ];
+ for(const [title,value,help] of metrics){const card=node('div',undefined,'card');card.append(node('span',value??'Unavailable','metric'),node('span',title),node('small',help));$('counts').append(card)}
+}
+async function loadProperty(id){
+ if(state.dirty)throw Error('Save the current property before selecting another.');
+ const request=++state.load;const detail=await api('/api/studio/v2/property?id='+encodeURIComponent(id));if(request!==state.load)return;
+ state.detail=detail;state.photo=0;if(state.poll)clearTimeout(state.poll);state.signals=structuredClone(detail.property.review?.text_signals||[]);state.dirty=false;
+ const p=detail.property,r=p.review||{},history=detail.historical_source||{};
+ $('property-prediction').textContent='Loading saved prediction…';$('property-predict').disabled=true;if(state.predictionPoll)clearTimeout(state.predictionPoll);$('actvision-prediction').textContent='Loading saved ActVision result…';$('actvision-predict').disabled=true;if(state.actvisionPoll)clearTimeout(state.actvisionPoll);
+ $('empty').hidden=true;$('property').hidden=false;$('address').textContent=p.address||p.id;
+ $('identity').textContent=`MLS ${p.metadata?.ListingId||p.id} | ${p.metadata?.ListDate||p.metadata?.ListingContractDate||'Listing date unknown'} | ${p.property_type||'Property type unknown'}`;
+ $('era').replaceChildren(node('span',history.blocked?history.block_reason||'Quarantined acquisition evidence.':history.timing_verified?'Source and photo era verified.':'Source / photo era not yet verified. Labels do not override training eligibility.'));
+ const link=node('a',' Verify source / era');link.href='/source-evidence?property='+encodeURIComponent(p.id);$('era').append(link);
+ $('save-next').disabled=!!history.blocked;$('request-proposal').disabled=!!history.blocked;
+ $('remarks').textContent=p.mls_remarks||'No listing remarks available.';$('text-remarks').textContent=p.mls_remarks||'No listing remarks available.';
+ $('physical').value=r.physical_condition||'UNKNOWN';$('modernization').value=r.modernization_state||'UNKNOWN';
+ $('fit').value={target:'TARGET',not_target:'NOT_TARGET',unsure:'UNKNOWN'}[r.target_fit]||'UNKNOWN';
+ $('confidence').value=r.confidence||'';$('reason').value=r.reason||'';$('fit-basis').value=r.fit_basis||'unknown';$('evidence-source').value=r.evidence_source||'';
+ $('facts').replaceChildren(...structuredKeys.filter(k=>p.metadata?.[k]!==undefined).map(k=>{const row=node('tr');row.append(node('th',k),node('td',String(p.metadata[k])));return row}));
+ $('thumbnails').replaceChildren(...detail.images.map((image,index)=>{const b=node('button');b.type='button';b.setAttribute('aria-label',`Photo ${index+1}`);const img=node('img');img.src='/api/studio/image?id='+encodeURIComponent(image.id);img.alt=`Photo ${index+1}`;b.append(img);b.onclick=()=>{state.photo=index;renderPhoto()};return b}));
+ $('photo-source-notice').textContent=detail.photo_display_notice||'';$('photo-source-notice').hidden=!detail.photo_display_notice;
+ renderPhoto();renderSignals();state.proposal=null;state.assistantInput=null;state.assistantProposalId=null;$("proposal-result").replaceChildren();$("confirm-proposal").checked=false;$("use-proposal").disabled=true;
+ $('draft-status').textContent='Loading saved analysis…';$('draft-help').textContent='Existing results load automatically. No paid analysis starts here.';
+ try{await refreshDraft(request,true)}catch(error){if(request===state.load){$('draft-status').textContent='Could not load saved analysis';$('draft-help').textContent=error.message}}
+ await refreshPropertyPrediction(request).catch(error=>{if(request===state.load)$('property-prediction').textContent='Could not load saved prediction: '+error.message});
+ await refreshActVisionPrediction(request).catch(error=>{if(request===state.load)$('actvision-prediction').textContent='Could not load ActVision result: '+error.message});
+}
+function renderPhoto(){
+ const image=state.detail.images[state.photo];$('hero').hidden=!image;$('no-photos').hidden=!!image;$('photo-form').hidden=!image;
+ if(!image){$('hero').removeAttribute('src');$('photo-status').textContent='';return}
+ $('hero').src='/api/studio/image?id='+encodeURIComponent(image.id);
+ $('no-photos').textContent=state.detail.photo_display_notice||'No retained listing photos are stored for this property.';
+ $('photo-status').textContent=`Photo ${state.photo+1} of ${state.detail.images.length} | ${image.source_quarantined?'Source unresolved · shown for reference only':image.selection?.included===false?'Excluded: '+image.selection.reason:'Subject relevance still requires review'} | ${image.split==='test'?'Protected test group':'Review evidence'}`;
+ $('photo-context').value=image.review?.context||image.effective?.context||'unknown';$('photo-room').value=image.review?.room||image.effective?.room||'other';$('photo-exclusion').value='';
+ $('photo-physical').value=image.review?.physical_condition||'UNKNOWN';$('photo-modernization').value=image.review?.modernization_state||'UNKNOWN';
+ [...$('thumbnails').children].forEach((b,i)=>b.setAttribute('aria-pressed',String(i===state.photo)));
+}
+function highlightRemarks(){
+ const remarks=state.detail?.property.mls_remarks||'';
+ const ranges=state.signals.filter(i=>i.snippet&&Number.isInteger(i.start)&&Number.isInteger(i.end)).map(i=>({start:i.start,end:i.end})).sort((a,b)=>a.start-b.start);
+ for(const id of ['remarks','text-remarks']){const out=$(id);out.replaceChildren();const chars=Array.from(remarks);let at=0;for(const range of ranges){if(range.start<at||range.end>chars.length)continue;out.append(document.createTextNode(chars.slice(at,range.start).join('')),node('mark',chars.slice(range.start,range.end).join('')));at=range.end}out.append(document.createTextNode(chars.slice(at).join('')||(!remarks?'No listing description available.':'')))}
+}
+function renderSignals(){
+ const states={PRESENT:'Supported by the description',ABSENT:'Explicitly contradicted',UNKNOWN:'Not enough information'};
+ const unknownRows=node('details');unknownRows.append(node('summary','Other topics: '+state.signals.filter(i=>i.state==='UNKNOWN').length+' without explicit evidence'));const supported=[];state.signals.forEach((item,i)=>{const row=node('div',undefined,'tag');row.append(node('strong',item.signal.replaceAll('_',' ')),node('p',states[item.state]),node('blockquote',item.snippet||'No explicit evidence in the description.'));const unknown=node('button','Mark Unknown');unknown.type='button';unknown.onclick=()=>{state.signals[i]={signal:item.signal,state:'UNKNOWN',probability:null,snippet:null,start:null,end:null};state.dirty=true;renderSignals()};row.append(unknown);if(item.state==='UNKNOWN')unknownRows.append(row);else supported.push(row)});$('signals').replaceChildren(...supported);if(unknownRows.children.length>1)$('signals').append(unknownRows);
+ if(!state.signals.length)$('signals').append(node('p','No saved AI draft yet. Use Generate AI draft to request one, or leave unsupported answers Unknown.','muted'));
+ highlightRemarks();
+}
+function applyDraft(auto=false){
+ if(state.dirty)throw Error('Your edits are kept. Approve or reload before replacing them with a draft.');
+ const draft=state.proposal;if(!draft||draft.label_evidence_id!==state.detail.label_evidence_id)throw Error('This draft uses older evidence. Request a new analysis after checking the source.');
+ state.assistantInput=draft.input_sha256;state.assistantProposalId=draft.proposal_id;$('physical').value=draft.physical_condition;$('modernization').value=draft.modernization_state;$('fit').value=draft.acquisition_fit;$('reason').value=draft.reason;state.signals=structuredClone(draft.text_signals);state.dirty=!auto;renderSignals();$('draft-status').textContent='AI draft ready for your review';$('draft-help').textContent='OpenAI suggestions awaiting your approval. Check the three answers and highlighted quotes, then Approve & Next.';$('use-proposal').disabled=true;
+}
+async function refreshDraft(request=state.load,auto=false){
+ const id=state.detail.property.id,data=await api('/api/studio/v2/label/proposal?id='+encodeURIComponent(id));if(request!==state.load||id!==state.detail.property.id)return;
+ if(state.poll)clearTimeout(state.poll);if(['queued','running'].includes(data.request?.status))state.poll=setTimeout(()=>{if(state.detail?.property.id===id)refreshDraft(request,!state.dirty).catch(e=>message(e.message))},5000);
+ state.proposal=data.proposal;const current=!!data.proposal&&data.proposal.label_evidence_id===state.detail.label_evidence_id;
+ $('use-proposal').disabled=!current||state.dirty;$('proposal-result').replaceChildren();
+ if(current){$('draft-status').textContent='Saved AI draft available';$('draft-help').textContent='Suggestions include the description quotes. Review them against the source.';const r=state.detail.property.review||{};if(auto&&!state.dirty&&!r.revision&&!r.legacy&&r.status!=='approved')applyDraft(true);else if(r.revision||r.status==='approved'){$('draft-status').textContent='Your saved review is loaded';$('draft-help').textContent='Your answers have been kept. Loading the AI draft is optional.'}}
+ else{$('draft-status').textContent=data.proposal?'Saved analysis needs updating':({queued:'Analysis queued',running:'Analysis in progress',processing:'Analysis in progress',failed:'Analysis failed'}[data.request?.status]||'Not analyzed yet');$('draft-help').textContent=data.proposal?'Evidence changed since this draft. Existing human answers remain intact.':data.request?.status==='failed'?'No draft was approved. Check the source and explicitly retry if needed.':'You can request one analysis below, then refresh its status. Opening this page does not spend API credits.'}
+}
+async function saveNext(event){
+ event.preventDefault();if(state.busy||!state.detail)return;state.busy=true;$('save-next').disabled=true;
+ try{
+  const p=state.detail.property;const saved=await api('/api/studio/v2/label',{id:p.id,expected_revision:p.review?.revision||0,label_evidence_id:state.detail.label_evidence_id,assistant_input_sha256:state.assistantInput||null,assistant_proposal_id:state.assistantProposalId||null,status:'approved',physical_condition:$('physical').value,modernization_state:$('modernization').value,target_fit:{TARGET:'target',NOT_TARGET:'not_target',UNKNOWN:'unsure'}[$('fit').value],target_score:null,condition_label:'unknown',confidence:$('confidence').value||null,evidence_source:$('evidence-source').value||null,fit_basis:$('fit-basis').value,reason:$('reason').value,text_signals:state.signals,reason_tags:p.review?.reason_tags||[],standout_image_ids:p.review?.standout_image_ids||[],notes:p.review?.notes||''});p.review=saved;
+  state.dirty=false;const index=state.items.findIndex(i=>i.id===p.id),next=state.items[index+1];
+  if(next)await loadProperty(next.id);else{state.detail=null;$('property').hidden=true;$('empty').hidden=false;state.offset=0;await loadQueue()}
+  message('Review saved. No training or promotion was started.',true);
+ }finally{state.busy=false;$('save-next').disabled=!!state.detail?.historical_source?.blocked}
+}
+function renderJson(target,data){$(target).replaceChildren(node('pre',JSON.stringify(data,null,2)))}
+async function loadFeedback(){
+ const data=await api('/api/studio/v2/feedback');$('review-content').replaceChildren(node('p',data.notice||data.unavailable||''));
+ for(const item of data.items){const card=node('article',undefined,'card');const body=item.payload;
+  card.append(node('h2',`${body.evidence.listing_id} - ${item.decision||'Pending'}`),node('p',`Release ${body.release_id} | Reviewer ${body.reviewer.id}`),node('pre',JSON.stringify(body.corrections,null,2)));
+  const note=node('textarea');note.placeholder='Review rationale (required)';note.setAttribute('aria-label','Feedback review rationale');card.append(note);
+  for(const decision of ['reviewed','rejected']){const button=node('button',decision==='reviewed'?'Mark reviewed (not training approval)':'Reject correction');button.onclick=guard(async()=>{await api('/api/studio/v2/feedback/review',{event_id:item.event_id,decision,decision_id:crypto.randomUUID(),note:note.value});await loadFeedback()});card.append(button)}
+  $('review-content').append(card);
+ }if(!data.items.length)$('review-content').append(node('p','No production feedback received.'));
+}
+async function refreshPropertyPrediction(request=state.load){
+ if(!state.detail)return;
+ const id=state.detail.property.id;
+ const pred=await api('/api/studio/v2/experimental/prediction?id='+encodeURIComponent(id));
+ if(request!==state.load||id!==state.detail?.property.id)return;
+ const statuses={none:'No saved bootstrap prediction yet',queued:'Bootstrap analysis queued',running:'Bootstrap analysis in progress',completed:'Saved bootstrap prediction',failed:'Bootstrap analysis failed',blocked:'Bootstrap analysis blocked',stale:'Saved bootstrap prediction needs updating'};
+ for(const target of ['property-prediction','experimental-prediction']){
+  const out=[node('strong','MLS '+id+' · '+(statuses[pred.status]||pred.status))];
+  if(pred.results){
+   const tasks={physical_condition:'Physical condition',modernization:'Finishes',acquisition_fit:'Renovation fit'};
+   const extra=node('details');extra.append(node('summary','Description signals and model scores'));
+   for(const [task,result] of Object.entries(pred.results)){
+    const label=friendly[result.label]||({PRESENT:'Supported',ABSENT:'Not supported'}[result.label])||result.label;
+    if(tasks[task])out.push(node('p',tasks[task]+': '+label));
+    extra.append(node('p',(tasks[task]||task.replaceAll('_',' '))+': '+label+' · raw score '+Number(result.uncalibrated_probability).toFixed(2)));
+   }
+   extra.append(node('p','Raw scores are not calibrated confidence or measured accuracy.','muted'));out.push(extra);
+   out.push(node('p',pred.training_membership==='train'?'This property group was used in training. Treat this result as a demonstration, not an independent test.':pred.training_membership==='validation'?'Held-out validation property group. Predictions do not approve labels.':'Predictions do not approve labels.','muted'));
+   out.push(node('p',pred.notice||'Text + Metadata Bootstrap. No trained vision component; ActVision v2 release training and MLS integration remain unfinished.','muted'));
+  }else if(pred.status==='none')out.push(node('p','Run the trained model to save a prediction. Opening the property does not start an analysis.','muted'));
+  if(pred.reason)out.push(node('p',pred.reason));$(target).replaceChildren(...out);
+ }
+ $('property-predict').disabled=['queued','running'].includes(pred.status);
+ if(state.predictionPoll)clearTimeout(state.predictionPoll);
+ if(['queued','running'].includes(pred.status))state.predictionPoll=setTimeout(()=>refreshPropertyPrediction(request).catch(e=>message(e.message)),5000);
+}
+async function refreshActVisionPrediction(request=state.load){
+ if(!state.detail)return;
+ const id=state.detail.property.id,pred=await api('/api/studio/v2/actvision/prediction?id='+encodeURIComponent(id));
+ if(request!==state.load||id!==state.detail?.property.id)return;
+ const labels={none:'No ActVision v2 candidate prediction yet',queued:'ActVision v2 prediction queued',running:'ActVision v2 prediction in progress',completed:'Saved ActVision v2 prediction',failed:'ActVision v2 prediction failed',stale:'Saved ActVision v2 prediction needs updating'};
+ const out=[node('strong','MLS '+id+' · '+(labels[pred.status]||pred.status))];
+ if(pred.release?.id&&!pred.release_id)out.push(node('p','Latest candidate: '+pred.release.id+' · V'+pred.release.version,'muted'));
+ if(pred.result){
+  out.push(node('p','Physical condition: '+(friendly[pred.result.physical_condition]||pred.result.physical_condition)));
+  out.push(node('p','Modernization: '+(friendly[pred.result.modernization]||pred.result.modernization)));
+  out.push(node('p','Acquisition fit: '+(friendly[pred.result.acquisition_fit]||pred.result.acquisition_fit)));
+  out.push(node('p','Calibrated confidence summary: '+(pred.result.confidence===null?'Unavailable':Math.round(pred.result.confidence*100)+'%')));
+  const detail=node('details');detail.append(node('summary','Component evidence and coverage'));
+  for(const [name,component] of Object.entries(pred.components||{}))detail.append(node('p',name+': '+component.status+(component.reason?' · '+component.reason:'')+(component.result?.physical_condition?' · '+(friendly[component.result.physical_condition]||component.result.physical_condition):'')));
+  detail.append(node('pre',JSON.stringify(pred.coverage||{},null,2)));out.push(detail);
+  out.push(node('p',pred.notice||'Candidate prediction is saved separately from your labels.','muted'));
+ }
+ if(pred.reason)out.push(node('p',pred.reason,'warning'));
+ $('actvision-prediction').replaceChildren(...out);
+ $('actvision-predict').disabled=['queued','running'].includes(pred.status)||(!pred.release_id&&!pred.release?.id&&pred.status==='none');
+ if(state.actvisionPoll)clearTimeout(state.actvisionPoll);state.actvisionPoll=null;
+ if(['queued','running'].includes(pred.status))state.actvisionPoll=setTimeout(()=>refreshActVisionPrediction(request).catch(e=>message(e.message)),5000);
+}
+async function runActVisionModel(){
+ if(!state.detail)throw Error('Open a property first.');
+ const id=state.detail.property.id,request=state.load;
+ $('actvision-prediction').replaceChildren(node('strong','Submitting ActVision v2 prediction…'));
+ $('actvision-predict').disabled=true;
+ try{
+  await api('/api/studio/v2/actvision/predict',{id});
+  if(request===state.load)await refreshActVisionPrediction(request);
+ }catch(error){
+  if(request===state.load)$('actvision-prediction').replaceChildren(node('strong','Could not run ActVision v2'),node('p',error.message,'warning'));
+  throw error;
+ }finally{if(request===state.load)$('actvision-predict').disabled=false}
+}
+
+async function runPropertyModel(){
+ if(!state.detail)throw Error('Open a property first.');
+ const id=state.detail.property.id,request=state.load;
+ for(const target of ['property-prediction','experimental-prediction'])$(target).replaceChildren(node('strong','Submitting bootstrap analysis…'));
+ $('property-predict').disabled=true;$('experimental-predict').disabled=true;
+ try{
+  const queued=await api('/api/studio/v2/experimental/predict',{id});
+  if(request!==state.load)return;
+  for(const target of ['property-prediction','experimental-prediction'])$(target).replaceChildren(node('strong',queued.status==='completed'?'Saved bootstrap prediction ready':'Bootstrap analysis queued'),node('p','The hosted worker will save the result here automatically. No OpenAI request is used.','muted'));
+  await refreshPropertyPrediction(request);
+ }catch(error){
+  if(request===state.load)for(const target of ['property-prediction','experimental-prediction'])$(target).replaceChildren(node('strong','Could not run the bootstrap'),node('p',error.message,'warning'));
+  throw error;
+ }finally{if(request===state.load){$('property-predict').disabled=false;$('experimental-predict').disabled=false}}
+}
+async function boot(){
+ state.caps=await api('/api/studio/v2/capabilities');$('actor').textContent=state.caps.actor.id+' | '+state.caps.actor.role;
+ options('physical',state.caps.taxonomy.physical_condition);options('modernization',state.caps.taxonomy.modernization);options('fit',state.caps.taxonomy.acquisition_fit);options('signal',state.caps.taxonomy.text_signals);
+ options('photo-physical',state.caps.taxonomy.physical_condition);options('photo-modernization',state.caps.taxonomy.modernization);
+ $('preview').disabled=!state.caps.cloud;$('load-errors').disabled=!state.caps.cloud;
+ document.querySelectorAll('[data-page]').forEach(b=>b.onclick=guard(async()=>{showPage(b.dataset.page);if(b.dataset.page==='train'){await refreshExperiment();await refreshV2Status()}if(b.dataset.page==='operations'){const status=await api('/api/studio/v2/operations');renderJson('operation-content',{...status,blockers:state.caps.blockers})}}));
+ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{for(const name of ['photos','text','facts'])$(name+'-panel').hidden=name!==b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===b)))});
+ $('refresh-draft-batch').onclick=guard(refreshBatch);
+ $('queue-draft-batch').onclick=guard(async()=>{const all=$('select-all-drafts').checked,ids=[...(state.selectedDrafts||[])];if(!all&&!ids.length)throw Error('Select all listings or tick the listings you want.');const button=$('queue-draft-batch');button.disabled=true;try{await api('/api/studio/v2/label/batch',{confirmed:true,selection:all?'all':'ids',ids});await refreshBatch();message('Batch saved. The hosted worker will produce durable drafts; no human reviews are changed.',true)}finally{button.disabled=false}});
+ $('load-samples').onclick=guard(async()=>{const data=await api('/api/studio/v2/samples');state.samples=data;renderSamples()});
+ $('add-sample').onclick=guard(async()=>{if(!state.detail)throw Error('Open a listing first.');const current=await api('/api/studio/v2/samples');state.samples=await api('/api/studio/v2/samples',{action:'add',id:state.detail.property.id,expected_revision:current.revision});renderSamples();message('Added to your review samples. No labels approved or dataset splits changed.',true)});
+ const searchQueue=guard(async()=>{if(state.dirty&&!window.confirm('Search another listing and discard unsaved edits? Nothing will be approved.'))return;state.dirty=false;state.detail=null;state.offset=0;await loadQueue()});
+ $('refresh').onclick=searchQueue;$('search').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();searchQueue(event)}};$('more').onclick=guard(async()=>{if(state.dirty)throw Error('Save current labels first.');state.offset+=20;await loadQueue()});
+ $('skip-property').onclick=guard(async()=>{if(state.busy)return;const index=state.items.findIndex(i=>i.id===state.detail.property.id),next=state.items[index+1];if(!next)throw Error('End of this page. Reload to discard this draft and choose another queue.');if(state.dirty&&!window.confirm('Skip this property and discard unsaved edits? Nothing will be approved.'))return;state.dirty=false;await loadProperty(next.id);message('Skipped. No review was saved.',true)});
+ $('label-form').oninput=()=>{state.dirty=true};$('label-form').onsubmit=guard(saveNext);
+ $('capture-quote').onclick=guard(()=>{const selection=window.getSelection();if(!selection||!$('text-remarks').contains(selection.anchorNode)||!$('text-remarks').contains(selection.focusNode))throw Error('Select a phrase inside the description first.');$('snippet').value=selection.toString()});
+ $('add-signal').onclick=guard(()=>{
+  const snippet=$('signal-state').value==='UNKNOWN'?'':$('snippet').value,remarks=state.detail?.property.mls_remarks||'',index=remarks.indexOf(snippet);
+  if(snippet&&index<0)throw Error('The supporting phrase must exactly match the listing remarks.');
+  const start=snippet?Array.from(remarks.slice(0,index)).length:null;
+  const item={signal:$('signal').value,state:$('signal-state').value,probability:null,snippet:snippet||null,start,end:snippet?start+Array.from(snippet).length:null};
+  state.signals=state.signals.filter(s=>s.signal!==item.signal);state.signals.push(item);state.dirty=true;renderSignals();$('snippet').value='';message('Evidence correction ready. Approve & Next to save it.',true);
+ });
+ $('photo-form').onsubmit=guard(async event=>{
+  event.preventDefault();if(state.dirty)throw Error('Save property labels before saving a photo review.');const image=state.detail.images[state.photo],r=image.review||{},exclude=$('photo-exclusion').value;
+  await api('/api/studio/review',{...r,id:image.id,kind:'image',expected_revision:r.revision||0,reviewer:state.caps.actor.id,status:'draft',context:$('photo-context').value,room:$('photo-room').value,features:exclude?{}:(r.features||{}),preference:exclude?null:(r.preference||null),condition_label:exclude?'unknown':(r.condition_label||'unknown'),physical_condition:$('photo-physical').value,modernization_state:$('photo-modernization').value,...(exclude?{include_in_similarity:false}:{}),notes:exclude?[r.notes,'Excluded: '+exclude].filter(Boolean).join('\n'):(r.notes||'')});
+  await loadProperty(state.detail.property.id);message('Photo review saved as draft. Existing era and protected-test safeguards remain.',true);
+ });
+ $('load-feedback').onclick=guard(loadFeedback);$('load-errors').onclick=guard(async()=>renderJson('review-content',await api('/api/studio/workbench/errors?category='+$('error-category').value)));
+ async function refreshExperiment(){
+ const data=await api('/api/studio/v2/experimental/status');const req=data.request;const labels={none:'No bootstrap candidate requested',queued:'Queued on the hosted worker',waiting_for_labels:'Waiting for enough valid drafts',running:'Training on the hosted worker',completed:'Text + Metadata Bootstrap trained',needs_review:'More class coverage needed',failed:'Training failed; inspect worker status'};
+ const rows=[node('strong',labels[req.status]||req.status)];if(req.reason)rows.push(node('p',req.reason));if(req.train_groups!==undefined)rows.push(node('p','Independent training groups ready: '+req.train_groups));if(data.candidate){rows.push(node('p','Candidate '+data.candidate.id+' · '+data.candidate.counts.train_groups+' training groups · '+data.candidate.counts.validation_groups+' validation groups'));rows.push(node('p','Trained tasks: '+Object.keys(data.tasks).map(x=>x.replaceAll('_',' ')).join(', ')));rows.push(node('p','Text + Metadata Bootstrap only. Uses description + structured listing facts; no trained vision component. Unreviewed AI labels are not human accuracy and this candidate is not approved for MLS / production.','warning'))}if(data.review_next?.length){rows.push(node('h3','Review these next'));rows.push(node('p','A small starting batch of unreviewed examples. Correct the AI answers and approve only what the evidence supports.'));for(const item of data.review_next){const b=node('button','MLS '+item.id+' · '+(friendly[item.labels.physical_condition]||item.labels.physical_condition)+' · '+(friendly[item.labels.modernization]||item.labels.modernization));b.type='button';b.onclick=guard(async()=>{showPage('label');await loadProperty(item.id)});rows.push(b)}}if(req.coverage){for(const [task,counts] of Object.entries(req.coverage))rows.push(node('p',task.replaceAll('_',' ')+': '+Object.entries(counts).map(([label,count])=>(friendly[label]||label)+' '+count).join(' · ')))}$('experimental-status').replaceChildren(...rows);$('experimental-train').disabled=!['operator','admin'].includes(state.caps.actor.role);$('experimental-predict').disabled=!data.candidate||!state.detail;
+ if(state.experimentPoll)clearTimeout(state.experimentPoll);state.experimentPoll=null;if(['queued','waiting_for_labels','running'].includes(req.status))state.experimentPoll=setTimeout(()=>refreshExperiment().catch(e=>message(e.message)),15000);
+ if(state.detail)await refreshPropertyPrediction();
+ }
+ $('experimental-refresh').onclick=guard(refreshExperiment);
+ $('experimental-train').onclick=guard(async()=>{if(!$('include-drafts').checked)throw Error('Confirm using unreviewed AI drafts for the experiment.');await api('/api/studio/v2/experimental/train',{confirmed:true,include_unreviewed_drafts:true});await refreshExperiment();message('Bootstrap training request saved. The worker starts when valid class coverage is ready.',true)});
+ $('property-predict').onclick=guard(runPropertyModel);
+ $('experimental-predict').onclick=guard(runPropertyModel);
+ $('actvision-predict').onclick=guard(runActVisionModel);
+ async function refreshV2Status(){
+  const [training,dataset]=await Promise.all([api('/api/studio/v2/training/status'),api('/api/studio/v2/dataset/latest')]);
+  const request=training.request||{status:'none'},parts=[];
+  if(dataset.id)parts.push(node('p','Frozen dataset V'+dataset.version+' · '+dataset.fingerprint));
+  const names={none:'No ActVision v2 training requested',queued:'ActVision v2 training queued',running:'ActVision v2 training in progress',completed:'ActVision v2 candidate trained',failed:'ActVision v2 training failed'};
+  parts.push(node('strong',names[request.status]||request.status));
+  for(const [name,run] of Object.entries(training.runs||{}))parts.push(node('p',name+': '+run.status+(run.error_code?' · '+run.error_code:'')));
+  if(training.release){parts.push(node('p','Candidate release '+training.release.id+' · version '+training.release.version));const gates=training.release.evaluation_summary?.acceptance_gates;if(gates)parts.push(node('pre',JSON.stringify(gates,null,2)));if(!training.release.evaluation_summary?.protected_slices_passed)parts.push(node('p','Research candidate only. Protected release gates are not all satisfied.','warning'));else parts.push(node('p','Protected gates passed. Promotion still requires an explicit operator release action.','ok'))}
+  $('training-result').replaceChildren(...parts);
+  $('train-candidate').disabled=!dataset.id||!['operator','admin'].includes(state.caps.actor.role)||['queued','running'].includes(request.status);
+  if(state.v2Poll)clearTimeout(state.v2Poll);state.v2Poll=null;if(['queued','running'].includes(request.status))state.v2Poll=setTimeout(()=>refreshV2Status().catch(e=>message(e.message)),10000);
+ }
+ $('preview').onclick=guard(async()=>{state.preview=await api('/api/studio/v2/dataset/preview',{});renderJson('training-result',state.preview);$('freeze').disabled=!state.preview.trainable||!['operator','admin'].includes(state.caps.actor.role)});
+ $('freeze').onclick=guard(async()=>{if(!state.preview?.trainable)throw Error('Preview a trainable v2 dataset first.');state.frozen=await api('/api/studio/v2/dataset/freeze',{confirmed:true});$('train-candidate').disabled=false;await refreshV2Status();message('Dataset frozen. Its evidence, labels, provenance and splits are immutable.',true)});
+ $('train-candidate').onclick=guard(async()=>{if(!$('confirm-training').checked)throw Error('Confirm that this is a research candidate with no automatic promotion.');const dataset=(state.frozen||await api('/api/studio/v2/dataset/latest'));if(!dataset.id)throw Error('Freeze the v2 dataset first.');await api('/api/studio/v2/train',{confirmed:true,dataset_id:dataset.id});await refreshV2Status();message('ActVision v2 training queued. No OpenAI call or release promotion was started.',true)});
+ $('freeze').disabled=true;$('train-candidate').disabled=true;
+ $('request-proposal').onclick=guard(async()=>{if(!$('confirm-proposal').checked)throw Error('Confirm the single-property draft request.');if(state.dirty)throw Error('Save or reload edits before requesting drafts.');const p=state.detail.property;const request=await api('/api/studio/v2/label/propose',{id:p.id,label_evidence_id:state.detail.label_evidence_id,confirmed:true});$('draft-status').textContent='Analysis queued';$('draft-help').textContent='The hosted worker will prepare suggestions. Refresh status to check progress.';$('confirm-proposal').checked=false});
+ $('refresh-proposal').onclick=guard(()=>refreshDraft());
+ $('use-proposal').onclick=guard(async()=>applyDraft());
+ async function refreshReleases(){
+  const data=await api('/api/studio/v2/releases');state.releases=data.items||[];
+  $('release-select').replaceChildren(...state.releases.map(item=>{const option=node('option','V'+item.version+' · '+item.status+' · '+item.id);option.value=item.id;return option}));
+  renderJson('release-content',data);
+  const allowed=data.promotion_available&&state.releases.length>0;
+  $('promote-shadow').disabled=!allowed;$('promote-production').disabled=!allowed;$('retire-release').disabled=!allowed;
+ }
+ $('load-releases').onclick=guard(refreshReleases);
+ $('promote-shadow').onclick=guard(async()=>{const id=$('release-select').value;if(!id)throw Error('Choose a release.');if(!window.confirm('Approve this exact immutable candidate for MLS DEV shadow?'))return;await api('/api/studio/v2/release/promote',{release_id:id,status:'shadow',confirmed:true});await refreshReleases();message('Release approved for shadow. No canonical MLS values were changed.',true)});
+ $('promote-production').onclick=guard(async()=>{const id=$('release-select').value;if(!id)throw Error('Choose a release.');if(!window.confirm('Approve this exact release for production inference? This does not enable canonical ACQ scoring.'))return;await api('/api/studio/v2/release/promote',{release_id:id,status:'production',confirmed:true});await refreshReleases();message('Release approved for production inference only. Canonical ACQ scoring remains separate.',true)});
+ $('retire-release').onclick=guard(async()=>{const id=$('release-select').value;if(!id)throw Error('Choose a release.');if(!window.confirm('Retire this release? Historical predictions will remain.'))return;await api('/api/studio/v2/release/retire',{release_id:id,confirmed:true});await refreshReleases();message('Release retired. Historical results were preserved.',true)});
+ $('load-candidates').disabled=!state.caps.cloud;
+ $('load-candidates').onclick=guard(async()=>{
+  const history=await api('/api/studio/workbench/candidates');
+  for(const id of ['candidate-left','candidate-right'])$(id).replaceChildren(...history.items.map(item=>{const opt=node('option',item.version);opt.value=item.id;return opt}));
+  $('candidate-controls').hidden=history.items.length<2;
+  if(history.items.length>=2)$('candidate-right').selectedIndex=1;
+  renderJson('comparison',history);
+ });
+ $('compare-candidates').onclick=guard(async()=>renderJson('comparison',await api('/api/studio/workbench/compare?left='+encodeURIComponent($('candidate-left').value)+'&right='+encodeURIComponent($('candidate-right').value))));
+ document.addEventListener('keydown',event=>{if(event.ctrlKey&&event.key==='Enter'&&!$('label').hidden&&state.detail&&!$('save-next').disabled){event.preventDefault();$('label-form').requestSubmit()}});
+ window.addEventListener('beforeunload',event=>{if(state.dirty){event.preventDefault();event.returnValue=''}});
+ if(location.pathname==='/advanced'){showPage('advanced');return}
+ const destination=location.hash.slice(1);if(['train','review','releases','operations','advanced'].includes(destination)){showPage(destination);if(destination==='train')await refreshExperiment();return}
+ await loadQueue();await refreshBatch();
+}
+guard(boot)();
+</script></body></html>

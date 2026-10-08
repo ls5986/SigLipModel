@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:actvision:contract:v2",
+  "title": "ActVision v2 wire contract",
+  "oneOf": [
+    {"$ref": "#/$defs/inference_request"},
+    {"$ref": "#/$defs/prediction"},
+    {"$ref": "#/$defs/feedback"},
+    {"$ref": "#/$defs/release"}
+  ],
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "probability": {"type": "number", "minimum": 0, "maximum": 1},
+    "condition": {"enum": ["C1_NEW", "C2_LIKE_NEW", "C3_WELL_MAINTAINED", "C4_AVERAGE_FUNCTIONAL", "C5_REHAB_NEEDED", "C6_SEVERE_DISTRESS", "UNKNOWN"]},
+    "modernization": {"enum": ["ORIGINAL", "PARTIALLY_UPDATED", "UPDATED", "FULLY_REMODELED", "UNKNOWN"]},
+    "acquisition_fit": {"enum": ["TARGET", "NOT_TARGET", "UNKNOWN"]},
+    "text_signal": {"enum": ["original_condition", "dated_or_outdated", "maintained_original", "partially_updated", "recently_updated", "fully_remodeled", "turnkey_or_move_in_ready", "cosmetic_value_add", "clear_slate_or_blank_canvas", "needs_tlc", "handyman_or_investor_special", "estate_or_probate_signal", "major_rehab_signal", "structural_or_foundation_risk", "water_fire_mold_risk", "virtual_staging_or_ai_image_disclosure", "insufficient_or_generic_description"]},
+    "photo_identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["photo_id", "sha256", "uri_sha256"],
+      "properties": {"photo_id": {"$ref": "#/$defs/id"}, "sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}, "uri_sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["workspace_id", "property_id", "listing_id", "snapshot_at", "visual_generation", "photos_change_timestamp", "selected_photos", "remarks_sha256", "structured_sha256", "release_id"],
+      "properties": {
+        "workspace_id": {"$ref": "#/$defs/id"},
+        "property_id": {"$ref": "#/$defs/id"}, "listing_id": {"$ref": "#/$defs/id"},
+        "snapshot_at": {"type": "string", "format": "date-time"},
+        "visual_generation": {"type": "integer", "minimum": 0},
+        "photos_change_timestamp": {"type": ["string", "null"]},
+        "selected_photos": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/photo_identity"}},
+        "remarks_sha256": {"$ref": "#/$defs/sha256"}, "structured_sha256": {"$ref": "#/$defs/sha256"},
+        "release_id": {"$ref": "#/$defs/id"}
+      }
+    },
+    "text_evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["signal", "state", "probability", "snippet", "start", "end"],
+      "properties": {
+        "signal": {"$ref": "#/$defs/text_signal"}, "state": {"enum": ["PRESENT", "ABSENT", "UNKNOWN"]},
+        "probability": {"oneOf": [{"$ref": "#/$defs/probability"}, {"type": "null"}]},
+        "snippet": {"type": ["string", "null"], "maxLength": 10000},
+        "start": {"type": ["integer", "null"], "minimum": 0}, "end": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "physical_result": {
+      "type": "object", "additionalProperties": false,
+      "required": ["physical_condition", "modernization", "acquisition_fit", "condition_probabilities", "modernization_probabilities", "acquisition_fit_probabilities", "value_add_score", "confidence", "text_signals"],
+      "properties": {
+        "physical_condition": {"$ref": "#/$defs/condition"}, "modernization": {"$ref": "#/$defs/modernization"}, "acquisition_fit": {"$ref": "#/$defs/acquisition_fit"},
+        "condition_probabilities": {"type": "object", "propertyNames": {"$ref": "#/$defs/condition"}, "additionalProperties": {"$ref": "#/$defs/probability"}},
+        "modernization_probabilities": {"type": "object", "propertyNames": {"$ref": "#/$defs/modernization"}, "additionalProperties": {"$ref": "#/$defs/probability"}},
+        "acquisition_fit_probabilities": {"type": "object", "propertyNames": {"$ref": "#/$defs/acquisition_fit"}, "additionalProperties": {"$ref": "#/$defs/probability"}},
+        "value_add_score": {"oneOf": [{"$ref": "#/$defs/probability"}, {"type": "null"}]},
+        "confidence": {"oneOf": [{"$ref": "#/$defs/probability"}, {"type": "null"}]},
+        "text_signals": {"type": "array", "maxItems": 17, "items": {"$ref": "#/$defs/text_evidence"}}
+      }
+    },
+    "component": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "version", "calibration_version", "result", "reason"],
+      "properties": {
+        "status": {"enum": ["available", "missing", "unavailable", "failed"]},
+        "version": {"type": ["string", "null"]}, "calibration_version": {"type": ["string", "null"]},
+        "result": {"$ref": "#/$defs/physical_result"}, "reason": {"type": ["string", "null"]}
+      }
+    },
+    "components": {
+      "type": "object", "additionalProperties": false, "required": ["vision", "text", "structured", "fusion"],
+      "properties": {
+        "vision": {"$ref": "#/$defs/component"}, "text": {"$ref": "#/$defs/component"},
+        "structured": {"$ref": "#/$defs/component"}, "fusion": {"$ref": "#/$defs/component"}
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false, "required": ["selected_photo_count", "usable_photo_count", "text_available", "structured_completeness"],
+      "properties": {
+        "selected_photo_count": {"type": "integer", "minimum": 0, "maximum": 8},
+        "usable_photo_count": {"type": "integer", "minimum": 0, "maximum": 8},
+        "text_available": {"type": "boolean"}, "structured_completeness": {"$ref": "#/$defs/probability"}
+      }
+    },
+    "inference_request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "schema_version", "request_id", "evidence_id", "evidence", "public_remarks", "structured", "photo_inputs"],
+      "properties": {
+        "kind": {"const": "inference_request"}, "schema_version": {"const": "actvision-v2"},
+        "request_id": {"$ref": "#/$defs/id"}, "evidence_id": {"$ref": "#/$defs/sha256"}, "evidence": {"$ref": "#/$defs/evidence"},
+        "public_remarks": {"type": "string", "maxLength": 50000},
+        "structured": {"type": "object", "additionalProperties": false, "properties": {
+          "YearBuilt": {"type": ["number", "null"]}, "PhotosCount": {"type": ["number", "null"]},
+          "LivingArea": {"type": ["number", "null"]}, "BedroomsTotal": {"type": ["number", "null"]},
+          "BathroomsTotalInteger": {"type": ["number", "null"]}, "ListPrice": {"type": ["number", "null"]},
+          "OriginalListPrice": {"type": ["number", "null"]}, "DaysOnMarket": {"type": ["number", "null"]},
+          "PriorSaleCount": {"type": ["number", "null"]}, "MonthsSinceMostRecentPriorSale": {"type": ["number", "null"]},
+          "MostRecentPriorSalePrice": {"type": ["number", "null"]},
+          "PropertyType": {"type": ["string", "null"]}, "PropertySubType": {"type": ["string", "null"]},
+          "PostalCode": {"type": ["string", "null"]}, "City": {"type": ["string", "null"]}
+        }},
+        "photo_inputs": {
+          "type": "array", "maxItems": 8,
+          "items": {"type": "object", "additionalProperties": false, "required": ["photo_id", "uri"],
+            "dependentRequired": {"content_b64": ["content_sha256"]},
+            "properties": {
+              "photo_id": {"$ref": "#/$defs/id"},
+              "uri": {"type": "string", "maxLength": 4000},
+              "content_b64": {"type": "string", "maxLength": 300000},
+              "content_sha256": {"$ref": "#/$defs/sha256"}
+            }}
+        }
+      }
+    },
+    "prediction": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "schema_version", "label_schema_version", "prediction_id", "request_id", "evidence_id", "evidence", "release_id", "status", "components", "result", "modalities_used", "coverage", "observed_photo_hashes", "created_at", "latency_ms", "warnings"],
+      "properties": {
+        "kind": {"const": "prediction"}, "schema_version": {"const": "actvision-v2"}, "label_schema_version": {"const": "actvision-labels-v2"},
+        "prediction_id": {"$ref": "#/$defs/id"}, "request_id": {"$ref": "#/$defs/id"}, "evidence_id": {"$ref": "#/$defs/sha256"}, "evidence": {"$ref": "#/$defs/evidence"},
+        "release_id": {"$ref": "#/$defs/id"}, "status": {"enum": ["complete", "partial", "unavailable", "failed"]},
+        "components": {"$ref": "#/$defs/components"}, "result": {"$ref": "#/$defs/physical_result"},
+        "modalities_used": {"type": "array", "uniqueItems": true, "items": {"enum": ["vision", "text", "structured"]}},
+        "coverage": {"$ref": "#/$defs/coverage"}, "created_at": {"type": "string", "format": "date-time"},
+        "observed_photo_hashes": {"type": "array", "maxItems": 8, "items": {
+          "type": "object", "additionalProperties": false, "required": ["photo_id", "sha256"],
+          "properties": {"photo_id": {"$ref": "#/$defs/id"}, "sha256": {"$ref": "#/$defs/sha256"}}
+        }},
+        "latency_ms": {"type": "integer", "minimum": 0}, "warnings": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "correction": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"],
+          "properties": {"type": {"const": "physical_condition"}, "value": {"$ref": "#/$defs/condition"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"],
+          "properties": {"type": {"const": "modernization"}, "value": {"$ref": "#/$defs/modernization"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "value", "reason_tags"],
+          "properties": {"type": {"const": "acquisition_fit"}, "value": {"$ref": "#/$defs/acquisition_fit"},
+            "reason_tags": {"type": "array", "uniqueItems": true, "items": {"enum": ["physical_evidence", "pricing", "layout_location", "insufficient_evidence", "other"]}}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "value"],
+          "properties": {"type": {"const": "text_signal"}, "value": {"$ref": "#/$defs/text_evidence"}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "reason"],
+          "properties": {"type": {"const": "insufficient_evidence"}, "reason": {"type": "string", "minLength": 1, "maxLength": 2000}}},
+        {"type": "object", "additionalProperties": false, "required": ["type", "photo_id", "context", "room", "usable", "exclusion_reason"],
+          "properties": {"type": {"const": "photo"}, "photo_id": {"$ref": "#/$defs/id"},
+            "context": {"enum": ["subject_interior", "subject_exterior", "shared_amenity", "floor_plan", "unrelated", "unknown"]},
+            "room": {"enum": ["kitchen", "bathroom", "living", "bedroom", "exterior", "utility", "garage", "other", "unknown"]},
+            "usable": {"type": "boolean"},
+            "exclusion_reason": {"enum": [null, "amenity", "floor_plan", "virtual_staging", "duplicate", "unrelated", "unusable"]}}}
+      ]
+    },
+    "feedback": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "schema_version", "label_schema_version", "event_id", "source", "source_prediction_id", "evidence_id", "evidence", "release_id", "reviewer", "reviewed_at", "corrections", "note", "supersedes_event_id"],
+      "properties": {
+        "kind": {"const": "feedback"}, "schema_version": {"const": "actvision-v2"}, "label_schema_version": {"const": "actvision-labels-v2"},
+        "event_id": {"$ref": "#/$defs/id"}, "source": {"enum": ["mls_sourcing", "training_studio"]},
+        "source_prediction_id": {"$ref": "#/$defs/id"}, "evidence_id": {"$ref": "#/$defs/sha256"}, "evidence": {"$ref": "#/$defs/evidence"},
+        "release_id": {"$ref": "#/$defs/id"},
+        "reviewer": {"type": "object", "additionalProperties": false, "required": ["id", "role"],
+          "properties": {"id": {"$ref": "#/$defs/id"}, "role": {"enum": ["reviewer", "operator", "admin"]}}},
+        "reviewed_at": {"type": "string", "format": "date-time"}, "corrections": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/$defs/correction"}},
+        "note": {"type": "string", "maxLength": 4000}, "supersedes_event_id": {"type": ["string", "null"]}
+      }
+    },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["uri", "sha256", "framework", "framework_version", "component_version", "feature_schema_version", "label_schema_version", "calibration_version"],
+      "properties": {
+        "uri": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"},
+        "framework": {"type": "string", "minLength": 1}, "framework_version": {"type": "string", "minLength": 1},
+        "component_version": {"$ref": "#/$defs/id"}, "feature_schema_version": {"$ref": "#/$defs/id"},
+        "label_schema_version": {"const": "actvision-labels-v2"}, "calibration_version": {"$ref": "#/$defs/id"}
+      }
+    },
+    "release": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "schema_version", "label_schema_version", "release_id", "status", "components", "dataset_sha256", "code_commit", "split_policy_version", "backbones", "thresholds", "created_at", "evaluation", "approved_by", "approved_at"],
+      "properties": {
+        "kind": {"const": "release"}, "schema_version": {"const": "actvision-v2"}, "label_schema_version": {"const": "actvision-labels-v2"},
+        "release_id": {"$ref": "#/$defs/id"}, "status": {"enum": ["candidate", "shadow", "production", "retired"]},
+        "components": {
+          "type": "object", "additionalProperties": false, "required": ["vision", "text", "structured", "fusion"],
+          "properties": {
+            "vision": {"oneOf": [{"$ref": "#/$defs/artifact"}, {"type": "null"}]},
+            "text": {"oneOf": [{"$ref": "#/$defs/artifact"}, {"type": "null"}]},
+            "structured": {"oneOf": [{"$ref": "#/$defs/artifact"}, {"type": "null"}]},
+            "fusion": {"oneOf": [{"$ref": "#/$defs/artifact"}, {"type": "null"}]}
+          }
+        },
+        "dataset_sha256": {"$ref": "#/$defs/sha256"},
+        "code_commit": {"type": "string", "minLength": 7, "maxLength": 64},
+        "split_policy_version": {"$ref": "#/$defs/id"},
+        "backbones": {"type": "object", "additionalProperties": false, "required": ["vision", "text"],
+          "properties": {"vision": {"$ref": "#/$defs/id"}, "text": {"$ref": "#/$defs/id"}}},
+        "thresholds": {"type": "object", "additionalProperties": true},
+        "created_at": {"type": "string", "format": "date-time"},
+        "evaluation": {"type": "object", "additionalProperties": false, "required": ["report_sha256", "protected_slices_passed"],
+          "properties": {"report_sha256": {"$ref": "#/$defs/sha256"}, "protected_slices_passed": {"type": "boolean"}}},
+        "approved_by": {"type": ["string", "null"]}, "approved_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    }
+  }
+}

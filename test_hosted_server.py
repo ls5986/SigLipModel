@@ -61,18 +61,29 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         assert status==303
         cookie=headers['Set-Cookie'].split(';',1)[0]
         status,_,body=request(port,'GET','/',headers={'Cookie':cookie})
+        assert status==200 and b'<title>ActVision Studio</title>' in body
+        status,_,body=request(port,'GET','/studio',headers={'Cookie':cookie})
+        assert status==200 and b'<title>ActVision Training Studio</title>' in body
+        status,_,body=request(port,'GET','/mls-validation',headers={'Cookie':cookie})
         assert status==200 and b'Acquisition MLS Validation' in body
         status,_,body=request(port,'GET','/property-review',headers={'Cookie':cookie})
-        assert status==200 and b'/status#models' in body and b'Training status' in body
+        assert status==303
+        status,_,body=request(port,'GET','/source-evidence',headers={'Cookie':cookie})
+        assert status==200 and b'Review acquisition cohort' in body
         status,_,body=request(port,'GET','/workbench',headers={'Cookie':cookie})
-        assert status==200 and b'Model Workbench' in body and b'TRAIN NEW CANDIDATE' in body
+        assert status==303
+        for path in ('/workbench','/advanced','/legacy','research'):
+            if path == 'research':
+                path = '/research'
+            status,redirect,_=request(port,'GET',path,headers={'Cookie':cookie})
+            assert status==303 and redirect['Location']=='/studio'
         status,headers,_=request(port,'GET','/?property=listing',headers={'Cookie':cookie})
-        assert status==303 and headers['Location']=='/property-review?property=listing'
+        assert status==303 and headers['Location']=='/studio?property=listing'
         status,_,body=request(port,'GET','/source-rows',headers={'Cookie':cookie})
-        assert status==200 and b'All workbook rows' in body
+        assert status==200 and b'<h1>All imported source records</h1>' in body
         assert request(port,'GET','/source-rows')[0]==303
         status,_,body=request(port,'GET','/status',headers={'Cookie':cookie})
-        assert status==200 and b'Training and data status' in body
+        assert status==200 and b'<h1>Models and worker readiness</h1>' in body
         status,_,body=request(port,'GET','/api/studio/review-queue',headers={'Cookie':cookie})
         assert status==200 and json.loads(body)['token']=='csrf'
         payload=json.dumps({'answer':True})
@@ -157,3 +168,31 @@ def test_hosted_auth_rejects_weak_or_non_https_configuration(monkeypatch):
     monkeypatch.setenv('STUDIO_LOGIN_PASSWORD','short')
     monkeypatch.setenv('STUDIO_SESSION_SECRET','short')
     with pytest.raises(ValueError): HostedAuth()
+
+
+def test_authenticated_model_button_route_queues_reference_listing_without_approval(monkeypatch):
+    from types import SimpleNamespace
+    from cloud_runtime import CloudStudio
+    from test_experimental_candidate import Store
+    from experimental_candidate import REQUEST
+    store=Store();store.database=object()
+    store.details['reference']={'property':{'id':'reference','mls_remarks':'Original finishes','metadata':{}},'images':[],'historical_source':{'blocked':True}}
+    store.docs[REQUEST]={'id':'candidate','status':'completed'}
+    store.docs['experimental-candidate:candidate']={'id':'candidate','created_at':'fixture','policy':'fixture','counts':{},'evaluation':{},'encoder':{},'dataset_fingerprint':'fixture','limitations':[],'heads':{}}
+    app=SimpleNamespace(token='csrf')
+    studio=CloudStudio(app,store);app.get_studio=lambda:studio
+    server=create_server(0,app,auth(monkeypatch));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();port=server.server_address[1]
+    try:
+        form=urlencode({'username':'owner@example.test','password':'correct horse battery'})
+        status,headers,_=request(port,'POST','/login',form,{'Origin':'https://studio.example.test','Content-Type':'application/x-www-form-urlencoded'})
+        assert status==303
+        cookie=headers['Set-Cookie'].split(';',1)[0]
+        headers={'Cookie':cookie,'Origin':'https://studio.example.test','X-Review-Token':'csrf','Content-Type':'application/json'}
+        status,_,body=request(port,'POST','/api/studio/v2/experimental/predict',json.dumps({'id':'reference'}),headers)
+        assert status==200 and json.loads(body)['status']=='queued'
+        status,_,body=request(port,'GET','/api/studio/v2/experimental/prediction?id=reference',headers=headers)
+        assert status==200 and json.loads(body)['status']=='queued'
+        assert store.details['reference']['historical_source']['blocked']
+        assert not any(k.startswith('typed-label-result:') for k in store.docs)
+    finally:
+        server.shutdown();server.server_close();thread.join()

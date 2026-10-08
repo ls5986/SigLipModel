@@ -6,7 +6,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from cloud_storage import PrivateStorage
-from cloud_store import Database, SupabaseStore
+from cloud_store import Database
+from validated_listing_store import ValidatedListingStore as SupabaseStore
 from config import DATA_ROOT
 
 
@@ -47,6 +48,9 @@ class CloudStudio:
     def get(self, path):
         parsed = urlparse(path)
         args = {k:v[0] for k,v in parse_qs(parsed.query).items()}
+        if parsed.path.startswith('/api/studio/v2/'):
+            from studio_v2 import get
+            return get(self, path)
         if parsed.path.startswith('/api/studio/workbench'):
             from model_workbench import (
                 candidate_history,challenge_batch,challenge_batches,challenge_item,
@@ -107,7 +111,15 @@ class CloudStudio:
         raise ValueError('This action is not available in cloud review mode yet')
 
     def post(self, path, payload):
+        from studio_v2 import TRAINING_ACTIONS, require_operator
+        if path in TRAINING_ACTIONS and self.jobs is not None:
+            require_operator()
+        if path.startswith('/api/studio/v2/'):
+            from studio_v2 import post
+            return post(self, path, payload)
         if path.startswith('/api/studio/workbench'):
+            if path in TRAINING_ACTIONS:
+                require_operator()
             from model_workbench import (
                 dataset_preview,freeze_challenge_batch,freeze_dataset,queue_run,
                 queue_training,save_feedback,

@@ -339,7 +339,10 @@ def torch_setup():
 
     threads = min(6, os.cpu_count() or 2)
     torch.set_num_threads(threads)
-    torch.set_num_interop_threads(min(2, threads))
+    # This setting is process-wide and PyTorch permits changing it only once.
+    # Reusing the frozen encoder after text inference must not reconfigure it.
+    if torch.get_num_interop_threads() != min(2, threads):
+        torch.set_num_interop_threads(min(2, threads))
     torch.manual_seed(SEED)
     return torch
 
@@ -702,3 +705,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

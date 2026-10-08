@@ -49,6 +49,15 @@ class Studio:
         return detail
 
     def save_review(self, payload):
+        if payload.get("label_schema_version"):
+            from studio_v2 import label_evidence, validate_text_reviews
+            detail = self.store.property(payload.get("id"))
+            prop = detail["property"]
+            if payload.get("label_evidence_id") != label_evidence(
+                prop["id"], prop.get("mls_remarks") or "", detail["images"], prop.get("metadata")
+            ):
+                raise RuntimeError("Evidence changed; reload before saving labels")
+            validate_text_reviews(payload.get("text_signals", []), prop.get("mls_remarks") or "")
         if payload.get("status") == "approved":
             identifier = payload.get("id")
             if payload.get("kind") == "image":
@@ -76,6 +85,9 @@ class Studio:
         parsed = urlparse(raw_path)
         args = {key: values[0] for key, values in parse_qs(parsed.query).items()}
         path = parsed.path
+        if path.startswith("/api/studio/v2/"):
+            from studio_v2 import get
+            return get(self, raw_path)
         if path == "/api/studio/connection":
             return self.connection.public_status()
         if path == "/api/studio/model-loop":
@@ -157,6 +169,12 @@ class Studio:
         }
 
     def post(self, path, payload):
+        from studio_v2 import TRAINING_ACTIONS, require_operator
+        if path in TRAINING_ACTIONS:
+            require_operator()
+        if path.startswith("/api/studio/v2/"):
+            from studio_v2 import post
+            return post(self, path, payload)
         if path == "/api/studio/connection":
             return self.connection.connect(payload)
         if path == "/api/studio/connection/disconnect":
@@ -188,4 +206,3 @@ class Studio:
         if path not in actions:
             raise ValueError("Unknown studio action")
         return actions[path](payload)
-

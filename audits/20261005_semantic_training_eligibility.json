@@ -1,0 +1,140 @@
+{
+  "audited_at": "2026-10-05T18:44:35Z",
+  "scope": "Read-only existing training workspace; no label/source/era changes",
+  "project": "tokcjofzlbjcqkuzhvrd",
+  "workspace": "eb653547-fcfa-520b-ab4a-0f7359bda381",
+  "worker": {
+    "service": "srv-db1t8o2jnfac73ehen70",
+    "deploy": "dep-db1ut6jbc2fs73eiuq80",
+    "commit": "bbd9553560e78d64ba0dbb1312b8298069b49934",
+    "status": "live",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "checkpoint_sha256": "dfdac870e42d2700ab4813bb3ad1dab8c9f992d4a99d5f50e4f5732610d30d92",
+    "real_description_shape": [
+      7,
+      384
+    ],
+    "finite": true,
+    "oom_events": 0,
+    "new_paid_calls": 0,
+    "trained_candidate": false,
+    "heartbeat": {
+      "rooms": "2026-10-05T18:43:53.400920+00:00",
+      "openai_features": "2026-10-05T18:43:56.128493+00:00",
+      "status": "ready"
+    }
+  },
+  "findings": {
+    "approved_legacy_reviews_mapped": 7,
+    "physical_groups": 7,
+    "source_gate_blocked": 6,
+    "era_verified": 0,
+    "semantic_text_tag_reviews": 0,
+    "expired_photos": 0,
+    "revoked_photos": 0,
+    "protected_groups": 0,
+    "warning": "Approved legacy acquisition-fit labels are not typed v2 physical-condition, modernization or semantic-tag truth. No training eligibility inferred from successful embedding execution.",
+    "photo_visibility": "Six galleries are intentionally hidden by first-sale source gate, not missing database rows. Listing 1150789139 returns 38 images.",
+    "duplicates": "Two listings have duplicate import rows sharing one physical group; deduplicate photos and split by group."
+  },
+  "records": [
+    {
+      "id": "1150789139",
+      "approved_legacy_label": "not_target",
+      "prior_sale_date": "2026-01-28",
+      "last_sale_date": "2026-06-17",
+      "mls_close_date": "2026-02-25",
+      "photo_rows": 38,
+      "unique_photo_hashes": 38,
+      "source_gate_blocked": false,
+      "era_verified": false,
+      "protected_test": false,
+      "next_review": "Chronology passes source gate; reviewer must establish acquisition-era provenance and typed labels."
+    },
+    {
+      "id": "1151421730",
+      "approved_legacy_label": "unsure",
+      "prior_sale_date": "2026-02-18",
+      "last_sale_date": "2026-02-19",
+      "mls_close_date": "2026-03-09",
+      "photo_rows": 5,
+      "unique_photo_hashes": 5,
+      "source_gate_blocked": true,
+      "era_verified": false,
+      "protected_test": false,
+      "next_review": "Adjacent-day sale dates: confirm target acquisition transaction and corresponding MLS listing."
+    },
+    {
+      "id": "1154486347",
+      "approved_legacy_label": "not_target",
+      "prior_sale_date": "2026-05-04",
+      "last_sale_date": "2026-04-30",
+      "mls_close_date": "2026-05-07",
+      "photo_rows": 37,
+      "unique_photo_hashes": 37,
+      "source_gate_blocked": true,
+      "era_verified": false,
+      "protected_test": false,
+      "next_review": "Prior sale date is later than last sale date: reconcile against original transaction/source record."
+    },
+    {
+      "id": "1154497910",
+      "approved_legacy_label": "not_target",
+      "prior_sale_date": "2026-05-06",
+      "last_sale_date": "2026-04-30",
+      "mls_close_date": "2026-05-07",
+      "photo_rows": 39,
+      "unique_photo_hashes": 39,
+      "source_gate_blocked": true,
+      "era_verified": false,
+      "protected_test": false,
+      "next_review": "Prior sale date is later than last sale date: reconcile against original transaction/source record."
+    },
+    {
+      "id": "1158545773",
+      "approved_legacy_label": "not_target",
+      "prior_sale_date": "2026-05-14",
+      "last_sale_date": "2026-05-12",
+      "mls_close_date": "2026-05-22",
+      "photo_rows": 94,
+      "unique_photo_hashes": 47,
+      "source_gate_blocked": true,
+      "era_verified": false,
+      "protected_test": false,
+      "next_review": "Inverted chronology and duplicate import rows: reconcile source; keep one group."
+    },
+    {
+      "id": "1173245369",
+      "approved_legacy_label": "target",
+      "prior_sale_date": "2026-07-21",
+      "last_sale_date": "2026-07-17",
+      "mls_close_date": "2026-07-30",
+      "photo_rows": 46,
+      "unique_photo_hashes": 46,
+      "source_gate_blocked": true,
+      "era_verified": false,
+      "protected_test": false,
+      "next_review": "Prior sale date is later than last sale date: reconcile against original transaction/source record."
+    },
+    {
+      "id": "1176768729",
+      "approved_legacy_label": "target",
+      "prior_sale_date": "2026-07-30",
+      "last_sale_date": "2026-07-20",
+      "mls_close_date": "2026-08-06",
+      "photo_rows": 52,
+      "unique_photo_hashes": 26,
+      "source_gate_blocked": true,
+      "era_verified": false,
+      "protected_test": false,
+      "next_review": "Inverted chronology and duplicate import rows: reconcile source; keep one group."
+    }
+  ],
+  "next_steps": [
+    "Reconcile six transaction/listing source conflicts using primary evidence; never auto-swap dates or assert era verification.",
+    "Verify source era and approve typed physical-condition, modernization and explicit PRESENT/ABSENT/UNKNOWN semantic tags. Preserve UNKNOWN rather than manufacture negatives.",
+    "Allow metadata-only candidates when their description/structured-field provenance is verified; missing photos alone is not exclusion. Unknown visual judgments remain UNKNOWN.",
+    "Wire an explicit frozen dataset and semantic checkpoint into hosted grouped OOF candidate training/calibration and acceptance checks; no automatic train-on-label or release promotion."
+  ]
+}

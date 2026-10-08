@@ -1,4 +1,4 @@
-# SigLipModel — ACQ Vision Studio
+# SigLipModel — ActVision Training Studio
 
 Image-first review and training tools for property-condition research. This repository
 contains the Studio frontend, its local Python API, frozen SigLIP 2 embedding and
@@ -6,6 +6,99 @@ classification-head training, historical-listing safeguards, and regression test
 
 **Code lives here. Photos, MLS records, human reviews, trained weights, database
 backups, and credentials do not.** Existing copies are not deleted by this project.
+
+## ActVision first rebuild (v2, not production-ready)
+
+The primary local/hosted root is now **Label | Review | Train | Releases |
+Operations**, with legacy tools under **Advanced**. `/workbench`,
+`/property-review`, `/mls-validation`, `/source-rows` and `/status` remain intact.
+The local prompt/data surface is `/research`; it is explicitly unavailable on
+the lightweight hosted backend. Existing property deep links still open the
+detailed reviewer.
+
+The Label workflow reads real property/MLS evidence, retains source/photo-era
+warnings and protected-test safeguards, and saves physical condition,
+modernization, acquisition fit, confidence and exact text snippets independently.
+**Save & Next does not train, call a paid model or promote a release.** Unknown is
+not a negative. Typed reviews retain revision history; the cloud backend also
+appends linked canonical `review_events` in the same transaction. Removing a
+previous text tag appends UNKNOWN, not ABSENT. Changed photos, photo exclusions,
+remarks or facts invalidate the labeling evidence fingerprint.
+The simplified labeler preserves Advanced reason tags and standout-photo
+annotations. Physical evaluation slices use explicit v2 condition (C1-C3
+maintained; C5-C6 rough), with the existing legacy-label fallback only for older
+reviews without a physical axis. C4 and UNKNOWN are not forced into either slice.
+
+The [shared v2 contract](contracts/README.md) defines request/prediction/feedback/
+release schemas, complete evidence identity, explicit missing modality states,
+the condition/modernization axes and 17 semantic text tags. Synthetic fixtures
+cover unavailable and complete four-component results and release bundles.
+`actvision_contract.py` adds cross-field checks beyond JSON Schema. MLS Sourcing
+must validate both, bind a response to its request/release, and store predictions
+in shadow rather than canonical condition fields.
+
+`text_model.py`, `structured_model.py` and `fusion_model.py` isolate the new
+physical-evidence heads. `property_models.VisionEvidenceModel` retains frozen
+SigLIP2 bag aggregation; `PhysicalModelAdapter` rejects legacy target models.
+The text implementation is an explicitly **TF-IDF supervised baseline**, not a
+pretend transformer or keyword-based semantic model. It only learns tags with
+explicit positive and negative reviews. Confidence remains null until calibrated.
+Structured features preserve JSON numeric types and allowlist categorical fields;
+remarks, listing identifiers and future outcomes never enter that matrix.
+The existing `v1_models` class paths and feature layout are unchanged for old
+joblib artifacts.
+
+### Operator prerequisites and explicit gates
+
+1. Review/apply `supabase/migrations/20261002210000_actvision_v2_contracts.sql`
+   **in staging first**, after the existing base/runtime/multimodal migrations.
+   This task does not apply migrations or touch live data. Typed cloud saves and
+   production feedback fail explicitly until this additive schema is installed.
+2. Configure the existing hosted login and a trusted `STUDIO_ROLE`:
+   `reviewer` (default), `operator` or `admin`. Only operator/admin may explicitly
+   freeze or train, including legacy API routes. This is the existing single-
+   principal login with a configured role, not new multi-user identity/RBAC.
+3. Preview/freeze use the existing grouped/protected dataset machinery. Verified
+   v2 acquisition judgments enter that preview; UNKNOWN and changed/quarantined
+   evidence are excluded. Text/physical labels are retained in the manifest.
+   Freeze always rebuilds and compares the current label/evidence snapshot
+   without saving another preview, including the first v2 review after a legacy
+   preview. A new UNKNOWN judgment or changed target invalidates the old preview.
+   **Train Candidate still queues the existing legacy target classifier worker.**
+   The UI calls it out as legacy; it cannot produce a v2 physical release.
+4. Production corrections enter a separate append-only inbox through the
+   authenticated, workspace-bound v2 feedback bridge. Same ID/body retries are
+   idempotent; conflicting bodies return 409. Review/reject actions append audit
+   decisions. Reviewed events still need exact example/era mapping before a
+   subsequent training dataset freeze; they are not auto-approved training truth.
+5. `release_bundle.py` checks schema, operator approval, protected-slice flag,
+   framework/feature compatibility, path containment and artifact SHA256 before
+   returning bytes. It does not unpickle arbitrary artifacts or fetch URLs.
+   Promotion/rollback remain explicit administrative operations; the new UI
+   disables them until evaluation thresholds and the approval workflow are
+   provisioned.
+
+**Remaining gates:** reviewed balanced v2 datasets; pretrained semantic encoder
+artifacts; grouped OOF training orchestration and calibration for the four physical
+components; independently evaluated protected slices and acceptance tolerances;
+approved release bundles/runtime adapters; least-privilege service deployment;
+production-feedback identity mapping; measured shadow/backfill throughput.
+`POST /api/actvision/v2/infer` deliberately returns 503 while those runtime
+artifacts/adapters are absent. It never converts a legacy target score into a
+physical-condition prediction. No deployment, backfill or expensive training is
+started by this rebuild.
+
+Focused checks (no live database or trained weights required):
+
+```powershell
+python tools\export_actvision_fixtures.py --check
+python -m pytest test_actvision_v2.py test_model_workbench.py test_cloud_runtime.py test_hosted_server.py -q
+npm ci
+node test_training_studio_browser.cjs
+```
+
+The old prompt-lab tests create deeply nested paths relative to the checkout;
+on Windows a short-path disposable checkout avoids the OS path-length limit.
 
 ## Run the existing Studio from this checkout
 
@@ -51,7 +144,7 @@ Absent environment settings, private runtime files default to `~/.siglipmodel`.
 
 ### Acquisition MLS Validation
 
-The hosted development root is a focused MLS-validation queue. It includes only
+The Advanced `/mls-validation` page is a focused MLS-validation queue. It includes only
 imported examples whose source `match_status` is `candidate` or `unresolved`; base
 records already marked `confirmed` are excluded. Each record shows the source
 address/APN and transactions, the strongest proposed MLS listing, and at most two
@@ -614,6 +707,27 @@ Its default provider is hybrid. Install `requirements.txt` for that worker. The 
 service deliberately installs `requirements-hosted.txt` and does not load Torch or a SigLIP checkpoint.
 Setting an OpenAI key alone does not start the SigLIP worker. The UI reports a missing room worker.
 To keep a legacy room-only setup, set `STUDIO_AUTOLABEL_PROVIDER=siglip` on both runtimes.
+
+Workbench property detail uses `acquisition_metadata.py` for deterministic prior-sale facts,
+not the ML module `v1_models.py`. The latter re-exports the helper for existing worker callers.
+This boundary keeps NumPy, SciPy and scikit-learn out of the hosted property-open path;
+installing NumPy alone would only expose the next missing training dependency.
+
+Before publishing hosted changes, run the synthetic HTTP smoke test in a **fresh** environment,
+not the full model-development environment:
+
+```powershell
+python -m venv .venv-hosted
+.\.venv-hosted\Scripts\python.exe -m pip install -r requirements-hosted.txt
+.\.venv-hosted\Scripts\python.exe test_hosted_runtime.py -v
+```
+
+This standard-library test runner requires no pytest install. It verifies hosted startup
+without a paid key, authenticated queue/property detail, acquisition-time facts, images,
+thumbnails, v2 labels and stale revisions with synthetic storage, plus operator restrictions.
+It refuses a standalone run if ML packages are installed, so a full development environment
+cannot mask missing hosted-runtime dependencies. It does not connect to a real database,
+start training, or call a provider.
 
 Photo thumbnails now have **Use photo** checkboxes. Confident floor plans, documents/maps, unrelated
 images and shared amenities are automatically unchecked; uncertain photos stay selected for review.

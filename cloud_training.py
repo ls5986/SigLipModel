@@ -31,7 +31,7 @@ def readiness(properties):
             'notice':'Known targets from workbook provenance. Overall target/pass ratings are not required. Pending rows are excluded.'}
 
 
-def snapshot(store):
+def snapshot(store, *, include_legacy=True):
     """One repeatable DB snapshot; protect duplicate/physical groups before filtering the cohort."""
     with store.database.connect() as db:
         db.execute("SET LOCAL statement_timeout='60000ms'")
@@ -52,15 +52,48 @@ def snapshot(store):
         validation_media = {
             row['item_id'].split(':',1)[1]:row['payload'] for row in validation_media_rows
         }
-        records = db.execute('''SELECT e.id,e.listing_key,e.group_id,e.source_rows,
-                jsonb_build_object('spreadsheet',jsonb_build_object('Prior Sale Date',e.source_snapshot->'spreadsheet'->>'Prior Sale Date','Last Sale Date',e.source_snapshot->'spreadsheet'->>'Last Sale Date'),'mls_candidates',jsonb_build_array(jsonb_build_object(
-                    'listing', c.item->'listing', 'match', c.item->'match'))) AS source_snapshot,
+        records = db.execute('''SELECT e.id,
+                coalesce(
+                  nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),
+                  e.listing_key
+                ) AS listing_key,
+                e.group_id,e.source_rows,
+                jsonb_build_object(
+                  'spreadsheet',jsonb_build_object(
+                    'Prior Sale Date',e.source_snapshot->'spreadsheet'->>'Prior Sale Date',
+                    'Last Sale Date',e.source_snapshot->'spreadsheet'->>'Last Sale Date'
+                  ),
+                  'event_map',coalesce(e.source_snapshot->'event_map','{}'::jsonb),
+                  'mls_candidates',jsonb_build_array(jsonb_build_object(
+                    'listing', c.item->'listing',
+                    'match', c.item->'match' || case
+                      when e.source_snapshot->'event_map'->>'recovery_status'='mapped'
+                      then jsonb_build_object(
+                        'identity_chronology_override',
+                        jsonb_strip_nulls(jsonb_build_object(
+                          'prior_sale_date',e.source_snapshot->'event_map'->>'prior_sale_date',
+                          'after_close_date',e.source_snapshot->'event_map'->>'after_close_date'
+                        ))
+                      )
+                      else '{}'::jsonb
+                    end
+                  ))
+                ) AS source_snapshot,
                 g.identity_key,g.identity_verified,g.protected_test
             FROM acq_training.examples e JOIN acq_training.property_groups g
             ON (g.workspace_id,g.id)=(e.workspace_id,e.group_id)
-            LEFT JOIN LATERAL (SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
-              WHERE item->'listing'->>'ListingKey'=e.listing_key LIMIT 1) c ON true
-            WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL AND cardinality(e.source_rows)>0 ORDER BY e.id''', (store.workspace,)).fetchall()
+            LEFT JOIN LATERAL (
+              SELECT item FROM jsonb_array_elements(e.source_snapshot->'mls_candidates') item
+              WHERE item->'listing'->>'ListingKey'=coalesce(
+                nullif(e.source_snapshot->'event_map'->>'acquisition_listing_key',''),
+                e.listing_key
+              ) LIMIT 1
+            ) c ON true
+            WHERE e.workspace_id=%s AND e.listing_key IS NOT NULL
+              AND cardinality(e.source_rows)>0
+              AND coalesce(e.source_snapshot->'event_map'->>'recovery_status','')
+                  <> 'acquisition_mls_unavailable'
+              ORDER BY e.id''', (store.workspace,)).fetchall()
         if validations:
             extra = db.execute('''SELECT e.id,e.group_id,e.source_rows,e.source_snapshot,
                   g.identity_key,g.identity_verified,g.protected_test
@@ -86,7 +119,9 @@ def snapshot(store):
         photos = db.execute('''SELECT p.*,e.id AS example_id,e.listing_key,e.group_id
             FROM acq_training.photos p
             JOIN acq_training.examples e ON (e.workspace_id,e.id)=(p.workspace_id,p.example_id)
-            WHERE p.workspace_id=%s AND p.revoked_at IS NULL
+            WHERE p.workspace_id=%s
+            AND coalesce(p.context_evidence->>'event_role','acquisition')='acquisition'
+            AND p.revoked_at IS NULL
             AND (p.retention_until IS NULL OR p.retention_until>now()) ORDER BY p.id''',
             (store.workspace,)).fetchall()
         photos = [dict(photo) for photo in photos]
@@ -114,7 +149,7 @@ def snapshot(store):
                 })
         keys = sorted({r['listing_key'] for r in records})
         legacy = store._legacy(db, [*keys, *[r['listing_key']+':'+str(r['provider_media_key'])
-                                               for r in photos if r['listing_key'] in keys]])
+                                               for r in photos if r['listing_key'] in keys]]) if include_legacy else {}
         live = store._reviews(db, [*keys, *['autolabel-result:'+k for k in keys], *[r['listing_key']+':'+str(r['provider_media_key'])
                                           for r in photos if r['listing_key'] in keys]])
         # Imported base schema did not restore protected_test flags. Recover original test
@@ -200,12 +235,15 @@ def snapshot(store):
         )
         metadata = store._selected(sources[0]).get('listing', {})
         review = store._review('property', key, legacy, live)
-        properties.append({'id':key, 'physical_key':group, 'group_id':group, 'split':split,
+        properties.append({'id':key, 'example_id':str(sources[0]['id']),
+            'source_group_id':str(sources[0]['group_id']),
+            'physical_key':group, 'group_id':group, 'split':split,
             'metadata': {k:v for k,v in metadata.items() if k in ACCEPTED_METADATA_KEYS},
             'model_metadata':metadata_features(metadata), 'review':review,
             'mls_remarks':__import__('listing_text').remarks(metadata),
             'synthetic_evidence':__import__('listing_text').image_evidence(metadata),
             'human_review_revision':review.get('revision',0), 'timing_verified':verified,
+            'text_source_valid':not history['blocked'],
             'photo_coverage':'no_interior' if manually_certified and not photo_rows else history['photo_coverage'],
             'known_target':verified, 'target_origin':'human-certified-mls-validation'
                 if manually_certified else 'user-confirmed-workbook-cohort',

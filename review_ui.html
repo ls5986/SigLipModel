@@ -14,62 +14,84 @@
 <style>
 :root {
   color-scheme: light;
-  --cp-bg: #f7f4ef;
-  --cp-bg-elevated: #fcfbf8;
+  --cp-bg: #f3f6fa;
+  --cp-bg-elevated: #e9eff5;
   --cp-surface: #ffffff;
-  --cp-surface-soft: #f5f5f5;
-  --cp-border: #dedede;
-  --cp-border-strong: #919191;
-  --cp-text: #242424;
-  --cp-text-muted: #5c5c5c;
-  --cp-text-soft: #6f6f6f;
-  --cp-accent: #b11f4b;
-  --cp-accent-hover: #9a1a41;
-  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-surface-soft: #edf3f8;
+  --cp-border: #cfdae5;
+  --cp-border-strong: #7890a5;
+  --cp-text: #09253e;
+  --cp-text-muted: #526b80;
+  --cp-text-soft: #6c8193;
+  --cp-accent: #155eef;
+  --cp-accent-hover: #0b4dcc;
+  --cp-accent-soft: rgba(21, 94, 239, 0.1);
   --cp-accent-fg: #ffffff;
-  --cp-success: #16a34a;
-  --cp-danger: #dc2626;
-  --cp-warning: #f59e0b;
-  --cp-link: #0078d4;
-  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-success: #079c88;
+  --cp-danger: #cf3349;
+  --cp-warning: #bb6812;
+  --cp-link: #155eef;
+  --cp-shadow: 0 14px 38px rgba(7, 31, 53, 0.12);
   --cp-overlay: rgba(255, 255, 255, 0.8);
   --cp-panel: rgba(255, 255, 255, 0.86);
   --cp-panel-strong: rgba(255, 255, 255, 0.96);
   --cp-sheen: rgba(255, 255, 255, 0.55);
-  --cp-highlight: rgba(177, 31, 75, 0.12);
+  --cp-highlight: rgba(7, 156, 136, 0.1);
+  --cp-brand-navy: #071f35;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #155eef;
+  --cp-brand-blue-bright: #2f72ff;
+  --cp-brand-teal: #12bfa7;
+  --cp-brand-glow: rgba(21, 94, 239, 0.2);
+  --cp-nav-bg: #071f35;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(47, 114, 255, 0.22);
+  --radius-sm: 4px;
+  --radius-md: 6px;
 }
 html[data-theme="dark"] {
   color-scheme: dark;
-  --cp-bg: #3d3b3a;
-  --cp-bg-elevated: #343231;
-  --cp-surface: #292929;
-  --cp-surface-soft: #2e2e2e;
-  --cp-border: #474747;
-  --cp-border-strong: #5f5f5f;
-  --cp-text: #dedede;
-  --cp-text-muted: #919191;
-  --cp-text-soft: #b0b0b0;
-  --cp-accent: #fd8ea1;
-  --cp-accent-hover: #fb7b91;
-  --cp-accent-soft: rgba(253, 142, 161, 0.14);
-  --cp-accent-fg: #1a1a1a;
-  --cp-success: #4ade80;
-  --cp-danger: #f87171;
-  --cp-warning: #fbbf24;
-  --cp-link: #4da6ff;
+  --cp-bg: #071722;
+  --cp-bg-elevated: #0a1d2d;
+  --cp-surface: #0d263a;
+  --cp-surface-soft: #102d43;
+  --cp-border: #29475f;
+  --cp-border-strong: #668198;
+  --cp-text: #eaf3fa;
+  --cp-text-muted: #9eb1c2;
+  --cp-text-soft: #bdcad5;
+  --cp-accent: #4b83ff;
+  --cp-accent-hover: #6b99ff;
+  --cp-accent-soft: rgba(75, 131, 255, 0.16);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #2bd3b8;
+  --cp-danger: #ff7181;
+  --cp-warning: #f5b451;
+  --cp-link: #70a0ff;
   --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
-  --cp-overlay: rgba(41, 41, 41, 0.88);
-  --cp-panel: rgba(41, 41, 41, 0.72);
-  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-overlay: rgba(7, 23, 34, 0.88);
+  --cp-panel: rgba(13, 38, 58, 0.76);
+  --cp-panel-strong: rgba(13, 38, 58, 0.96);
   --cp-sheen: rgba(255, 255, 255, 0.04);
-  --cp-highlight: rgba(253, 142, 161, 0.12);
+  --cp-highlight: rgba(43, 211, 184, 0.12);
+  --cp-brand-navy: #061827;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #4b83ff;
+  --cp-brand-blue-bright: #70a0ff;
+  --cp-brand-teal: #2bd3b8;
+  --cp-brand-glow: rgba(75, 131, 255, 0.28);
+  --cp-nav-bg: #061827;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(75, 131, 255, 0.24);
 }
 *{box-sizing:border-box}body{margin:0;color:var(--cp-text);background:var(--cp-bg);font:14px/1.45 "Segoe UI",Aptos,Calibri,-apple-system,BlinkMacSystemFont,sans-serif;height:100dvh;display:flex;flex-direction:column}
-button,input,select,textarea{font:inherit;color:inherit}button,.button{border:1px solid var(--cp-border);background:var(--cp-surface);border-radius:.625rem;padding:9px 13px;cursor:pointer;text-decoration:none;white-space:nowrap}
+button,input,select,textarea{font:inherit;color:inherit}button,.button{border:1px solid var(--cp-border);background:var(--cp-surface);border-radius:var(--radius-sm);padding:9px 13px;cursor:pointer;text-decoration:none;white-space:nowrap}
 button:hover,.button:hover{border-color:var(--cp-accent);background:var(--cp-accent-soft)}button:disabled{opacity:.45;cursor:not-allowed}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--cp-accent);outline-offset:2px}
 .primary{background:var(--cp-accent);border-color:var(--cp-accent);color:var(--cp-accent-fg)}.primary:hover{background:var(--cp-accent-hover);color:var(--cp-accent-fg)}a{color:var(--cp-link)}h1,h2,h3,p{margin:0}h1{font-size:20px;line-height:1.3}h2{font-size:16px}h3{font-size:14px}
 .muted,small{color:var(--cp-text-muted)}small,.small{font-size:12px}.eyebrow{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cp-text-soft)}
-.row{display:flex;align-items:center;gap:10px}.spread{justify-content:space-between}.wrap{flex-wrap:wrap}.stack{display:grid;gap:12px}.badge{display:inline-block;font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--cp-border);background:var(--cp-surface-soft)}.accent{color:var(--cp-accent);background:var(--cp-accent-soft)}.notice{padding:12px;border-radius:.625rem;background:var(--cp-surface-soft);border:1px solid var(--cp-border);font-size:13px}.warning{border-left:3px solid var(--cp-warning)}.error{border-left:3px solid var(--cp-danger)}
+.row{display:flex;align-items:center;gap:10px}.spread{justify-content:space-between}.wrap{flex-wrap:wrap}.stack{display:grid;gap:12px}.badge{display:inline-block;font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--cp-border);background:var(--cp-surface-soft)}.accent{color:var(--cp-accent);background:var(--cp-accent-soft)}.notice{padding:12px;border-radius:var(--radius-sm);background:var(--cp-surface-soft);border:1px solid var(--cp-border);font-size:13px}.warning{border-left:3px solid var(--cp-warning)}.error{border-left:3px solid var(--cp-danger)}
 header{height:64px;padding:0 24px;background:var(--cp-surface);border-bottom:1px solid var(--cp-border);display:flex;align-items:center;justify-content:space-between;gap:20px}
 .brand{display:flex;align-items:center;gap:10px;white-space:nowrap}.logo{display:grid;place-items:center;background:var(--cp-accent);color:var(--cp-accent-fg);border-radius:10px;width:32px;height:32px;font-weight:800}
 nav{display:flex;gap:8px;align-items:center}nav button{border:0;background:var(--cp-surface)}nav button[aria-current="page"]{color:var(--cp-accent);background:var(--cp-accent-soft);font-weight:600}nav a{color:var(--cp-text-muted);text-decoration:none;padding:8px}
@@ -84,9 +106,9 @@ nav{display:flex;gap:8px;align-items:center}nav button{border:0;background:var(-
 .inspector{background:var(--cp-surface);border-left:1px solid var(--cp-border);padding:20px;overflow:auto;display:flex;flex-direction:column;gap:18px;min-width:0}.decision-title{font-size:27px;font-weight:700;line-height:1.2;letter-spacing:-.02em}.section{border-top:1px solid var(--cp-border);padding-top:16px}.kv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:8px 12px;font-size:12px}.kv span,.kv strong{min-width:0;overflow-wrap:anywhere}.kv strong{text-align:right}.context-tags{display:flex;flex-wrap:wrap;gap:6px}.score{font-size:22px;font-variant-numeric:tabular-nums}#model-reason{font-size:13px}#score-button{width:100%}#photo-notes{font-size:12px}#matching{display:none}.matching-mode #matching{display:grid}.matching-mode #assessment{display:none}.listing-remarks{white-space:pre-wrap;max-height:180px;overflow:auto;line-height:1.45}.outcome{border-left:3px solid var(--cp-accent)}.outcome strong{font-size:18px}.field-note{line-height:1.45}
 .matching-mode #economics{display:none}
 .fact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.fact{padding:9px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface-soft);min-width:0}.fact small,.fact strong{display:block}.fact strong{overflow-wrap:anywhere}.choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.choice-grid label{display:flex;align-items:center;gap:7px;padding:8px;border:1px solid var(--cp-border);border-radius:8px}.choice-grid input{min-width:auto}.evidence-picker button[aria-pressed="true"]{border:3px solid var(--cp-accent);padding:0}.evidence-picker button[aria-pressed="true"]::after{content:"Evidence";display:block;color:var(--cp-accent);font-weight:700}.technical summary,.secondary-context summary{cursor:pointer;color:var(--cp-text-muted)}.secondary-context summary{display:grid;gap:2px;list-style:none}.secondary-context summary::-webkit-details-marker{display:none}.secondary-context summary::after{content:"Show details";font-size:11px;color:var(--cp-link)}.secondary-context[open] summary::after{content:"Hide details"}.secondary-context-body{margin-top:14px}
-.review-checklist{display:grid;gap:8px}.check-step{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:10px;border:1px solid var(--cp-border);border-radius:.625rem;background:var(--cp-surface-soft)}.check-number{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--cp-surface);border:1px solid var(--cp-border);font-weight:800}.check-step.done .check-number{background:var(--cp-success);border-color:var(--cp-success);color:var(--cp-accent-fg)}.check-step strong,.check-step small{display:block}.decision-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.decision-grid label{display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid var(--cp-border);border-radius:.625rem;background:var(--cp-surface-soft);white-space:normal;min-width:0}.decision-grid label span{min-width:0}.decision-grid strong,.decision-grid small{display:block;overflow-wrap:anywhere}.decision-grid input{flex:0 0 auto;width:auto;margin-top:4px}.review-help{padding:12px;border-left:3px solid var(--cp-accent);background:var(--cp-accent-soft);border-radius:.625rem}.review-evidence{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.review-evidence .fact{min-height:64px}.queue-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:100%}.queue-summary span{padding:7px 9px;border:1px solid var(--cp-border);border-radius:.625rem;background:var(--cp-surface);font-size:11px}.queue-summary strong{display:block;font-size:15px}@media(max-width:760px){.decision-grid,.review-evidence,.queue-summary{grid-template-columns:1fr 1fr}}
+.review-checklist{display:grid;gap:8px}.check-step{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:10px;border:1px solid var(--cp-border);border-radius:var(--radius-sm);background:var(--cp-surface-soft)}.check-number{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--cp-surface);border:1px solid var(--cp-border);font-weight:800}.check-step.done .check-number{background:var(--cp-success);border-color:var(--cp-success);color:var(--cp-accent-fg)}.check-step strong,.check-step small{display:block}.decision-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.decision-grid label{display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid var(--cp-border);border-radius:var(--radius-sm);background:var(--cp-surface-soft);white-space:normal;min-width:0}.decision-grid label span{min-width:0}.decision-grid strong,.decision-grid small{display:block;overflow-wrap:anywhere}.decision-grid input{flex:0 0 auto;width:auto;margin-top:4px}.review-help{padding:12px;border-left:3px solid var(--cp-accent);background:var(--cp-accent-soft);border-radius:var(--radius-sm)}.review-evidence{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.review-evidence .fact{min-height:64px}.queue-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:100%}.queue-summary span{padding:7px 9px;border:1px solid var(--cp-border);border-radius:var(--radius-sm);background:var(--cp-surface);font-size:11px}.queue-summary strong{display:block;font-size:15px}@media(max-width:760px){.decision-grid,.review-evidence,.queue-summary{grid-template-columns:1fr 1fr}}
 footer{min-height:80px;background:var(--cp-surface);border-top:1px solid var(--cp-border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}.footer-copy{max-width:420px}.footer-copy small{display:block}.actions{display:flex;gap:8px}.actions button{padding:11px 18px}label{display:grid;gap:6px}input,select,textarea{padding:10px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface);min-width:0}textarea{resize:vertical;width:100%;min-height:75px}
-dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:24px;max-width:720px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}dialog::backdrop{background:var(--cp-overlay)}dialog form{display:grid;gap:16px;min-width:0}dialog label,dialog fieldset,dialog .filmstrip{min-width:0}dialog input:not([type="checkbox"]):not([type="radio"]),dialog select,dialog textarea{width:100%;max-width:100%}dialog fieldset{margin:0;padding:12px;border:1px solid var(--cp-border);border-radius:10px}dialog legend{padding:0 6px;font-weight:600}dialog .review-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}dialog .choice-grid label{display:flex;align-items:flex-start;white-space:normal}dialog .choice-grid input{flex:none;margin-top:3px}dialog .dialog-actions{position:sticky;bottom:-24px;background:var(--cp-surface);padding:12px 0;margin-bottom:-12px;border-top:1px solid var(--cp-border)}@media(max-width:600px){dialog{padding:16px}dialog .review-columns,dialog .choice-grid,.decision-grid{grid-template-columns:1fr}dialog .dialog-actions{bottom:-16px}dialog .dialog-actions button{white-space:normal}}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}.features{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px}dialog img{max-height:170px;max-width:100%;object-fit:contain}ul{padding-left:19px;margin:5px 0}#queue-toggle{display:none}
+dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:var(--radius-md);padding:24px;max-width:720px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}dialog::backdrop{background:var(--cp-overlay)}dialog form{display:grid;gap:16px;min-width:0}dialog label,dialog fieldset,dialog .filmstrip{min-width:0}dialog input:not([type="checkbox"]):not([type="radio"]),dialog select,dialog textarea{width:100%;max-width:100%}dialog fieldset{margin:0;padding:12px;border:1px solid var(--cp-border);border-radius:10px}dialog legend{padding:0 6px;font-weight:600}dialog .review-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}dialog .choice-grid label{display:flex;align-items:flex-start;white-space:normal}dialog .choice-grid input{flex:none;margin-top:3px}dialog .dialog-actions{position:sticky;bottom:-24px;background:var(--cp-surface);padding:12px 0;margin-bottom:-12px;border-top:1px solid var(--cp-border)}@media(max-width:600px){dialog{padding:16px}dialog .review-columns,dialog .choice-grid,.decision-grid{grid-template-columns:1fr}dialog .dialog-actions{bottom:-16px}dialog .dialog-actions button{white-space:normal}}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}.features{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px}dialog img{max-height:170px;max-width:100%;object-fit:contain}ul{padding-left:19px;margin:5px 0}#queue-toggle{display:none}
 @media(min-width:1600px){.workspace{grid-template-columns:250px minmax(560px,1fr) 390px}.viewer{padding:24px}}
 @media(max-width:1180px){.workspace{grid-template-columns:205px minmax(400px,1fr) 330px}.viewer{padding:14px}.inspector{padding:16px}.actions button{padding:10px 12px}.footer-copy{max-width:300px}}
 @media(max-width:980px){body{height:auto;min-height:100dvh}header{height:auto;min-height:60px;padding:12px;flex-wrap:wrap;gap:8px}nav{width:100%;justify-content:space-between;overflow:auto}nav a{font-size:12px}.statusbar{padding:10px 12px}.workspace{display:flex;flex-direction:column;height:auto;min-height:0}.queue{display:none;max-height:420px;border-bottom:1px solid var(--cp-border)}.queue.expanded{display:flex}.queue-open .queue{max-height:calc(100dvh - 150px)}.queue-open .viewer,.queue-open .inspector,.queue-open footer{display:none}#queue-toggle{display:inline-block}.viewer{padding:12px}.photo-stage{height:48dvh;flex:none;min-height:280px}.inspector{border-left:0;border-top:1px solid var(--cp-border)}footer{position:sticky;bottom:0;z-index:5;flex-direction:column;padding:10px;gap:8px}.footer-copy{max-width:none;font-size:12px}.footer-copy small{display:none}.actions{width:100%}.actions button{flex:1;padding:10px 5px;font-size:12px}#message{margin:8px 12px}.features{grid-template-columns:1fr}}
@@ -95,7 +117,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 <body>
 <header>
  <div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span class="badge">Local preview</span></div>
- <nav aria-label="Workspace"><button id="match-nav">Review properties</button><button id="review-nav" aria-current="page">Property rating</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a><a href="/source-rows" id="source-ledger-link" hidden>All workbook rows</a></nav>
+ <nav aria-label="Workspace"><a href="/">Overview</a><a id="main-review-link" href="/studio">Review AI suggestions</a><button id="match-nav">Review properties</button><button id="review-nav" aria-current="page">Property rating</button><a href="/advanced?tab=experiments">Models &amp; results ↗</a><a href="/advanced?tab=dataset">Data ↗</a><a href="/source-rows" id="source-ledger-link" hidden>All workbook rows</a></nav>
  <button id="reviewer-button" class="small">Your name</button>
 </header>
 <div class="statusbar row spread wrap">
@@ -196,7 +218,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);
- const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'acquisitions',evidence:'all',mode:'review',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set(),knownTargets:false};
+ const S={token:null,items:[],counts:{},offset:0,total:0,filter:'all',scope:'all',evidence:'all',mode:'matching',detail:null,photo:null,room:'all',busy:false,request:0,imageLoaded:false,preview:null,name:'',pending:null,retry:null,poll:false,answerImages:new Set(),knownTargets:false};
  const ROOMS=['kitchen','bathroom','living','bedroom','exterior','outdoor','other'];
  const FEATURES=['dated_kitchen','dated_bathroom','old_flooring','old_cabinetry','dated_appliances','dated_lighting','dated_fixtures','damaged_surfaces','popcorn_ceiling','wood_paneling','clutter_obscures_condition','empty_presentation','visible_deferred_maintenance'];
  const INTERIOR=['kitchen','bathroom','living','bedroom','other'];
@@ -284,19 +306,19 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  }
  async function loadQueue(prefer=null){
   $('dataset-scope').value=S.scope;
-  const requestedQueue=S.knownTargets?S.filter:S.mode==='matching'?'photo_match':S.filter;
+  const requestedQueue=S.filter;
   const data=await api('review-queue?'+new URLSearchParams({queue:requestedQueue,scope:S.scope,evidence:S.evidence,search:$('search').value.trim(),offset:S.offset,limit:20}));
   const cloud=data.capabilities?.storage==='supabase';
-  if(cloud&&!S.knownTargets){S.knownTargets=true;$('source-ledger-link').hidden=false;S.mode='matching';S.filter='todo';S.scope='acquisitions';$('queue-filter').value='todo';$('review-nav').hidden=true;$('match-nav').textContent='Review properties';$('ready-button').hidden=true;$('cloud-queue-controls').hidden=false;$('dataset-scope').hidden=true;$('queue-filter').hidden=true;drawCloudTabs();return loadQueue(prefer);}
+  if(cloud){S.knownTargets=true;$('source-ledger-link').hidden=false;$('review-nav').hidden=true;$('match-nav').textContent='Review acquisition cohort';$('ready-button').hidden=true;}
   S.token=data.token;S.items=data.items;S.counts=data.counts;S.total=data.total;
   if(!S.items.length&&S.total&&S.offset>0){S.offset=Math.max(0,S.offset-20);return loadQueue(prefer);}
-  $('progress').textContent=S.knownTargets?`${S.counts.todo} incomplete of ${S.counts.all} matched listings`:`${S.counts.reviewed} reviewed · ${S.counts.unscored} need review · ${S.counts.ready} AI drafts`;
+  $('progress').textContent=S.knownTargets?`${S.counts.all} acquisition targets · ${S.counts.photo_match} still need source/photo recovery · ${S.counts.reviewed} human-reviewed`:`${S.counts.all} matched listings · ${S.counts.source_conflicts} unresolved source issues`;
   const queueSummary=$('queue-summary');queueSummary.hidden=!S.knownTargets;
   if(S.knownTargets)queueSummary.replaceChildren(
-   summaryStat(S.counts.all,'Matched listings'),
-   summaryStat(S.counts.verified,'Photo sets confirmed'),
-   summaryStat(S.counts.reviewed,'Opportunity reviews'),
-   summaryStat(S.counts.todo,'Still incomplete')
+   summaryStat(S.counts.all,'Acquisition targets'),
+   summaryStat(S.counts.photo_match,'Source/photo recovery'),
+   summaryStat(S.counts.with_photos,'With acquisition photos'),
+   summaryStat(S.counts.reviewed,'Human corrections')
   );
   $('ready-button').textContent=`AI drafts (${S.counts.ready})`;drawQueue();
   const next=S.items.find(i=>i.id===prefer)||S.items.find(i=>i.id===S.detail?.property.id)||S.items[0];
@@ -318,7 +340,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   S.photo=same&&detail.images.some(i=>i.id===oldPhoto)?oldPhoto:(detail.images.find(i=>roomOf(i)==='kitchen')||detail.images[0])?.id;
   document.querySelector('.queue').classList.remove('expanded');document.body.classList.remove('queue-open');drawQueue();draw();
   $('autolabel-status').hidden=!detail.capabilities?.autolabel;$('retry-autolabel').hidden=true;$('test-autolabel').disabled=true;$('label-tools').hidden=!detail.capabilities?.autolabel||!detail.images.length;
-  if(detail.capabilities?.autolabel&&detail.images.length)startAutolabel(id,ticket);
+  if(detail.capabilities?.autolabel&&detail.images.length){const existing=await api('autolabel?'+new URLSearchParams({id}));if(ticket!==S.request)return;S.labelTask={id,ticket,checked:0,...existing};labelStatus(existing);$('label-tools').hidden=true;}
   else{S.labelTask=null;$('autolabel-status').textContent='No valid first-sale photos to classify.';}
  }
  function labelStatus(data){
@@ -347,15 +369,15 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
    S.detail.images=fresh.images;drawPhotos();
   }
  }
- $('test-autolabel').onclick=()=>{if(S.detail)startAutolabel(S.detail.property.id,S.request,false,true);};
- $('retry-autolabel').onclick=()=>{if(S.detail)startAutolabel(S.detail.property.id,S.request,true);};
+ $('test-autolabel').onclick=()=>location.assign('/studio?property='+encodeURIComponent(S.detail?.property.id||''));
+ $('retry-autolabel').onclick=()=>location.assign('/studio?property='+encodeURIComponent(S.detail?.property.id||''));
  function draw(){
   const d=S.detail,p=d?.property,job=d?.assessment;
-  $('address').textContent=p?.address||'No property selected';
+  $('address').textContent=p?.address||'No property selected';$('main-review-link').href='/studio?property='+encodeURIComponent(p?.id||'');
   const m=p?.metadata||{};
   $('property-meta').textContent=p?[p.city,p.year_built?'Built '+p.year_built:null,m.ListingId?'MLS '+m.ListingId:null,m.CloseDate?'Sold '+m.CloseDate:null].filter(Boolean).join(' · '):'Choose another queue.';
   document.body.classList.toggle('matching-mode',S.mode==='matching');
-  $('task-heading').textContent=S.knownTargets?'Review matched acquisition listings':S.mode==='matching'?'Confirm acquisition sale and photo set':'Step 2 of 2 · Rate target properties';
+  $('task-heading').textContent=S.knownTargets?'Review matched acquisition listings':S.mode==='matching'?'Verify the sold listing and acquisition-era photos':'Step 2 of 2 · Rate target properties';
   $('queue-filter').disabled=S.mode==='matching'&&!S.knownTargets;
   $('review-nav').setAttribute('aria-current',S.mode==='review'?'page':'false');$('match-nav').setAttribute('aria-current',S.mode==='matching'?'page':'false');
   $('agree').textContent=S.knownTargets?'Complete review':S.mode==='matching'?'Verify sale/photos & next':'Rate property';
@@ -366,6 +388,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('model-reason').textContent=S.knownTargets?'Confirm the listing/photos, estimate condition from the evidence available, and decide whether this opportunity is worth investigating.':approved?r.reason:S.detail?.capabilities?.assessment===false?'Photos and reviews are saved in Supabase. Rate the property directly; cloud model processing is not enabled for this deployment.':job?.prediction?`Optional AI draft: ${job.prediction.target_reason}`:'Review first from the available photos and property facts. You can request an optional AI second opinion.';
   $('condition').textContent=approved&&r.condition_label?'Your visible condition: '+label(r.condition_label):job?.prediction?'AI condition draft: '+label(condition(job)):'';
   $('model-version').textContent=job?.prediction?`${job.model} · ${job.image_count} selected photos · optional AI draft`:'Human review does not require an AI request. Reviews do not retrain automatically.';
+  $('score-button').hidden=true;
   $('score-button').textContent=job?.prediction?'Refresh optional AI opinion':job?.status==='running'?'Generating AI opinion…':'Get optional AI second opinion';
   const warnings=[...(job?.review_warnings||[]),...(job?.error?[job.error]:[])];
   if(d?.historical_source?.blocked)warnings.push(d.historical_source.block_reason);
@@ -375,6 +398,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
   $('saved-answer').hidden=!approved;$('saved-answer').textContent=approved?`Saved review: ${r.target_score?`${r.target_score}/5 · `:''}${label(r.target_fit)} · ${label(r.confidence||'unknown')} confidence`:'';
   $('next-instruction').textContent=S.knownTargets?'Complete this property review.':S.mode==='matching'?'Are these the right acquisition-era photos?':'Rate whether this property is worth investigating.';
   $('action-note').textContent=S.knownTargets?'One form covers listing/photos, evidence, condition, and opportunity.':S.mode==='matching'?'Confirm the listing and dates, not just how the house looks.':'Use photos, metadata, or both. Missing evidence is not a negative label.';
+  $('decision-title').textContent='Check the sold listing and photo era';$('model-reason').textContent='This step checks identity and dates only. Use Review AI suggestions for condition and Target / Not target judgments.';
   const facts=[
    ['Type',m.PropertySubType||m.PropertyType||p?.property_type],
    ['Built',m.YearBuilt||p?.year_built],
@@ -662,7 +686,7 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
  $('queue-filter').onchange=()=>action(async()=>{S.filter=$('queue-filter').value;S.offset=0;S.detail=null;await loadQueue();});
  $('search-form').onsubmit=e=>{e.preventDefault();action(async()=>{S.offset=0;S.detail=null;await loadQueue();});};
  async function mode(value){if(S.busy||editing())return;S.mode=value;S.offset=0;S.detail=null;await action(loadQueue);}
- $('review-nav').onclick=()=>mode('review');$('match-nav').onclick=()=>mode('matching');
+ $('review-nav').onclick=()=>location.assign('/studio?property='+encodeURIComponent(S.detail?.property.id||''));$('match-nav').onclick=()=>mode('matching');
  $('ready-button').onclick=()=>{S.mode='review';S.filter='ready';$('queue-filter').value='ready';S.offset=0;S.detail=null;action(loadQueue);};
  $('refresh').onclick=()=>{if(editing()){note('Finish or cancel your unsaved edits before reloading.');return;}action(loadQueue);};
  $('queue-toggle').onclick=()=>{const open=document.querySelector('.queue').classList.toggle('expanded');document.body.classList.toggle('queue-open',open);};
@@ -686,3 +710,4 @@ dialog{color:var(--cp-text);background:var(--cp-surface);border:1px solid var(--
 </script>
 </body>
 </html>
+
