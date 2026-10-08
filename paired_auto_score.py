@@ -54,6 +54,10 @@ class LocalScorer:
   from provision_semantic_encoder import verify,DIRECTORY
   from semantic_text import SemanticTextEncoder
   self.vision=SiglipLabels();self.rooms=PROMPTS;self.prompts=PROMPTS+DATED+UPDATED+STAGING
+  # The worker has one allocated CPU. Host CPU count can report many cores;
+  # competing PyTorch threads then spend that quota scheduling each other.
+  self.vision.torch.set_num_threads(1)
+  print(json.dumps({'event':'paired_local_runtime','torch_threads':self.vision.torch.get_num_threads(),'device':'cpu'}),flush=True)
   self.text_info=verify();self.text=SemanticTextEncoder(DIRECTORY,self.text_info['checkpoint_sha256'])
  def photos(self,paths):
   from PIL import Image,ImageOps
@@ -100,17 +104,24 @@ def inspect(store,batch,item,scorer):
   for offset in range(0,len(manifest),4):
    ckey=key+':photos:'+str(offset);old=store.document(ckey)
    if old and old.get('status')=='completed':photos.extend(old['photos']);failures.extend(old['failures']);continue
+   started=time.monotonic()
+   chunk=manifest[offset:offset+4]
+   # One retention lookup per batch, preserving workspace and expiry guards.
+   with store.database.connect() as db:
+    blocked_rows=db.execute('SELECT DISTINCT image_sha256 FROM acq_training.photos WHERE workspace_id=%s AND image_sha256=ANY(%s) AND (revoked_at IS NOT NULL OR retention_until<=now())',(store.workspace,[p['sha256'] for p in chunk])).fetchall()
+   blocked_hashes={r['image_sha256'] for r in blocked_rows}
    paths=[];selected=[];unavailable=[]
-   for i,p in enumerate(manifest[offset:offset+4],offset):
+   for i,p in enumerate(chunk,offset):
     try:
-     with store.database.connect() as db:
-      blocked=db.execute('SELECT 1 FROM acq_training.photos WHERE workspace_id=%s AND image_sha256=%s AND (revoked_at IS NOT NULL OR retention_until<=now()) LIMIT 1',(store.workspace,p['sha256'])).fetchone()
-     if blocked:raise ValueError('Retention blocked')
+     if p['sha256'] in blocked_hashes:raise ValueError('Retention blocked')
      paths.append(store.storage.get(p['storage_bucket'],p['storage_object_key'],p['sha256']));selected.append((i,p['sha256']))
     except Exception as exc:unavailable.append({'photo_index':i,'sha256':p['sha256'],'error_kind':type(exc).__name__,'status':'unavailable'})
+   downloaded=time.monotonic()
    scored=scorer.photos(paths) if paths else []
+   inferred=time.monotonic()
    rows=[{**r,'photo_index':i,'sha256':h} for (i,h),r in zip(selected,scored)]
    persist(store,ckey,{'status':'completed','photos':rows,'failures':unavailable,'at':now(),'policy':POLICY});photos.extend(rows);failures.extend(unavailable)
+   print(json.dumps({'event':'paired_local_batch_timing','photos':len(rows),'download_and_guard_seconds':round(downloaded-started,3),'inference_seconds':round(inferred-downloaded,3),'save_seconds':round(time.monotonic()-inferred,3)}),flush=True)
   image=aggregate(photos)
   overall='TARGET' if 'TARGET' in {image['decision'],ma['decision']} else 'NOT_TARGET' if image['decision']==ma['decision']=='NOT_TARGET' else 'INSUFFICIENT_EVIDENCE'
   result={'status':'completed','batch_id':batch['batch_id'],'evidence_id':item['evidence_id'],'evidence_sha256':item['evidence_sha256'],'group_id':item['group_id'],'event_role':item['event_role'],'listing_key':item['listing_key'],'image':image,'metadata':ma,'remarks_semantic':semantic,'overall':overall,'photos':photos,'unavailable_photos':failures,'photo_count_expected':len(manifest),'photo_count_scored':len(photos),'provenance':'AUTOMATED_SILVER','is_gold':False,'human_review_required':False,'policy':POLICY,'model':'local-frozen-SigLIP2+sentence-encoder+rules','at':now(),'runtime_commit':os.environ.get('RENDER_GIT_COMMIT'),'quality_flags':{'candidate_decision':item['candidate_decision'],'pair_decision':item['pair_decision'],'point_in_time_verified':meta.get('point_in_time_verified',False),'photo_era_verified':meta.get('photo_era_verified',False),'staging_detection':'heuristic','private_data_external_model_egress':False,'scores_are_probabilities':False}}
