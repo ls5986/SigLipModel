@@ -62,9 +62,12 @@ class LocalScorer:
   for path in paths:
    with Image.open(path) as im:ims.append(ImageOps.exif_transpose(im).convert('RGB'))
   inputs=self.vision.processor(text=self.prompts,images=ims,padding='max_length',truncation=True,max_length=64,return_tensors='pt')
-  with self.vision.torch.inference_mode():scores=self.vision.model(**inputs).logits_per_image.float().cpu().tolist()
+  with self.vision.torch.inference_mode():
+   output=self.vision.model(**inputs)
+   scores=output.logits_per_image.float().cpu().tolist()
+   embeddings=output.image_embeds.float().cpu().tolist()
   out=[];n=len(self.rooms)
-  for row in scores:
+  for row,embedding in zip(scores,embeddings):
    info=resolve(row[:n]);ts=info['scores_uncalibrated']['photo_type'];typ=max(ts,key=ts.get);room=info['room']
    if typ=='interior':
     room=max(info['scores_uncalibrated']['room'],key=info['scores_uncalibrated']['room'].get)
@@ -77,7 +80,7 @@ class LocalScorer:
    if exclusion=='none' and ts[typ]>=.40:
     if margin>=.75:value=axis('TARGET',min(100,max(50,round(50+50/(1+math.exp(-min(20,margin)))))), 'Frozen SigLIP2 matches dated/original prompts')
     elif margin<=-.75:value=axis('NOT_TARGET',reason='Frozen SigLIP2 matches fully updated prompts')
-   out.append({**value,'room':room,'photo_type':typ,'exclusion':exclusion,'target_logit':target,'updated_logit':updated,'margin':margin,'staging_margin':staging,'provenance':'FROZEN_SIGLIP2_ZERO_SHOT','backbone_revision':self.vision.revision})
+   out.append({**value,'room':room,'photo_type':typ,'exclusion':exclusion,'target_logit':target,'updated_logit':updated,'margin':margin,'staging_margin':staging,'image_embedding':embedding,'provenance':'FROZEN_SIGLIP2_ZERO_SHOT','backbone_revision':self.vision.revision})
   return out
  def semantic(self,text):
   if not text.strip():return {'available':False}
