@@ -48,7 +48,7 @@ async function until(fn){for(let i=0;i<200;i++){if(fn())return;await new Promise
  assert($('property').textContent.includes('A learned metadata combiner'));
  assert(!$('property').textContent.includes('Either component being TARGET qualifies metadata'));
  assert($('property').textContent.includes('Learned word associations'));
- assert($('property').textContent.includes('YearBuilt = 1974'));
+ assert($('property').textContent.includes('Year built = 1974'));
  assert(d.body.textContent.includes('$50,000 · 9.1%'));
  assert(d.body.textContent.includes('History unavailable'));
  assert(!d.querySelector('[onerror]'));
