@@ -32,7 +32,7 @@ def hosted(monkeypatch, tmp_path):
     monkeypatch.setenv("STUDIO_SESSION_SECRET", "s" * 32)
     app = FailingApp()
     auth = hosted_server.HostedAuth()
-    for name in ("studio_home.html", "training_studio.html", "mls_validation_ui.html",
+    for name in ("studio_home.html", "paired_condition.html", "training_studio.html", "mls_validation_ui.html",
                  "review_ui.html", "source_rows.html", "hosted_status.html"):
         (tmp_path / name).write_text('<html><head><script>window.pageScript=true</script></head><body class="page">Page</body></html>')
     monkeypatch.setattr(hosted_server, "CODE_ROOT", tmp_path)
@@ -161,3 +161,4 @@ def test_storage_error_remains_503_and_does_not_expose_credentials(hosted, error
 def test_username_is_html_escaped():
     assert b"<script>" not in account_bar("<script>alert(1)</script>")
     assert b"&lt;script&gt;" in account_bar("<script>alert(1)</script>")
+
