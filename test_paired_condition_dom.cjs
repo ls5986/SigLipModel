@@ -13,7 +13,7 @@ const dom=new JSDOM(fs.readFileSync('paired_condition.html','utf8'),{url:'https:
  w.fetch=async(url,options)=>{
   const path=new URL(url,'https://studio.test'),p=path.pathname;let body={};
   if(p.endsWith('/status'))body={token:'csrf',request:{status:'completed'},dataset:{id:'d1',name:'frozen',version:1},candidate:{candidate_id:'c1',training_groups:20,created_at:new Date().toISOString(),components:{vision:true,text:true,structured:true,fusion:true}}};
-  if(p.endsWith('/list'))body={items:[{group_id:'g1',address:'123 Test St',prior_mls:'123',last_mls:'456'},{group_id:'g2',address:'456 Next St',prior_mls:'789',reviewed:true},{group_id:'g3',address:'Missing MLS St',prior_mls:'None',last_mls:null}]};
+  if(p.endsWith('/list'))body={items:[{group_id:'g1',address:'123 Test St',prior_mls:'123',last_mls:'456',photo_events:[{evidence_id:'e1',stored:6,usable:5,kitchen_bath:true,best_coverage:true,reviewed:false}]},{group_id:'g2',address:'456 Next St',prior_mls:'789',reviewed:true},{group_id:'g3',address:'Missing MLS St',prior_mls:'None',last_mls:null}]};
   if(p.endsWith('/property'))body={group_id:path.searchParams.get('id'),address:path.searchParams.get('id')==='g1'?'123 Test St':'456 Next St',events:[JSON.parse(JSON.stringify(event))]};
   if(p.endsWith('/correct')){assert(options.headers['X-Review-Token']==='csrf');corrections.push(JSON.parse(options.body));body={saved:true,revision:1};}
   return {ok:true,json:async()=>body};
@@ -24,6 +24,9 @@ async function until(fn){for(let i=0;i<200;i++){if(fn())return;await new Promise
 (async()=>{
  await until(()=>$('imageDecision'));
  assert(d.querySelector('.hero'));
+ $('photoFilter').value='best_coverage';$('photoFilter').dispatchEvent(new dom.window.Event('change'));
+ assert($('properties').textContent.includes('123 Test St'));assert(!$('properties').textContent.includes('456 Next St'));
+ $('photoFilter').value='all';$('photoFilter').dispatchEvent(new dom.window.Event('change'));
  $('reviewFilter').value='unreviewed';$('reviewFilter').dispatchEvent(new dom.window.Event('change'));
  assert(!$('properties').textContent.includes('456 Next St'));
  $('reviewFilter').value='reviewed';$('reviewFilter').dispatchEvent(new dom.window.Event('change'));

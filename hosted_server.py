@@ -242,13 +242,14 @@ def create_server(port, app, auth):
                 try:
                     if path.startswith("/api/studio/paired-condition/"):
                         from paired_condition import public_status, detail
+                        from paired_condition_photo_queue import photo_queue
                         from paired_review import PairedReview
                         store=app.get_studio().store
                         args=parse_qs(urlparse(self.path).query)
                         if path.endswith("/status"):
                             return self.data(200,{**public_status(store),"token":app.token})
                         if path.endswith("/list"):
-                            return self.data(200,PairedReview(store).queue())
+                            return self.data(200,photo_queue(store))
                         if path.endswith("/property"):
                             return self.data(200,detail(store,args.get("id",[""])[0]))
                         return self.data(404,{"error":"Not found"})
