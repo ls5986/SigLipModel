@@ -10,6 +10,7 @@ import os
 from uuid import UUID, uuid4
 
 from paired_condition_contract import POLICY, SCHEMA, KNOWN, digest
+from paired_condition_evidence import apply_policy
 
 COMPONENTS = ('vision', 'text', 'structured', 'fusion')
 
@@ -361,7 +362,7 @@ def queue_prediction(store, payload, actor):
     key = 'paired-condition-prediction:' + candidate['candidate_id'] + ':' + evidence_id
     result = store.document(key)
     if result and result.get('evidence_sha256') == label['evidence_sha256']:
-        return result
+        return apply_policy(result,label['frozen_evidence']['metadata'].get('public_remarks'),label['frozen_evidence'].get('private_remarks'))
     request_key = 'paired-condition-inference:' + evidence_id
     prior = store.document(request_key) or {}
     if prior.get('status') in {'queued', 'running'} and prior.get('candidate_id') == candidate['candidate_id']:
@@ -461,6 +462,7 @@ def detail(store, group_id):
             continue
         if candidate:
             event['prediction'] = store.document('paired-condition-prediction:' + candidate['candidate_id'] + ':' + evidence_id)
+        event['prediction'] = apply_policy(event['prediction'], (event.get('metadata_snapshot') or {}).get('public_remarks') or (event.get('raw_snapshot') or {}).get('PublicRemarks'), (event.get('raw_snapshot') or {}).get('PrivateRemarks'))
         event['request'] = store.document('paired-condition-inference:' + evidence_id)
         auto = store.document('paired-auto-score:paired-auto-20261008-v1:' + evidence_id)
         event['silver_reference'] = {k: auto[k] for k in ('image', 'metadata', 'overall')} if auto else None
