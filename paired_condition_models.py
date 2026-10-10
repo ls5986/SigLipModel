@@ -210,17 +210,44 @@ def combine(axes):
     return {'decision': 'INSUFFICIENT_EVIDENCE', 'strength': None, 'affinity': None}
 
 
+def metadata_matrix(rows, scores):
+    return np.asarray([
+        [v for n in ('text','structured') for v in (.5 if scores[n][i] is None else scores[n][i],float(scores[n][i] is not None))]
+        for i in range(len(rows))],dtype=float).reshape((-1,4))
+
+
+def metadata_decision(strategy, text, structured, fused=None):
+    if strategy=='text_only':return text
+    if strategy=='text_first':return text if text['decision'] in KNOWN else structured
+    if strategy=='learned_fusion':return classify(fused)
+    return combine([text,structured])
+
+
+def selection_score(rows, results, axis="metadata"):
+    recalls=[];known=0;correct=0;assessed=0
+    for label in ('TARGET','NOT_TARGET'):
+        selected=[(r,p) for r,p in zip(rows,results) if r['labels'].get(axis)==label]
+        if selected:recalls.append(sum(p[axis]['decision']==label for r,p in selected)/len(selected))
+        known+=len(selected);correct+=sum(p[axis]['decision']==label for r,p in selected)
+        assessed+=sum(p[axis]['decision'] in KNOWN for r,p in selected)
+    return {'known':known,'correct':correct,'abstained':known-assessed,
+            'balanced_agreement_including_abstentions':sum(recalls)/len(recalls) if recalls else 0.,
+            'agreement_including_abstentions':correct/known if known else 0.}
+
+
 def predict(bundle, rows):
     scores = {name: predict_component(name, bundle['heads'].get(name), rows)
               for name in ('vision', 'text', 'structured')}
     fusion = bundle['heads'].get('fusion')
     fused = probability(fusion, fusion_matrix(rows, scores)).tolist() if fusion else [None] * len(rows)
+    metadata_head=bundle['heads'].get('metadata_fusion')
+    metadata_scores=probability(metadata_head,metadata_matrix(rows,scores)).tolist() if metadata_head and rows else [None]*len(rows)
     results = []
     for i in range(len(rows)):
         image = classify(scores['vision'][i])
         text = classify(scores['text'][i])
         structured = classify(scores['structured'][i])
-        metadata = combine([text, structured])
+        metadata = metadata_decision(bundle.get('metadata_strategy','legacy_union'),text,structured,metadata_scores[i])
         # A metadata TARGET is allowed even when no photo is a TARGET.
         overall = combine([image, metadata])
         if image['decision'] != 'TARGET' and metadata['decision'] != 'TARGET' and (
@@ -229,7 +256,7 @@ def predict(bundle, rows):
         if overall['decision'] == 'TARGET' and fused[i] is not None:
             # The learned late-fusion head ranks TARGET evidence on the requested
             # 50-100 scale; an image-only or metadata-only TARGET still qualifies.
-            overall['strength'] = round(50 + 50 * fused[i])
+            overall['strength'] = max(x.get('strength') or 50 for x in (image,metadata) if x['decision']=='TARGET')
         results.append({'image': image, 'text': text, 'structured': structured, 'metadata': metadata,
                         'overall': overall, 'fusion_affinity': fused[i], 'calibrated': False,
                         'disagreement': image['decision'] in KNOWN and metadata['decision'] in KNOWN and image['decision'] != metadata['decision']})
@@ -237,7 +264,8 @@ def predict(bundle, rows):
 
 
 def metrics(rows, results, axis):
-    pairs = [(r['labels'].get(axis), pred[axis]) for r, pred in zip(rows, results) if r['labels'].get(axis) in KNOWN]
+    label_axis='metadata' if axis in ('text','structured') else axis
+    pairs = [(r['labels'].get(label_axis), pred[axis]) for r, pred in zip(rows, results) if r['labels'].get(label_axis) in KNOWN]
     assessed = [(truth, pred['decision']) for truth, pred in pairs if pred['decision'] in KNOWN]
     output = {'known_labels': len(pairs), 'assessed': len(assessed), 'abstained': len(pairs) - len(assessed),
               'meaning': 'Agreement with automated silver labels; not independent human accuracy'}
@@ -279,6 +307,9 @@ def train(rows, progress=lambda stage: None):
     heads['fusion'] = fit_head(fusion_matrix(fitting, oof)[known_indices],
         [fitting[i]['labels']['overall'] for i in known_indices],
         [groups[i] for i in known_indices], {'dimension': 8}) if known_indices else None
+    metadata_indices=[i for i,r in enumerate(fitting) if r['labels'].get('metadata') in KNOWN and any(oof[n][i] is not None for n in ('text','structured'))]
+    heads['metadata_fusion']=fit_head(metadata_matrix(fitting,oof)[metadata_indices],
+        [fitting[i]['labels']['metadata'] for i in metadata_indices],[groups[i] for i in metadata_indices],{'dimension':4}) if metadata_indices else None
     if not any(heads.values()):
         raise ValueError('No modality has both known classes in three independent groups')
     bundle = {'policy': POLICY, 'heads': heads, 'training_rows': len(fitting),
@@ -286,11 +317,22 @@ def train(rows, progress=lambda stage: None):
               'training_groups': len(set(groups)), 'production_ready': False,
               'label_scope': 'dated versus fully updated condition; not acquisition profitability',
               'calibrated': False, 'evaluation': {}, 'input_policy': 'paired-condition-inputs-v1'}
+    validation=[r for r in selected if r['effective_split']=='validation']
+    strategies=['text_first','text_only','legacy_union']+(['learned_fusion'] if heads['metadata_fusion'] else [])
+    comparisons={}
+    for strategy in strategies:
+        bundle['metadata_strategy']=strategy
+        comparisons[strategy]=selection_score(validation,predict(bundle,validation)) if validation else selection_score([],[])
+    # Selection uses validation labels only. Test labels never influence the recipe.
+    chosen=max(strategies,key=lambda s:(comparisons[s]['balanced_agreement_including_abstentions'],comparisons[s]['agreement_including_abstentions'])) if validation else 'text_first'
+    bundle['metadata_strategy']=chosen
+    bundle['metadata_selection']={'chosen':chosen,'selection_split':'validation','candidates':comparisons,
+                                 'test_used_for_selection':False,'automated_silver':True}
     for split in ('validation', 'test'):
         progress('evaluate_' + split)
         held = [r for r in selected if r['effective_split'] == split]
         results = predict(bundle, held) if held else []
-        bundle['evaluation'][split] = {axis: metrics(held, results, axis) for axis in ('image', 'metadata', 'overall')}
+        bundle['evaluation'][split] = {axis: metrics(held, results, axis) for axis in ('image', 'text', 'structured', 'metadata', 'overall')}
         bundle['evaluation'][split]['groups'] = len({r['fit_group'] for r in held})
     bundle['predictions'] = {r['evidence_id']: pred for r, pred in zip(rows, predict(bundle, rows))}
     bundle['counts'] = dict(Counter(r['effective_split'] for r in selected))

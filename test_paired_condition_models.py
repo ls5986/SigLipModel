@@ -98,3 +98,30 @@ def test_quarantined_labels_cannot_change_heads():
     extra = deepcopy(rows[0]);extra.update(group_id='q',evidence_id='q',listing_key='q',eligible=False)
     extra['photos'][0]['sha256'] = 'q'
     assert train(rows)['heads'] == train(rows + [extra])['heads']
+
+
+def test_metadata_recipe_selection_never_uses_test_labels():
+    rows=fixture_rows();first=train(rows)
+    changed=deepcopy(rows)
+    for row in changed:
+        if row['split']=='test':row['labels']['metadata']='NOT_TARGET'
+    second=train(changed)
+    assert first['metadata_strategy']==second['metadata_strategy']
+    assert first['metadata_selection']==second['metadata_selection']
+    assert first['heads']==second['heads']
+    assert first['metadata_selection']['selection_split']=='validation'
+
+
+def test_decisive_remarks_are_not_blocked_by_unknown_structured_in_text_first():
+    from paired_condition_models import metadata_decision
+    assert metadata_decision('text_first',classify(.01),classify(None))['decision']=='NOT_TARGET'
+    assert metadata_decision('text_first',classify(.01),classify(.99))['decision']=='NOT_TARGET'
+    assert metadata_decision('text_first',classify(None),classify(.99))['decision']=='TARGET'
+
+
+def test_selection_penalizes_abstention():
+    from paired_condition_models import selection_score
+    rows=fixture_rows()[:2]
+    score=selection_score(rows,[{'metadata':classify(None)},{'metadata':classify(None)}])
+    assert score['balanced_agreement_including_abstentions']==0
+    assert score['abstained']==2

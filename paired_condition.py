@@ -262,6 +262,16 @@ def poll_training(store):
         from paired_condition_models import train, guarded_splits
         bundle = train(rows, lambda s: progress(store, request, s))
         rows = guarded_splits(rows)
+        prior_candidate=store.document(LATEST)
+        if prior_candidate:
+            from paired_condition_models import predict, selection_score
+            previous=read_bundle(store,prior_candidate)
+            bundle['previous_candidate_comparison']={'candidate_id':prior_candidate['candidate_id'],'same_frozen_labels':True,'splits':{}}
+            for split in ('validation','test'):
+                held=[r for r in rows if r['eligible'] and r['effective_split']==split]
+                bundle['previous_candidate_comparison']['splits'][split]={'previous':selection_score(held,predict(previous,held)),'new':selection_score(held,predict(bundle,held)),'previous_overall':selection_score(held,predict(previous,held),'overall'),'new_overall':selection_score(held,predict(bundle,held),'overall')}
+        comparison=bundle.get('previous_candidate_comparison',{}).get('splits',{}).get('validation',{})
+        bundle['validation_gate']={'passed':not comparison or (comparison['new']['balanced_agreement_including_abstentions']>=comparison['previous']['balanced_agreement_including_abstentions'] and comparison['new_overall']['balanced_agreement_including_abstentions']>=comparison['previous_overall']['balanced_agreement_including_abstentions']),'selection_split':'validation','test_used_for_promotion':False}
         candidate_id = str(uuid4())
         bundle.pop('predictions', None)
         bundle.update(candidate_id=candidate_id, created_at=now(), schema_version=SCHEMA,
@@ -298,14 +308,15 @@ def poll_training(store):
         summary = {k: bundle[k] for k in ('candidate_id', 'created_at', 'dataset_id', 'dataset_sha256',
             'dataset_version', 'policy', 'schema_version', 'counts', 'training_rows', 'training_groups',
             'excluded_rows', 'alias_promotions', 'evaluation', 'code_commit', 'label_scope', 'calibrated')}
-        summary.update(artifact_key=key, artifact_sha256=sha, production_ready=False,
+        summary.update(validation_gate=bundle['validation_gate'],metadata_strategy=bundle['metadata_strategy'],metadata_selection=bundle['metadata_selection'],previous_candidate_comparison=bundle.get('previous_candidate_comparison'),artifact_key=key, artifact_sha256=sha, production_ready=False,
                        components={n: bool(bundle['heads'].get(n)) for n in COMPONENTS}, photo_head=bool(bundle.get('photo_head')))
         save(store, 'paired-condition-candidate:' + candidate_id, summary)
         stage = 'save_predictions'
         progress(store, request, stage)
         persist_predictions(store, candidate_id, bundle, rows)
-        save(store, LATEST, summary)
-        save(store, REQUEST, {**request, 'status': 'completed', 'candidate_id': candidate_id, 'finished_at': now()})
+        if bundle['validation_gate']['passed']:
+            save(store, LATEST, summary)
+        save(store, REQUEST, {**request, 'status': 'completed', 'candidate_id': candidate_id, 'validation_gate':bundle['validation_gate'], 'finished_at': now()})
         progress(store, request, 'completed')
         return True
     except Exception as exc:

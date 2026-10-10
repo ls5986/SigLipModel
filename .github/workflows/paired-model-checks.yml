@@ -1,0 +1,23 @@
+name: Paired model regression checks
+on:
+  pull_request:
+    paths: ["paired_condition*.py", "test_paired_condition*.py", ".github/workflows/paired-model-checks.yml"]
+  push:
+    branches: [develop, "codex/typed-v2-assisted-studio-20261005"]
+    paths: ["paired_condition*.py", "test_paired_condition*.py", ".github/workflows/paired-model-checks.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'numpy>=2,<3' 'scikit-learn>=1.6,<2' 'pytest>=8,<10'
+      - run: python -m pytest -q test_paired_condition_models.py test_paired_condition_evidence.py
+        env:
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
