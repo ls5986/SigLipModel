@@ -9,3 +9,7 @@ The new artifact stores component evaluations, validation selection and old-vers
 The GitHub Paired model regression checks workflow runs synthetic model tests and remark evidence tests on pushes/PRs touching model code. No credentials or private records are sent to Actions. Local command: `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -m pytest -q test_paired_condition_models.py test_paired_condition_evidence.py`.
 
 Every UI Train next version operation performs evaluation and comparison automatically. Model results and dataset shows the selected recipe and comparison. Corrections from protected groups remain evaluation labels, not training rows.
+
+The text head now combines pinned semantic embeddings, at most 256 TF-IDF word/bigram features and explicit condition signals. Each grouped training fold fits its own vocabulary and IDF. Held-out words never create features. The serialized artifact stores the vocabulary and IDF for identical online transforms; older semantic-only artifacts remain readable. This improves agreement with silver references, which are partly rule-generated, and must not be described as independent AI accuracy.
+
+No meaningful remarks or supported structured fields means metadata abstains, including comparable-only boilerplate. Empty prediction batches are supported. Predictions expose the strongest present linear word/structured associations, clearly distinguished from quoted listing evidence and causal explanations. The UI explains the actual selected metadata recipe rather than the obsolete OR rule.

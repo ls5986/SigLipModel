@@ -125,3 +125,41 @@ def test_selection_penalizes_abstention():
     score=selection_score(rows,[{'metadata':classify(None)},{'metadata':classify(None)}])
     assert score['balanced_agreement_including_abstentions']==0
     assert score['abstained']==2
+
+
+def test_hybrid_text_vocabulary_and_heads_never_fit_heldout_words():
+    rows=fixture_rows()
+    for row in rows:
+        row['remarks']='Original dated kitchen needs updating' if row['labels']['metadata']=='TARGET' else 'Fully remodeled modern home throughout'
+    first=train(rows)
+    changed=deepcopy(rows)
+    for row in changed:
+        if row['split']!='train':row['remarks']='exclusiveheldouttoken completely invented vocabulary'
+    second=train(changed)
+    assert first['heads']==second['heads']
+    spec=first['heads']['text']['spec']
+    assert spec['recipe']=='semantic-lexical-v1'
+    assert 'exclusiveheldouttoken' not in spec['lexical_names']
+    assert spec['lexical_names']
+    assert predict(first,rows[:1])[0]['explanations']['remarks']
+
+
+def test_no_input_or_comparable_boilerplate_cannot_invent_metadata():
+    model=train(fixture_rows())
+    blank={'photos':[],'vision_vector':None,'text_vector':None,'remarks':'','structured':{}}
+    assert predict(model,[blank])[0]['metadata']['decision']=='INSUFFICIENT_EVIDENCE'
+    boilerplate={**blank,'remarks':'For comparable only','text_vector':[1.,0.,.1],
+                 'structured':{'ListPrice':500000,'YearBuilt':'unknown'}}
+    result=predict(model,[boilerplate])[0]
+    assert result['text']['decision']==result['structured']['decision']==result['metadata']['decision']=='INSUFFICIENT_EVIDENCE'
+    assert result['metadata']['reason']
+    assert predict(model,[])==[]
+
+
+def test_legacy_semantic_artifact_still_predicts():
+    from paired_condition_models import fit_head
+    rows=fixture_rows()
+    head=fit_head(np.asarray([r['text_vector'] for r in rows]),[r['labels']['metadata'] for r in rows],
+                  [r['group_id'] for r in rows],{'dimension':3})
+    model={'heads':{'text':head},'metadata_strategy':'text_only'}
+    assert predict(model,rows[:1])[0]['metadata']['decision']=='TARGET'

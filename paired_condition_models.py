@@ -12,6 +12,7 @@ import re
 import numpy as np
 from scipy.special import expit
 from sklearn.feature_extraction import DictVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
 from sklearn.model_selection import GroupKFold
@@ -134,13 +135,52 @@ def encode_structured(rows, spec=None):
 def component_matrix(name, rows, spec=None):
     if name == 'structured':
         return encode_structured(rows, spec)
+    if name == 'text' and (spec is None or spec.get('recipe') == 'semantic-lexical-v1'):
+        return text_matrix(rows, spec)
     key = 'vision_vector' if name == 'vision' else 'text_vector'
     dimension = spec['dimension'] if spec else len(next(r[key] for r in rows if r.get(key)))
     return np.asarray([r.get(key) or [0.] * dimension for r in rows]), {'dimension': dimension}
 
 
+def text_matrix(rows, spec=None):
+    """Vocabulary and IDF fit only the rows supplied to the training fold."""
+    from paired_condition_evidence import extract
+    dimension = spec['semantic_dimension'] if spec else len(next(r['text_vector'] for r in rows if r.get('text_vector')))
+    semantic = np.asarray([r.get('text_vector') or [0.] * dimension for r in rows], dtype=float).reshape((-1,dimension))
+    remarks = [str(r.get('remarks') or '') for r in rows]
+    settings = dict(ngram_range=(1,2), min_df=2, max_features=256,
+                    strip_accents='unicode', sublinear_tf=True)
+    if spec is None:
+        vectorizer = TfidfVectorizer(**settings)
+        try:
+            lexical = vectorizer.fit_transform(remarks).toarray()
+            names = vectorizer.get_feature_names_out().tolist()
+            idf = vectorizer.idf_.tolist()
+        except ValueError as exc:
+            if not any(s in str(exc) for s in ('empty vocabulary','no terms remain','max_df corresponds')):
+                raise
+            lexical = np.zeros((len(rows),0)); names=[]; idf=[]
+        spec = {'recipe':'semantic-lexical-v1','semantic_dimension':dimension,
+                'lexical_names':names,'lexical_idf':idf,'evidence_categories':['dated','fully_updated']}
+    elif spec['lexical_names'] and rows:
+        vectorizer = TfidfVectorizer(**settings, vocabulary={n:i for i,n in enumerate(spec['lexical_names'])})
+        vectorizer.idf_ = np.asarray(spec['lexical_idf'])
+        lexical = vectorizer.transform(remarks).toarray()
+    else:
+        lexical = np.zeros((len(rows),len(spec['lexical_names'])))
+    evidence = np.asarray([[float(any(s['category']==c for s in extract(text,'')))
+                           for c in spec['evidence_categories']] for text in remarks]).reshape((-1,2))
+    return np.column_stack([semantic,lexical,evidence]),spec
+
+
 def has_input(row, name):
-    return bool(row.get({'vision': 'vision_vector', 'text': 'text_vector', 'structured': 'structured'}[name]))
+    if name=='structured':
+        return any(not key.endswith('_missing') for key in structured_features(row.get('structured') or {}))
+    if name=='text' and 'remarks' in row:
+        text=str(row.get('remarks') or '').strip()
+        if not text or re.fullmatch(r'(?i)(?:for )?comp(?:arable)?s?(?: purposes)? only[.! ]*|sold (?:prior to|before) (?:input|listing)[.! ]*|n/?a|see (?:agent|private) remarks[.! ]*',text):
+            return False
+    return bool(row.get({'vision': 'vision_vector', 'text': 'text_vector'}[name]))
 
 
 def fit_head(matrix, labels, groups, spec):
@@ -236,6 +276,8 @@ def selection_score(rows, results, axis="metadata"):
 
 
 def predict(bundle, rows):
+    if not rows:
+        return []
     scores = {name: predict_component(name, bundle['heads'].get(name), rows)
               for name in ('vision', 'text', 'structured')}
     fusion = bundle['heads'].get('fusion')
@@ -247,20 +289,50 @@ def predict(bundle, rows):
         image = classify(scores['vision'][i])
         text = classify(scores['text'][i])
         structured = classify(scores['structured'][i])
+        for name,value in (('vision',image),('text',text),('structured',structured)):
+            if not has_input(rows[i],name):
+                value['reason']={'vision':'No usable interior image input.','text':'No meaningful sanitized remarks input.',
+                                 'structured':'No usable condition-model fields.'}[name]
         metadata = metadata_decision(bundle.get('metadata_strategy','legacy_union'),text,structured,metadata_scores[i])
+        if scores['text'][i] is None and scores['structured'][i] is None:
+            metadata = classify(None)
+            metadata['reason']='Neither remarks nor structured condition inputs are available.'
         # A metadata TARGET is allowed even when no photo is a TARGET.
         overall = combine([image, metadata])
         if image['decision'] != 'TARGET' and metadata['decision'] != 'TARGET' and (
                 image['decision'] == 'INSUFFICIENT_EVIDENCE' or metadata['decision'] == 'INSUFFICIENT_EVIDENCE'):
             overall = {'decision': 'INSUFFICIENT_EVIDENCE', 'strength': None, 'affinity': None}
         if overall['decision'] == 'TARGET' and fused[i] is not None:
-            # The learned late-fusion head ranks TARGET evidence on the requested
-            # 50-100 scale; an image-only or metadata-only TARGET still qualifies.
+            # A qualifying modality sets strength; fusion cannot inflate it.
             overall['strength'] = max(x.get('strength') or 50 for x in (image,metadata) if x['decision']=='TARGET')
         results.append({'image': image, 'text': text, 'structured': structured, 'metadata': metadata,
                         'overall': overall, 'fusion_affinity': fused[i], 'calibrated': False,
+                        'metadata_strategy':bundle.get('metadata_strategy','legacy_union'),
+                        'explanations':model_explanations(bundle,rows[i]),
                         'disagreement': image['decision'] in KNOWN and metadata['decision'] in KNOWN and image['decision'] != metadata['decision']})
     return results
+
+
+def model_explanations(bundle, row):
+    """Exact linear feature contributions, not causal or confidence claims."""
+    output={'structured':[],'remarks':[],'meaning':'Learned associations in the raw model; not proof of property condition.'}
+    for name,key in (('structured','structured'),('text','remarks')):
+        head=bundle['heads'].get(name)
+        if not head or not has_input(row,name):continue
+        matrix,_=component_matrix(name,[row],head['spec']);values=matrix[0]
+        contributions=(values-np.asarray(head['mean']))/np.asarray(head['scale'])*np.asarray(head['coef'])[0]
+        if head['classes'][1]!='TARGET':contributions=-contributions
+        if name=='structured':
+            candidates=[(i,n) for i,n in enumerate(head['spec']['names']) if not n.endswith('_missing') and values[i]!=0]
+        else:
+            spec=head['spec']
+            if spec.get('recipe')!='semantic-lexical-v1':continue
+            start=spec['semantic_dimension']
+            candidates=[(start+i,n) for i,n in enumerate(spec['lexical_names']) if values[start+i]>0]
+        output[key]=[{'feature':n,'value':float(values[i]),'direction':'TARGET' if contributions[i]>0 else 'NOT_TARGET',
+                      'contribution':float(contributions[i])}
+                     for i,n in sorted(candidates,key=lambda x:abs(contributions[x[0]]),reverse=True)[:4]]
+    return output
 
 
 def metrics(rows, results, axis):

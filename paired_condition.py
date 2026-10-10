@@ -308,7 +308,7 @@ def poll_training(store):
         summary = {k: bundle[k] for k in ('candidate_id', 'created_at', 'dataset_id', 'dataset_sha256',
             'dataset_version', 'policy', 'schema_version', 'counts', 'training_rows', 'training_groups',
             'excluded_rows', 'alias_promotions', 'evaluation', 'code_commit', 'label_scope', 'calibrated')}
-        summary.update(validation_gate=bundle['validation_gate'],metadata_strategy=bundle['metadata_strategy'],metadata_selection=bundle['metadata_selection'],previous_candidate_comparison=bundle.get('previous_candidate_comparison'),artifact_key=key, artifact_sha256=sha, production_ready=False,
+        summary.update(text_recipe=(bundle['heads'].get('text') or {}).get('spec',{}).get('recipe','semantic-only'),validation_gate=bundle['validation_gate'],metadata_strategy=bundle['metadata_strategy'],metadata_selection=bundle['metadata_selection'],previous_candidate_comparison=bundle.get('previous_candidate_comparison'),artifact_key=key, artifact_sha256=sha, production_ready=False,
                        components={n: bool(bundle['heads'].get(n)) for n in COMPONENTS}, photo_head=bool(bundle.get('photo_head')))
         save(store, 'paired-condition-candidate:' + candidate_id, summary)
         stage = 'save_predictions'

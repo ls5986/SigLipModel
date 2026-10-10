@@ -6,7 +6,8 @@ const event={evidence_id:'e1',listing_key:'123',event_role:'acquisition',revisio
  signals:[{source_field:'PublicRemarks',signal_name:'deferred_maintenance',state:'PRESENT',snippet:'original kitchen <img onerror=alert(1)>'},{source_field:'PrivateRemarks',signal_name:'trust_probate',state:'PRESENT',snippet:'trust sale'}],
  photo_manifest:[{sha256:photo}],photo_tags:[{sha256:photo,exclusion:'none'}],
  metadata_snapshot:{structured:{YearBuilt:1974,ListPrice:500000,OriginalListPrice:550000},public_remarks:'Original kitchen <script>alert(1)</script>'},
- prediction:{status:'completed',image:result,metadata:result,overall:result,photos:[{sha256:photo,...result}]}};
+ prediction:{status:'completed',image:result,metadata:result,overall:result,metadata_strategy:'learned_fusion',
+ explanations:{remarks:[{feature:'original kitchen',direction:'TARGET'}],structured:[{feature:'YearBuilt',value:1974,direction:'TARGET'}]},photos:[{sha256:photo,...result}]}};
 let corrections=[],errors=[];
 const console=new VirtualConsole();console.on('jsdomError',e=>errors.push(e.message));
 const dom=new JSDOM(fs.readFileSync('paired_condition.html','utf8'),{url:'https://studio.test/model-test',runScripts:'dangerously',virtualConsole:console,beforeParse(w){
@@ -44,6 +45,10 @@ async function until(fn){for(let i=0;i<200;i++){if(fn())return;await new Promise
  assert($('oppResult').textContent.includes('$110,000'));
  assert(d.body.textContent.includes('Target condition evidence'));
  assert(d.body.textContent.includes('Private remarks'));
+ assert($('property').textContent.includes('A learned metadata combiner'));
+ assert(!$('property').textContent.includes('Either component being TARGET qualifies metadata'));
+ assert($('property').textContent.includes('Learned word associations'));
+ assert($('property').textContent.includes('YearBuilt = 1974'));
  assert(d.body.textContent.includes('$50,000 · 9.1%'));
  assert(d.body.textContent.includes('History unavailable'));
  assert(!d.querySelector('[onerror]'));
