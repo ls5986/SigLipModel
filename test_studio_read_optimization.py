@@ -52,3 +52,21 @@ def test_database_timeout_preserves_safe_sqlstate(monkeypatch):
             pass
     assert caught.value.sqlstate=='57014'
     assert 'PRIVATE' not in str(caught.value)
+
+
+def test_photo_queue_fetches_selected_documents_without_large_table_join(monkeypatch):
+    import paired_condition_photo_queue as queue
+    digest='a'*64
+    evidence=[{'group_id':'g','evidence_id':'e','photo_manifest':[{'sha256':digest}], 'excluded':{},'reviewed':False}]
+    docs=[{'item_id':'paired-auto-score:paired-auto-20261008-v1:e','tags':[{'sha256':digest,'room':'kitchen','exclusion':'none'}]}]
+    db=DB([])
+    def execute(sql,args):
+        db.queries.append((sql,args))
+        return SimpleNamespace(fetchall=lambda:evidence if len(db.queries)==1 else docs)
+    db.execute=execute
+    monkeypatch.setattr(paired_review.PairedReview,'queue',lambda self:{'items':[{'group_id':'g'}],'total':1})
+    store=SimpleNamespace(workspace='w',database=db,document=lambda key:None)
+    result=queue.photo_queue(store)
+    assert result['items'][0]['photo_events']==[{'evidence_id':'e','reviewed':False,'stored':1,'usable':1,'kitchen_bath':False,'best_coverage':False}]
+    assert 'studio_state' not in db.queries[0][0]
+    assert db.queries[1][1]==('w',['paired-auto-score:paired-auto-20261008-v1:e'])
