@@ -189,12 +189,16 @@ def progress(store, request, stage):
 
 
 def public_status(store):
-    request = store.document(REQUEST) or {'status': 'none'}
-    candidate = store.document(LATEST)
-    heartbeat = store.document(HEARTBEAT)
+    with store.database.connect() as db:
+        rows = db.execute("""SELECT item_id,payload,revision FROM acq_training.studio_state
+            WHERE workspace_id=%s AND kind='document' AND item_id=ANY(%s)""",
+            (store.workspace, [REQUEST, LATEST, HEARTBEAT])).fetchall()
+        documents = {row['item_id']: {**row['payload'], 'revision': row['revision']} for row in rows}
+        request = documents.get(REQUEST) or {'status': 'none'}
+        progress = store.database.state(db, 'document', 'paired-condition-training-progress:' + request.get('id', '')) if request.get('id') else None
     dataset = latest_dataset(store)
-    return {'request': request, 'candidate': candidate, 'worker': heartbeat,
-            'progress': store.document('paired-condition-training-progress:' + request.get('id', '')),
+    return {'request': request, 'candidate': documents.get(LATEST), 'worker': documents.get(HEARTBEAT),
+            'progress': progress,
             'dataset': {k: str(dataset[k]) if k == 'frozen_at' else dataset[k]
                         for k in ('id', 'name', 'version', 'manifest_sha256', 'frozen_at')},
             'production_ready': False}
@@ -464,22 +468,50 @@ def correction(store, payload, actor):
 
 def detail(store, group_id):
     from paired_review import PairedReview
+    from time import monotonic
+    import logging
+    started = monotonic()
     result = PairedReview(store).detail(group_id)
     candidate = store.document(LATEST)
+    keys = []
+    for event in result['events']:
+        evidence_id = event.get('evidence_id')
+        if evidence_id:
+            keys.extend(['paired-condition-inference:' + evidence_id,
+                         'paired-auto-score:paired-auto-20261008-v1:' + evidence_id])
+            if candidate:
+                keys.append('paired-condition-prediction:' + candidate['candidate_id'] + ':' + evidence_id)
+    documents = {}
+    if keys:
+        with store.database.connect() as db:
+            rows = db.execute("""SELECT item_id,revision,
+              CASE WHEN item_id LIKE 'paired-auto-score:%%' THEN
+                jsonb_build_object('image',payload->'image','metadata',payload->'metadata',
+                  'overall',payload->'overall','photos',
+                  (SELECT jsonb_agg(jsonb_build_object('sha256',p->>'sha256',
+                    'room',p->>'room','exclusion',p->>'exclusion',
+                    'decision',p->>'decision','strength',p->'strength'))
+                   FROM jsonb_array_elements(payload->'photos') p))
+              ELSE payload END payload
+              FROM acq_training.studio_state
+              WHERE workspace_id=%s AND kind='document' AND item_id=ANY(%s)""",
+              (store.workspace, keys)).fetchall()
+        documents = {row['item_id']: {**row['payload'], 'revision': row['revision']} for row in rows}
     for event in result['events']:
         evidence_id = event.get('evidence_id')
         event['prediction'] = None
         if not evidence_id:
             continue
         if candidate:
-            event['prediction'] = store.document('paired-condition-prediction:' + candidate['candidate_id'] + ':' + evidence_id)
+            event['prediction'] = documents.get('paired-condition-prediction:' + candidate['candidate_id'] + ':' + evidence_id)
         event['prediction'] = apply_policy(event['prediction'], (event.get('metadata_snapshot') or {}).get('public_remarks') or (event.get('raw_snapshot') or {}).get('PublicRemarks'), (event.get('raw_snapshot') or {}).get('PrivateRemarks'))
-        event['request'] = store.document('paired-condition-inference:' + evidence_id)
-        auto = store.document('paired-auto-score:paired-auto-20261008-v1:' + evidence_id)
+        event['request'] = documents.get('paired-condition-inference:' + evidence_id)
+        auto = documents.get('paired-auto-score:paired-auto-20261008-v1:' + evidence_id)
         event['silver_reference'] = {k: auto[k] for k in ('image', 'metadata', 'overall')} if auto else None
-        event['photo_tags'] = [{k: p.get(k) for k in ('sha256','room','exclusion','decision','strength')} for p in auto.get('photos', [])] if auto else []
+        event['photo_tags'] = auto.get('photos') or [] if auto else []
     result['candidate'] = candidate
     result['warning'] = ''
+    logging.warning('studio_read_timing endpoint=property elapsed_ms=%d', int((monotonic()-started)*1000))
     return result
 
 
