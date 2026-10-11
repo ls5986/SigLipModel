@@ -381,6 +381,8 @@ def main():
     start_read_probe(app.get_studio().store)
     from provider_history_backfill import start as start_history_backfill
     start_history_backfill(app.get_studio().store)
+    from paired_dev_package import start as start_dev_package
+    start_dev_package(app.get_studio().store)
     print(json.dumps({"status":"ready","port":port,"storage":"supabase"}),flush=True)
     try: server.serve_forever()
     finally:
