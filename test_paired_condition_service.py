@@ -269,6 +269,17 @@ def fake_package():
     }
 
 
+def vision_head():
+    return {
+        "spec": {"dimension": 4},
+        "classes": ["NOT_TARGET", "TARGET"],
+        "coef": [[0.0, 0.0, 0.0, 0.0]],
+        "intercept": [1.0],
+        "mean": [0.0, 0.0, 0.0, 0.0],
+        "scale": [1.0, 1.0, 1.0, 1.0],
+    }
+
+
 def test_inference_sanitizes_private_remarks_and_keeps_metadata_when_photos_missing(monkeypatch):
     store = Store()
     monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: fake_package())
@@ -318,6 +329,208 @@ def test_photo_cache_uses_content_hash_and_encoder_identity(monkeypatch):
 
     assert len(calls) == 2
     assert calls[0][0] != calls[1][0]
+
+
+def test_image_encoder_failure_returns_partial_prediction_with_unknown_image(monkeypatch):
+    store = Store()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: fake_package())
+
+    def fail_image_encoder(*_args):
+        raise RuntimeError("image runtime unavailable")
+
+    service = PairedConditionService(
+        store,
+        vision_encoder=fail_image_encoder,
+        text_encoder=lambda *_: [0.1],
+    )
+    payload = request_payload()
+    payload["idempotency_key"] = payload["request_id"]
+
+    result = service.infer(payload)
+
+    assert result["status"] == "partial"
+    assert result["image"]["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert result["learned_prediction"]["image"]["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert result["photo_evidence"][0]["result"]["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert result["photo_evidence"][0]["error"] == "Image encoder failed."
+    assert any(error["code"] == "image_encoder_failed" for error in result["modality_errors"])
+
+
+def test_text_encoder_failure_returns_partial_prediction_with_unknown_remarks(monkeypatch):
+    store = Store()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: fake_package())
+
+    def fail_text_encoder(*_args):
+        raise RuntimeError("text runtime unavailable")
+
+    service = PairedConditionService(
+        store,
+        vision_encoder=lambda *_: [0.2, 0.3],
+        text_encoder=fail_text_encoder,
+    )
+    payload = request_payload()
+    payload["idempotency_key"] = payload["request_id"]
+
+    result = service.infer(payload)
+
+    assert result["status"] == "partial"
+    assert result["remarks"]["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert result["learned_prediction"]["remarks"]["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert any(error["code"] == "text_encoder_failed" for error in result["modality_errors"])
+
+
+def test_classifier_failure_returns_structured_unavailable_prediction(monkeypatch):
+    store = Store()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: fake_package())
+
+    def fail_classifier(*_args):
+        raise RuntimeError("classifier runtime unavailable")
+
+    monkeypatch.setattr("release_sources.trained_classifier.predict", fail_classifier)
+    service = PairedConditionService(
+        store,
+        vision_encoder=lambda *_: [0.2, 0.3],
+        text_encoder=lambda *_: [0.1],
+    )
+    payload = request_payload()
+    payload["idempotency_key"] = payload["request_id"]
+
+    result = service.infer(payload)
+
+    assert result["status"] == "unavailable"
+    for component in ("image", "remarks", "structured", "metadata", "overall"):
+        assert result[component]["decision"] == "INSUFFICIENT_EVIDENCE"
+        assert result["learned_prediction"][component]["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert result["modality_errors"] == [
+        {
+            "modality": "overall",
+            "code": "classifier_failed",
+            "message": "Condition classifier failed.",
+            "retryable": True,
+        }
+    ]
+
+
+def test_concurrent_identical_embedding_write_reloads_and_reuses_cache(monkeypatch):
+    class RacingEmbeddingStore(Store):
+        def save_document(self, key, value, expected_revision):
+            if key.startswith("paired-condition-embedding:") and key not in self.documents:
+                self.documents[key] = {**copy.deepcopy(value), "revision": 1}
+                raise RuntimeError("optimistic concurrency conflict")
+            return super().save_document(key, value, expected_revision)
+
+    store = RacingEmbeddingStore()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: fake_package())
+    calls = []
+
+    def vision_encoder(*_args):
+        calls.append(True)
+        return [0.2, 0.3]
+
+    service = PairedConditionService(
+        store,
+        vision_encoder=vision_encoder,
+        text_encoder=lambda *_: [0.1],
+    )
+    payload = request_payload(photos=True)
+    payload["idempotency_key"] = payload["request_id"]
+
+    result = service.infer(payload)
+
+    assert result["coverage"]["usable_photo_count"] == 1
+    assert calls == [True]
+
+
+def test_concurrent_inconsistent_embedding_write_is_rejected(monkeypatch):
+    class RacingEmbeddingStore(Store):
+        def save_document(self, key, value, expected_revision):
+            if key.startswith("paired-condition-embedding:") and key not in self.documents:
+                self.documents[key] = {
+                    "identity": copy.deepcopy(value["identity"]),
+                    "embedding": [9.9, 9.9],
+                    "revision": 1,
+                }
+                raise RuntimeError("optimistic concurrency conflict")
+            return super().save_document(key, value, expected_revision)
+
+    store = RacingEmbeddingStore()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: fake_package())
+    service = PairedConditionService(
+        store,
+        vision_encoder=lambda *_: [0.2, 0.3],
+        text_encoder=lambda *_: [0.1],
+    )
+    payload = request_payload(photos=True)
+    payload["idempotency_key"] = payload["request_id"]
+
+    with pytest.raises(ValueError, match="Concurrent cached embedding mismatch"):
+        service.infer(payload)
+
+
+def test_usable_photos_receive_packaged_vision_results_and_other_photos_remain_unknown(
+    monkeypatch,
+):
+    store = Store()
+    package = fake_package()
+    package["bundle"]["heads"]["vision"] = vision_head()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: package)
+    payload = request_payload()
+    excluded = copy.deepcopy(payload["evidence"]["photos"][0])
+    excluded.update(
+        {
+            "photo_id": "photo-2",
+            "provider_media_id": "media-2",
+            "uri": "https://images.example/two.jpg",
+            "uri_sha256": digest_bytes(b"https://images.example/two.jpg"),
+            "content_sha256": None,
+            "content_base64": None,
+            "exclusion": "user_excluded",
+        }
+    )
+    missing = copy.deepcopy(excluded)
+    missing.update(
+        {
+            "photo_id": "photo-3",
+            "provider_media_id": "media-3",
+            "uri": "https://images.example/three.jpg",
+            "uri_sha256": digest_bytes(b"https://images.example/three.jpg"),
+            "exclusion": "none",
+        }
+    )
+    payload["evidence"]["photos"].extend([excluded, missing])
+    payload["idempotency_key"] = payload["request_id"]
+    service = PairedConditionService(
+        store,
+        vision_encoder=lambda *_: [0.2, 0.3],
+        text_encoder=lambda *_: [0.1],
+    )
+
+    result = service.infer(payload)
+
+    photo_results = {
+        photo["photo_id"]: photo["result"]["decision"] for photo in result["photo_evidence"]
+    }
+    assert photo_results == {
+        "photo-1": "TARGET",
+        "photo-2": "INSUFFICIENT_EVIDENCE",
+        "photo-3": "INSUFFICIENT_EVIDENCE",
+    }
+
+
+def test_packaged_vision_head_accepts_request_without_usable_photos(monkeypatch):
+    store = Store()
+    package = fake_package()
+    package["bundle"]["heads"]["vision"] = vision_head()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: package)
+    payload = request_payload(photos=False)
+    payload["idempotency_key"] = payload["request_id"]
+    service = PairedConditionService(store, text_encoder=lambda *_: [0.1])
+
+    result = service.infer(payload)
+
+    assert result["status"] == "partial"
+    assert result["image"]["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert result["photo_evidence"] == []
 
 
 def test_feedback_inbox_is_idempotent_and_conflicting_reuse_fails(monkeypatch):

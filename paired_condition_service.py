@@ -245,23 +245,64 @@ class PairedConditionService:
                         if cached.get("identity") != cache_identity:
                             raise ValueError("Cached embedding identity mismatch")
                         embedding = cached.get("embedding")
-                    if embedding is None:
-                        embedding = self._vision_encoder(content, encoder_identity)
                         if not isinstance(embedding, list) or not embedding:
-                            raise ValueError("Vision encoder returned no embedding")
-                        self.store.save_document(
-                            cache_key,
-                            {"identity": cache_identity, "embedding": embedding},
-                            cached.get("revision", 0),
+                            raise ValueError("Cached embedding value is incomplete")
+                    if embedding is None:
+                        try:
+                            embedding = self._vision_encoder(content, encoder_identity)
+                        except Exception:
+                            error = "Image encoder failed."
+                            errors.append(
+                                {
+                                    "modality": "image",
+                                    "code": "image_encoder_failed",
+                                    "message": error,
+                                    "retryable": True,
+                                }
+                            )
+                            embedding = None
+                        if not isinstance(embedding, list) or not embedding:
+                            if error is None:
+                                error = "Image encoder failed."
+                                errors.append(
+                                    {
+                                        "modality": "image",
+                                        "code": "image_encoder_failed",
+                                        "message": error,
+                                        "retryable": True,
+                                    }
+                                )
+                        else:
+                            cache_value = {
+                                "identity": cache_identity,
+                                "embedding": embedding,
+                            }
+                            try:
+                                self.store.save_document(
+                                    cache_key,
+                                    cache_value,
+                                    cached.get("revision", 0),
+                                )
+                            except (RuntimeError, ValueError):
+                                concurrent = self.store.document(cache_key) or {}
+                                if (
+                                    concurrent.get("identity") != cache_identity
+                                    or concurrent.get("embedding") != embedding
+                                ):
+                                    raise ValueError(
+                                        "Concurrent cached embedding mismatch"
+                                    ) from None
+                                embedding = concurrent["embedding"]
+                    if embedding is not None:
+                        model_photos.append(
+                            {
+                                "photo_id": photo["photo_id"],
+                                "sha256": photo["content_sha256"],
+                                "room": photo["room"],
+                                "exclusion": "none",
+                                "image_embedding": embedding,
+                            }
                         )
-                    model_photos.append(
-                        {
-                            "sha256": photo["content_sha256"],
-                            "room": photo["room"],
-                            "exclusion": "none",
-                            "image_embedding": embedding,
-                        }
-                    )
             evidence.append(
                 {
                     "photo_id": photo["photo_id"],
@@ -274,14 +315,15 @@ class PairedConditionService:
                 }
             )
             if error:
-                errors.append(
-                    {
-                        "modality": "image",
-                        "code": "missing_photo_bytes",
-                        "message": error,
-                        "retryable": True,
-                    }
-                )
+                if error == "Selected photo bytes were unavailable.":
+                    errors.append(
+                        {
+                            "modality": "image",
+                            "code": "missing_photo_bytes",
+                            "message": error,
+                            "retryable": True,
+                        }
+                    )
         return model_photos, evidence, errors
 
     def infer(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -303,8 +345,10 @@ class PairedConditionService:
 
         from paired_condition_evidence import apply_policy
         from release_sources.trained_classifier import (
+            classify,
             has_input,
             predict,
+            predict_component,
             sanitize_text,
             vision_features,
         )
@@ -315,11 +359,21 @@ class PairedConditionService:
         model_photos, photo_evidence, errors = self._photo_features(
             evidence["photos"], release["encoders"]["vision_revision"]
         )
-        text_vector = (
-            self._text_encoder(cleaned, release["encoders"]["text_checkpoint_sha256"])
-            if cleaned
-            else None
-        )
+        text_vector = None
+        if cleaned:
+            try:
+                text_vector = self._text_encoder(
+                    cleaned, release["encoders"]["text_checkpoint_sha256"]
+                )
+            except Exception:
+                errors.append(
+                    {
+                        "modality": "remarks",
+                        "code": "text_encoder_failed",
+                        "message": "Text encoder failed.",
+                        "retryable": True,
+                    }
+                )
         row = {
             "photos": model_photos,
             "structured": evidence["structured"],
@@ -327,7 +381,48 @@ class PairedConditionService:
             "vision_vector": vision_features(model_photos),
             "text_vector": text_vector,
         }
-        raw = predict(package["bundle"], [row])[0]
+        photo_rows = [
+            {
+                "photos": [photo],
+                "vision_vector": vision_features([photo]),
+            }
+            for photo in model_photos
+        ]
+        photo_scores = (
+            predict_component(
+                "vision", package["bundle"]["heads"].get("vision"), photo_rows
+            )
+            if photo_rows
+            else []
+        )
+        photo_results = {
+            photo["photo_id"]: classify(score)
+            for photo, score in zip(model_photos, photo_scores)
+        }
+        for photo in photo_evidence:
+            if photo["photo_id"] in photo_results:
+                photo["result"] = photo_results[photo["photo_id"]]
+
+        classifier_failed = False
+        try:
+            raw = predict(package["bundle"], [row])[0]
+        except Exception:
+            classifier_failed = True
+            raw = {
+                "image": _unknown(),
+                "text": _unknown(),
+                "structured": _unknown(),
+                "metadata": _unknown(),
+                "overall": _unknown(),
+            }
+            errors.append(
+                {
+                    "modality": "overall",
+                    "code": "classifier_failed",
+                    "message": "Condition classifier failed.",
+                    "retryable": True,
+                }
+            )
         learned = {
             "image": raw["image"],
             "remarks": raw["text"],
@@ -347,13 +442,20 @@ class PairedConditionService:
         adjusted = apply_policy(
             policy_input, evidence["public_remarks"], evidence["private_remarks"] or ""
         )
+        if classifier_failed:
+            for component in ("image", "text", "structured", "metadata", "overall"):
+                adjusted[component] = _unknown()
 
         availability = {
             "image": has_input(row, "vision"),
             "remarks": has_input(row, "text"),
             "structured": has_input(row, "structured"),
         }
-        if not availability["image"] and not any(e["modality"] == "image" for e in errors):
+        if (
+            not classifier_failed
+            and not availability["image"]
+            and not any(e["modality"] == "image" for e in errors)
+        ):
             errors.append(
                 {
                     "modality": "image",
@@ -366,7 +468,11 @@ class PairedConditionService:
             ("remarks", "text", "No meaningful sanitized remarks were available."),
             ("structured", "structured", "No usable condition-model fields were available."),
         ):
-            if not availability[contract_name]:
+            if (
+                not classifier_failed
+                and not availability[contract_name]
+                and not any(e["modality"] == contract_name for e in errors)
+            ):
                 errors.append(
                     {
                         "modality": contract_name,
@@ -375,9 +481,12 @@ class PairedConditionService:
                         "retryable": False,
                     }
                 )
-        status = "complete" if all(availability.values()) else (
-            "partial" if any(availability.values()) else "unavailable"
-        )
+        if classifier_failed:
+            status = "unavailable"
+        elif all(availability.values()) and not errors:
+            status = "complete"
+        else:
+            status = "partial" if any(availability.values()) else "unavailable"
         prediction_id = str(
             uuid5(UUID("d2263ec8-77cd-4f13-8f14-c3235bbc57df"), payload["request_id"])
         )
