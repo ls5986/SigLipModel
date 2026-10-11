@@ -26,7 +26,7 @@ def summarize(events):
 async def fetch_history(client,key):
     token=await client._access_token()
     path='/trestle/odata/HistoryTransactional'
-    params={'$filter':"ResourceName eq 'Property' and ResourceRecordKey eq '"+key.replace("'","''")+"'",'$select':FIELDS,'$top':200}
+    params={'$filter':"ResourceName eq 'PROPERTY' and ResourceRecordKey eq '"+key.replace("'","''")+"'",'$select':FIELDS,'$top':200}
     events={}
     complete=False
     for page in range(5):
@@ -35,7 +35,7 @@ async def fetch_history(client,key):
         body=response.json()
         if not isinstance(body.get('value'),list):raise ValueError('Invalid history collection')
         for row in body['value']:
-            if str(row.get('ResourceRecordKey'))!=key or row.get('ResourceName')!='Property':raise ValueError('History listing identity mismatch')
+            if str(row.get('ResourceRecordKey'))!=key or str(row.get('ResourceName')).upper()!='PROPERTY':raise ValueError('History listing identity mismatch')
             ident=row.get('HistoryTransactionalKey')
             if not ident:raise ValueError('History event key missing')
             events[str(ident)]={name:row.get(name) for name in FIELDS.split(',')}
@@ -50,7 +50,7 @@ async def fetch_history(client,key):
         path=next_link;params=None
         await asyncio.sleep(1)
     rows=sorted(events.values(),key=lambda row:(row.get('ModificationTimestamp') or '',str(row['HistoryTransactionalKey'])))
-    return {'status':'available' if rows else 'no_events_returned','listing_key':key,'source':'TRESTLE_HISTORY_TRANSACTIONAL','fetched_at':datetime.now(timezone.utc).isoformat(),'pagination_complete':complete,'coverage':'provider_returned_history_not_guaranteed_lifetime','events':rows,**summarize(rows)}
+    return {'filter_revision':2,'status':'available' if rows else 'no_events_returned','listing_key':key,'source':'TRESTLE_HISTORY_TRANSACTIONAL','fetched_at':datetime.now(timezone.utc).isoformat(),'pagination_complete':complete,'coverage':'provider_returned_history_not_guaranteed_lifetime','events':rows,**summarize(rows)}
 
 
 def save(store,key,payload):
@@ -95,7 +95,7 @@ async def backfill(store):
         for key in keys:
             key=str(key)
             existing=store.document(PREFIX+key)
-            if existing and existing.get('pagination_complete'):
+            if existing and existing.get('pagination_complete') and existing.get('filter_revision')==2:
                 counts['cached']+=1
                 continue
             payload=await fetch_history(client,key)
