@@ -134,7 +134,9 @@ class Database:
             import logging
             logging.warning('training_database_failure error_type=%s sqlstate=%s',
                             type(exc).__name__, getattr(exc, 'sqlstate', None))
-            raise OSError('Training database request failed; no local fallback used') from None
+            error = OSError('Training database request failed; no local fallback used')
+            error.sqlstate = getattr(exc, 'sqlstate', None)
+            raise error from None
 
     def verify(self):
         with self.connect() as db:
