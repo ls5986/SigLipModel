@@ -475,6 +475,7 @@ def detail(store, group_id):
     candidate = store.document(LATEST)
     keys = []
     for event in result['events']:
+        if event.get('listing_key'):keys.append('provider-history-v1:' + str(event['listing_key']))
         evidence_id = event.get('evidence_id')
         if evidence_id:
             keys.extend(['paired-condition-inference:' + evidence_id,
@@ -499,6 +500,7 @@ def detail(store, group_id):
         documents = {row['item_id']: {**row['payload'], 'revision': row['revision']} for row in rows}
     for event in result['events']:
         evidence_id = event.get('evidence_id')
+        event['provider_history'] = documents.get('provider-history-v1:' + str(event.get('listing_key')))
         event['prediction'] = None
         if not evidence_id:
             continue
