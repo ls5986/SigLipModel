@@ -377,6 +377,8 @@ def main():
     stop = start_hosted_worker(app.get_studio().store)
     from acquisition_listing_recovery import start as start_acquisition_recovery
     acquisition_stop = start_acquisition_recovery(app.get_studio().store)
+    from paired_condition_photo_queue import start_read_probe
+    start_read_probe(app.get_studio().store)
     print(json.dumps({"status":"ready","port":port,"storage":"supabase"}),flush=True)
     try: server.serve_forever()
     finally:
