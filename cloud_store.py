@@ -129,8 +129,11 @@ class Database:
                 yield db
         except psycopg.errors.SerializationFailure:
             raise RuntimeError('This record changed. Reload before saving.') from None
-        except psycopg.Error:
-            # Never send connection strings, SQL or server diagnostics to the browser.
+        except psycopg.Error as exc:
+            # Log classification only. Never log credentials, SQL, parameters or diagnostics.
+            import logging
+            logging.warning('training_database_failure error_type=%s sqlstate=%s',
+                            type(exc).__name__, getattr(exc, 'sqlstate', None))
             raise OSError('Training database request failed; no local fallback used') from None
 
     def verify(self):
