@@ -23,7 +23,7 @@ def test_explicit_dated_and_text_unknown_combination():
 def test_photo_target_remains_independent():
  p=base();p['image']={'decision':'TARGET','strength':69}
  r=apply_policy(p,'Completely remodeled home')
- assert r['metadata']['decision']=='NOT_TARGET' and r['overall']['strength']==69
+ assert r['metadata']['decision']=='NOT_TARGET' and r['overall']['decision']=='INSUFFICIENT_EVIDENCE'
 
 def test_comprehensive_kitchen_bath_renovation_and_turnkey_throughout():
  text='Move-in ready and beautifully renovated. A fully remodeled kitchen and bathroom — true turnkey quality throughout. Quartz and stainless steel.'
@@ -32,10 +32,7 @@ def test_comprehensive_kitchen_bath_renovation_and_turnkey_throughout():
 
 def test_review_comment_phrases_are_extracted_with_source_offsets():
  for text in ['Kitchen needs total overhaul.', 'Ready for remodeling.',
-              'Offering great potential to update and personalize.',
-              'This home offers solid upside for updating.',
-              'Opportunity for buyers looking to personalize and add value.',
-              'Bring your vision to transform this diamond in the rough.']:
+              'Original kitchen and bathrooms.']:
   signals=extract(text,'')
   assert signals and signals[0]['category']=='dated'
   assert text[signals[0]['start_offset']:signals[0]['end_offset']]==signals[0]['phrase']
@@ -47,3 +44,43 @@ def test_marketing_price_and_negated_work_do_not_establish_condition():
               'Huge price reduction!','Calling all investors and flippers.',
               'No kitchen needs total overhaul.', 'Not ready for remodeling.']:
   assert not extract(text,'')
+
+
+def test_vague_potential_does_not_override_updated_photos():
+ p=base();p['image']={'decision':'NOT_TARGET'}
+ r=apply_policy(p,'Offering great potential to update and personalize.')
+ assert r['metadata']['decision']=='INSUFFICIENT_EVIDENCE'
+ assert r['overall']['decision']=='NOT_TARGET'
+ assert r['evidence_policy']['signals'][0]['confidence']=='low'
+
+
+def test_room_subject_before_update_does_not_mean_whole_home():
+ for text in ['Kitchen is fully renovated.', 'Bathrooms were recently updated.', 'Newly remodeled kitchen opens to living room.']:
+  assert not [x for x in extract(text,'') if x['category']=='fully_updated']
+  assert [x for x in extract(text,'') if x['category']=='room_updated']
+ r=apply_policy(base(),'Kitchen is fully renovated with original bathrooms.')
+ assert r['metadata']['decision']=='TARGET'
+ assert r['evidence_policy']['condition_signal']=='mixed_condition'
+
+
+def test_strong_disagreement_is_review_and_missing_photos_allow_explicit_target():
+ p=base();p['image']={'decision':'NOT_TARGET'}
+ r=apply_policy(p,'Kitchen needs total overhaul.')
+ assert r['overall']['decision']=='INSUFFICIENT_EVIDENCE' and r['evidence_policy']['needs_review']
+ p['image']={'decision':'INSUFFICIENT_EVIDENCE'}
+ assert apply_policy(p,'Kitchen needs total overhaul.')['overall']['decision']=='TARGET'
+
+
+def test_negation_future_and_whole_home_conflict():
+ for text in ['No longer dated.', 'Not considered a fixer.', 'Could easily become fully renovated.', 'Plans call for a fully renovated kitchen.']:
+  assert not extract(text,'')
+ r=apply_policy(base(),'Fully renovated home. Kitchen needs total overhaul.')
+ assert r['metadata']['decision']=='INSUFFICIENT_EVIDENCE'
+ assert r['evidence_policy']['conflict']
+
+
+def test_single_uncertain_modality_does_not_force_weak_target():
+ p=base();p['image']={'decision':'TARGET','strength':50};p['metadata']={'decision':'INSUFFICIENT_EVIDENCE'}
+ assert apply_policy(p,'')['overall']['decision']=='INSUFFICIENT_EVIDENCE'
+ p['image']['strength']=80;p['usable_photo_count']=5
+ assert apply_policy(p,'')['overall']['decision']=='TARGET'
