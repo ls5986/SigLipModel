@@ -66,6 +66,22 @@ async def backfill(store):
         prior=store.document(STATUS) or {}
         if prior.get('status') in {'blocked','credentials_missing'}:return
         client=HostedTrestleClient()
+        # Empty filtered responses do not establish feed coverage.
+        token=await client._access_token()
+        probe=await client.http.get('/trestle/odata/HistoryTransactional',
+            params={'$select':FIELDS,'$top':1},
+            headers={'Authorization':'Bearer '+token,'Accept':'application/json'})
+        probe.raise_for_status()
+        body=probe.json()
+        if not isinstance(body.get('value'),list):raise ValueError('Invalid history probe')
+        save(store,'provider-history-diagnostic-v1',{'checked_at':datetime.now(timezone.utc).isoformat(),
+            'unfiltered_sample_count':len(body['value']),
+            'sample_resource_names':[r.get('ResourceName') for r in body['value']],
+            'sample_field_names':[r.get('FieldName') for r in body['value']]})
+        if not body['value']:
+            save(store,STATUS,{'status':'paused_empty_feed','reason':'Unfiltered provider history query returned no events. Feed access or coverage must be checked.'})
+            logging.warning('provider_history_backfill status=paused_empty_feed unfiltered_sample_count=0')
+            return
         with store.database.connect() as db:
             keys=[row['listing_key'] for row in db.execute('''SELECT DISTINCT l.listing_key
               FROM acq_training.property_event_roles r
