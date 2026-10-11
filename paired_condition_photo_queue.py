@@ -13,7 +13,9 @@ def photo_queue(store):
     result=PairedReview(store).queue()
     with store.database.connect() as db:
         rows=db.execute('''SELECT DISTINCT ON (r.group_id,r.event_role) r.group_id::text group_id,e.id::text evidence_id,
-          e.photo_manifest,a.payload->'photos' tags,
+          e.photo_manifest,(SELECT jsonb_agg(jsonb_build_object('sha256',p->>'sha256',
+            'room',p->>'room','exclusion',p->>'exclusion'))
+           FROM jsonb_array_elements(a.payload->'photos') p) tags,
           (SELECT answer->'excluded' FROM acq_training.property_label_events x WHERE x.workspace_id=e.workspace_id AND x.evidence_snapshot_id=e.id AND x.label_axis='photo_exclusions' ORDER BY revision DESC LIMIT 1) excluded,
           EXISTS(SELECT 1 FROM acq_training.property_label_events x WHERE x.workspace_id=e.workspace_id AND x.evidence_snapshot_id=e.id AND x.label_axis='overall') reviewed
           FROM acq_training.property_event_roles r
