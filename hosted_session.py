@@ -168,7 +168,10 @@ def session_handler(base_handler, app, auth, cookie_name):
 
         def storage_unavailable(self, error, *, service=False):
             sqlstate = getattr(error, "sqlstate", None)
-            if sqlstate in {"42P01", "42703"}:
+            if sqlstate == "57014":
+                category = "database_timeout"
+                message = "Loading took too long and the database canceled the request. Retry loading; an operator should check query performance."
+            elif sqlstate in {"42P01", "42703"}:
                 category = "database_schema"
                 message = "A required database table or column is unavailable. An operator must check the configured database and migrations."
             elif sqlstate == "42501":
