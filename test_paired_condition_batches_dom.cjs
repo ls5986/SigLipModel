@@ -22,6 +22,8 @@ async function until(fn){for(let i=0;i<200;i++){if(fn())return;await new Promise
  $('metadataDecision').value='NOT_TARGET';$('metadataDecision').dispatchEvent(new dom.window.Event('input'));
  // An unsaved gallery change must not reveal suggestions.
  $('exclude').click();assert($('run').disabled);assert(!$('property').textContent.includes('How metadata is combined'));
+ $('batchFilter').value='all';$('batchFilter').dispatchEvent(new dom.window.Event('change'));
+ assert($('batchFilter').value==='benchmark');assert($('run').disabled);
  $('save').click();await until(()=>$('batchInfo').textContent.includes('1 / 1 saved'));
  await until(()=>$('property').textContent.includes('Your saved decision'));
  assert($('property').textContent.includes('How metadata is combined'));
