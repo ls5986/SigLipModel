@@ -144,7 +144,10 @@ def component_matrix(name, rows, spec=None):
 
 def text_matrix(rows, spec=None):
     """Vocabulary and IDF fit only the rows supplied to the training fold."""
-    from paired_condition_evidence import extract
+    from paired_condition_evidence import extract, VERSION
+    from paired_condition_evidence_v2 import extract as legacy_extract
+    # Frozen candidates retain their training-time feature extraction semantics.
+    evidence_extract=extract if spec is None or spec.get('evidence_policy_version')==VERSION else legacy_extract
     dimension = spec['semantic_dimension'] if spec else len(next(r['text_vector'] for r in rows if r.get('text_vector')))
     semantic = np.asarray([r.get('text_vector') or [0.] * dimension for r in rows], dtype=float).reshape((-1,dimension))
     remarks = [str(r.get('remarks') or '') for r in rows]
@@ -161,14 +164,14 @@ def text_matrix(rows, spec=None):
                 raise
             lexical = np.zeros((len(rows),0)); names=[]; idf=[]
         spec = {'recipe':'semantic-lexical-v1','semantic_dimension':dimension,
-                'lexical_names':names,'lexical_idf':idf,'evidence_categories':['dated','fully_updated']}
+                'lexical_names':names,'lexical_idf':idf,'evidence_categories':['dated','fully_updated'],'evidence_policy_version':VERSION}
     elif spec['lexical_names'] and rows:
         vectorizer = TfidfVectorizer(**settings, vocabulary={n:i for i,n in enumerate(spec['lexical_names'])})
         vectorizer.idf_ = np.asarray(spec['lexical_idf'])
         lexical = vectorizer.transform(remarks).toarray()
     else:
         lexical = np.zeros((len(rows),len(spec['lexical_names'])))
-    evidence = np.asarray([[float(any(s['category']==c for s in extract(text,'')))
+    evidence = np.asarray([[float(any(s['category']==c for s in evidence_extract(text,'')))
                            for c in spec['evidence_categories']] for text in remarks]).reshape((-1,2))
     return np.column_stack([semantic,lexical,evidence]),spec
 
