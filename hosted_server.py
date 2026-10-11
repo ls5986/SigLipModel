@@ -175,8 +175,76 @@ def create_server(port, app, auth):
             except STORAGE_UNAVAILABLE_ERRORS as exc:
                 return self.storage_unavailable(exc, service=True)
 
+        def paired_service_request(self, path):
+            from paired_condition_service import (
+                MANIFEST_SHA256,
+                RELEASE_ID,
+                approved_release,
+                infer,
+                receive_feedback,
+            )
+
+            token = os.environ.get("PAIRED_CONDITION_SERVICE_TOKEN", "")
+            if not self.trusted_host():
+                return self.data(403, {"error": "Unrecognized host"})
+            if (
+                len(token) < 32
+                or os.environ.get("PAIRED_CONDITION_MODE") != "development"
+                or os.environ.get("PAIRED_CONDITION_RELEASE_ID") != RELEASE_ID
+                or os.environ.get("PAIRED_CONDITION_MANIFEST_SHA256") != MANIFEST_SHA256
+            ):
+                return self.data(
+                    503,
+                    {
+                        "error": "Paired-condition development service is disabled",
+                        "code": "paired_condition_unavailable",
+                    },
+                )
+            if not hmac.compare_digest(
+                self.headers.get("Authorization", ""), "Bearer " + token
+            ):
+                return self.data(401, {"error": "Paired-condition service credentials required"})
+            try:
+                studio = app.get_studio()
+                store = getattr(studio, "store", None)
+                if store is None:
+                    raise RuntimeError("Paired-condition development store is unavailable")
+                if self.command == "GET" and path.startswith(
+                    "/api/paired-condition/v1/releases/"
+                ):
+                    release_id = unquote(
+                        path.removeprefix("/api/paired-condition/v1/releases/"),
+                        errors="strict",
+                    )
+                    return self.data(200, approved_release(store, release_id))
+                if self.command != "POST" or path not in {
+                    "/api/paired-condition/v1/infer",
+                    "/api/paired-condition/v1/feedback",
+                }:
+                    return self.data(404, {"error": "Not found"})
+                payload = json.loads(self.body(16_000_000))
+                workspace = os.environ.get("PAIRED_CONDITION_SOURCE_WORKSPACE_ID", "")
+                if not workspace or payload.get("workspace_id") != workspace:
+                    raise PermissionError("Paired-condition source workspace is not authorized")
+                result = infer(store, payload) if path.endswith("/infer") else receive_feedback(
+                    store, payload
+                )
+                return self.data(200, result)
+            except LookupError:
+                return self.data(404, {"error": "Release not found"})
+            except PermissionError as exc:
+                return self.data(403, {"error": str(exc)})
+            except RuntimeError as exc:
+                return self.data(409, {"error": str(exc)})
+            except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+                return self.data(422, {"error": str(exc)})
+            except STORAGE_UNAVAILABLE_ERRORS as exc:
+                return self.storage_unavailable(exc, service=True)
+
         def do_GET(self):
             path=urlparse(self.path).path
+            if path.startswith("/api/paired-condition/v1/"):
+                return self.paired_service_request(path)
             if path.startswith("/api/actvision/v2/"):
                 return self.service_request(path)
             if path=="/health":
@@ -309,6 +377,8 @@ def create_server(port, app, auth):
 
         def do_POST(self):
             path=urlparse(self.path).path
+            if path.startswith("/api/paired-condition/v1/"):
+                return self.paired_service_request(path)
             if path.startswith("/api/actvision/v2/"):
                 return self.service_request(path)
             if path=="/login":
@@ -391,4 +461,3 @@ def main():
         server.server_close()
 
 if __name__=="__main__": main()
-
