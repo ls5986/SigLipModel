@@ -388,23 +388,22 @@ class PairedConditionService:
             }
             for photo in model_photos
         ]
-        photo_scores = (
-            predict_component(
-                "vision", package["bundle"]["heads"].get("vision"), photo_rows
-            )
-            if photo_rows
-            else []
-        )
-        photo_results = {
-            photo["photo_id"]: classify(score)
-            for photo, score in zip(model_photos, photo_scores)
-        }
-        for photo in photo_evidence:
-            if photo["photo_id"] in photo_results:
-                photo["result"] = photo_results[photo["photo_id"]]
-
         classifier_failed = False
         try:
+            photo_scores = (
+                predict_component(
+                    "vision", package["bundle"]["heads"].get("vision"), photo_rows
+                )
+                if photo_rows
+                else []
+            )
+            photo_results = {
+                photo["photo_id"]: classify(score)
+                for photo, score in zip(model_photos, photo_scores)
+            }
+            for photo in photo_evidence:
+                if photo["photo_id"] in photo_results:
+                    photo["result"] = photo_results[photo["photo_id"]]
             raw = predict(package["bundle"], [row])[0]
         except Exception:
             classifier_failed = True

@@ -411,6 +411,49 @@ def test_classifier_failure_returns_structured_unavailable_prediction(monkeypatc
     ]
 
 
+@pytest.mark.parametrize("failing_operation", ["predict_component", "classify"])
+def test_per_photo_classifier_failure_returns_unknown_photo_evidence(
+    monkeypatch, failing_operation
+):
+    store = Store()
+    package = fake_package()
+    package["bundle"]["heads"]["vision"] = vision_head()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: package)
+
+    def fail_per_photo_classifier(*_args):
+        raise RuntimeError("per-photo classifier runtime unavailable")
+
+    monkeypatch.setattr(
+        f"release_sources.trained_classifier.{failing_operation}",
+        fail_per_photo_classifier,
+    )
+    service = PairedConditionService(
+        store,
+        vision_encoder=lambda *_: [0.2, 0.3],
+        text_encoder=lambda *_: [0.1],
+    )
+    payload = request_payload()
+    payload["idempotency_key"] = payload["request_id"]
+
+    result = service.infer(payload)
+
+    assert result["status"] == "unavailable"
+    assert result["photo_evidence"][0]["content_sha256"] == (
+        payload["evidence"]["photos"][0]["content_sha256"]
+    )
+    assert result["photo_evidence"][0]["result"]["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert result["photo_evidence"][0]["error"] is None
+    assert result["coverage"]["usable_photo_count"] == 1
+    assert result["modality_errors"] == [
+        {
+            "modality": "overall",
+            "code": "classifier_failed",
+            "message": "Condition classifier failed.",
+            "retryable": True,
+        }
+    ]
+
+
 def test_concurrent_identical_embedding_write_reloads_and_reuses_cache(monkeypatch):
     class RacingEmbeddingStore(Store):
         def save_document(self, key, value, expected_revision):
