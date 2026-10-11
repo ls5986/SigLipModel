@@ -28,3 +28,22 @@ def test_photo_target_remains_independent():
 def test_comprehensive_kitchen_bath_renovation_and_turnkey_throughout():
  text='Move-in ready and beautifully renovated. A fully remodeled kitchen and bathroom — true turnkey quality throughout. Quartz and stainless steel.'
  assert apply_policy(base(),text)['metadata']['decision']=='NOT_TARGET'
+
+
+def test_review_comment_phrases_are_extracted_with_source_offsets():
+ for text in ['Kitchen needs total overhaul.', 'Ready for remodeling.',
+              'Offering great potential to update and personalize.',
+              'This home offers solid upside for updating.',
+              'Opportunity for buyers looking to personalize and add value.',
+              'Bring your vision to transform this diamond in the rough.']:
+  signals=extract(text,'')
+  assert signals and signals[0]['category']=='dated'
+  assert text[signals[0]['start_offset']:signals[0]['end_offset']]==signals[0]['phrase']
+  assert apply_policy(base(),text)['metadata']['decision']=='TARGET'
+
+
+def test_marketing_price_and_negated_work_do_not_establish_condition():
+ for text in ["Charming 1950's house",'Rare opportunity to own space and serenity',
+              'Huge price reduction!','Calling all investors and flippers.',
+              'No kitchen needs total overhaul.', 'Not ready for remodeling.']:
+  assert not extract(text,'')
