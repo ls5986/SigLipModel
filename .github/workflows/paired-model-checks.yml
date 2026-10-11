@@ -1,10 +1,10 @@
 name: Paired model regression checks
 on:
   pull_request:
-    paths: ["paired_condition*.py", "test_paired_condition*.py", ".github/workflows/paired-model-checks.yml"]
+    paths: ["paired_condition*.py", "paired_condition.html", "test_paired_condition*.py", "test_paired_condition*.cjs", ".github/workflows/paired-model-checks.yml"]
   push:
     branches: [develop, "codex/typed-v2-assisted-studio-20261005"]
-    paths: ["paired_condition*.py", "test_paired_condition*.py", ".github/workflows/paired-model-checks.yml"]
+    paths: ["paired_condition*.py", "paired_condition.html", "test_paired_condition*.py", "test_paired_condition*.cjs", ".github/workflows/paired-model-checks.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,7 +17,14 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install 'numpy>=2,<3' 'scikit-learn>=1.6,<2' 'pytest>=8,<10'
-      - run: python -m pytest -q test_paired_condition_models.py test_paired_condition_evidence.py
+      - run: python -m pytest -q test_paired_condition_models.py test_paired_condition_evidence.py test_paired_condition_batches.py
         env:
           OPENBLAS_NUM_THREADS: '1'
           OMP_NUM_THREADS: '1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix /tmp/paired-browser jsdom@26.1.0
+      - run: node test_paired_condition_dom.cjs && node test_paired_condition_batches_dom.cjs
+        env:
+          NODE_PATH: /tmp/paired-browser/node_modules

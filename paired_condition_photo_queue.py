@@ -25,4 +25,18 @@ def photo_queue(store):
     for row in rows:
         groups.setdefault(row['group_id'],[]).append({'evidence_id':row['evidence_id'],'reviewed':row['reviewed'],**coverage(row['photo_manifest'],row['tags'],row['excluded'])})
     for item in result['items']:item['photo_events']=groups.get(item['group_id'],[])
+    from paired_condition_batches import DOCUMENT,annotate_queue,benchmark_report
+    batches=store.document(DOCUMENT) or {}
+    result=annotate_queue(result,batches)
+    benchmark=result['review_batches'].get('benchmark')
+    if benchmark:
+        with store.database.connect() as db:
+            reviews=db.execute('''SELECT DISTINCT ON (evidence_snapshot_id,label_axis)
+              evidence_snapshot_id::text evidence_id,label_axis axis,answer
+              FROM acq_training.property_label_events WHERE workspace_id=%s
+              AND evidence_snapshot_id=ANY(%s::uuid[]) AND provenance='HUMAN_REVIEWED' AND review_status='approved'
+              AND label_axis IN ('image','metadata','overall')
+              ORDER BY evidence_snapshot_id,label_axis,revision DESC''',
+              (store.workspace,[m['evidence_id'] for m in benchmark['members']])).fetchall()
+        benchmark['report']=benchmark_report(benchmark['members'],reviews)
     return result
