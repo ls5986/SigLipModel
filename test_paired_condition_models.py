@@ -163,3 +163,14 @@ def test_legacy_semantic_artifact_still_predicts():
                   [r['group_id'] for r in rows],{'dimension':3})
     model={'heads':{'text':head},'metadata_strategy':'text_only'}
     assert predict(model,rows[:1])[0]['metadata']['decision']=='TARGET'
+
+
+def test_legacy_text_candidates_keep_their_original_phrase_features():
+ from paired_condition_models import text_matrix
+ rows=[{'text_vector':[1.,0.],'remarks':'great potential to update and personalize'}]*2
+ new,spec=text_matrix(rows)
+ assert spec['evidence_policy_version']=='remarks-condition-evidence-v3'
+ assert new[0,-2]==0
+ legacy=dict(spec);legacy.pop('evidence_policy_version')
+ old,_=text_matrix(rows,legacy)
+ assert old[0,-2]==1
