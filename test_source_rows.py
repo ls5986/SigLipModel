@@ -23,7 +23,7 @@ class LedgerDatabase(MemoryDatabase):
             selected=candidate()
             selected['listing']['ListingKey']=str(i)
             self.rows.append({'id':str(i),'listing_key':str(i) if i<513 else None,
-                'source_rows':[i+1],'photo_count':1 if i<251 else 0,
+                'match_status':'candidate' if i<513 else 'unresolved','source_rows':[i+1],'photo_count':1 if i<251 else 0,
                 'source_snapshot':{'spreadsheet':{'Address':'Address '+str(i),'OwnerPhone':'hidden'},
                     'mls_candidates':[selected] if i<513 else []}})
         self.photos=[{'listing_key':str(i),'provider_media_key':'photo','image_sha256':'a'*64} for i in range(251)]
@@ -43,7 +43,7 @@ def test_all_618_rows_are_visible_with_bounded_pages_and_sanitized_sources():
     db=LedgerDatabase();store=SupabaseStore(db,None)
     page=store.source_rows({'offset':600,'limit':20})
     assert page['source_rows']==618 and page['total']==618 and len(page['items'])==18
-    assert page['counts']=={'verified':0,'verify':251,'rematch':105,'missing_photos':262}
+    assert page['counts']=={'verified':0,'verify':251,'rematch':105,'missing_photos':262,'match_confirmed':0}
     assert all('OwnerPhone' not in item['source'] for item in page['items'])
     assert page['items'][-1]['source_row']==618 and page['items'][-1]['listing_key'] is None
     assert len(db.queries)==3
@@ -65,3 +65,4 @@ def test_source_approval_requires_current_photo_bytes_and_notes_do_not_approve()
     assert db.rows[-1]['listing_key'] is None
     with pytest.raises(ValueError,match='Unknown workbook'):
         store.source_row_note({'source_row':619,'reviewer':'Lindsey','note':'Unknown','expected_revision':0})
+

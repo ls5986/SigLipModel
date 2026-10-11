@@ -14,6 +14,29 @@ def first_sale_policy(candidate, source=None, candidates=None):
     agreements = match.get("sale_agreements", [])
     identity = bool(match.get("exact_apn") and match.get("street_number_matches")
                     and not match.get("unit_conflict") and listing.get("StandardStatus") == "Closed")
+    chronology_override = match.get("identity_chronology_override")
+    if chronology_override:
+        closed = sale_date(listing.get("CloseDate"))
+        target = sale_date(chronology_override.get("prior_sale_date"))
+        after = sale_date(chronology_override.get("after_close_date"))
+        if not identity or not closed or (after and closed >= after):
+            return {
+                "policy": "exact-identity-chronology-v1",
+                "target_sale_date": target.isoformat() if target else None,
+                "selected_close_date": closed.isoformat() if closed else None,
+                "actual_date_gap_days": abs((closed-target).days) if closed and target else None,
+                "supported": False,
+                "reason": "Event-map acquisition candidate failed identity/chronology validation.",
+            }
+        return {
+            "policy": "exact-identity-chronology-v1",
+            "target_sale_date": target.isoformat() if target else None,
+            "selected_close_date": closed.isoformat(),
+            "actual_date_gap_days": abs((closed-target).days) if target else None,
+            "supported": True,
+            "price_match_required": False,
+            "reason": None,
+        }
     transactions = [sale_date(a.get("sale_date")) for a in agreements]
     source = source or {}
     transactions += [sale_date(source.get(k)) for k in ("Prior Sale Date", "Last Sale Date")]

@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs as query_values
 
 import joblib
 import numpy as np
@@ -334,7 +335,15 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                 self.json(403, {"error": "Loopback host required"})
                 return
             path = urlparse(self.path).path
-            if path == "/":
+            if path == "/" and "property" not in query_values(urlparse(self.path).query):
+                self.send(200, (CODE_ROOT / "training_studio.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/advanced":
+                self.send(200, (CODE_ROOT / "training_studio.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/research" and os.environ.get("STUDIO_DATA_BACKEND") != "supabase":
+                self.send(200, (CODE_ROOT / "advanced_ui.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/mls-validation" and os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
+                self.send(200, (CODE_ROOT / "mls_validation_ui.html").read_bytes(), "text/html; charset=utf-8")
+            elif path in {"/", "/property-review", "/review"}:
                 page = (CODE_ROOT / "review_ui.html").read_bytes()
                 if os.environ.get("STUDIO_DATA_BACKEND") == "supabase":
                     page = page.replace(b'/advanced?tab=experiments', b'/status#models').replace(b'/advanced?tab=dataset', b'/status#data')
@@ -447,6 +456,8 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                         if not isinstance(payload, dict):
                             raise ValueError("Expected JSON object")
                         self.json(200, studio.post(self.path, payload))
+                except PermissionError as exc:
+                    self.json(403, {"error": str(exc)})
                 except RuntimeError as exc:
                     self.json(409, {"error": str(exc)})
                 except (ValueError, TypeError, KeyError) as exc:
@@ -470,6 +481,8 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                     raise ValueError("Invalid request size")
                 payload = json.loads(self.rfile.read(length))
                 if self.path == "/api/train":
+                    from studio_v2 import require_operator
+                    require_operator()
                     result = app.training.start(payload)
                     self.json(202 if result["status"] == "running" else 200, result)
                     return
@@ -477,6 +490,8 @@ def create_server(port: int, app: AppData) -> ThreadingHTTPServer:
                 self.json(200, saved)
             except RuntimeError as exc:
                 self.json(409, {"error": str(exc)})
+            except PermissionError as exc:
+                self.json(403, {"error": str(exc)})
             except (ValueError, TypeError) as exc:
                 self.json(400, {"error": str(exc)})
             except OSError:

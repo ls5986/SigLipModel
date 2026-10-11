@@ -257,7 +257,7 @@ def challenge_item(store, identifier):
 
 
 def property_detail(store, identifier):
-    from v1_models import acquisition_time_metadata
+    from acquisition_metadata import acquisition_time_metadata
     detail = store.property(identifier)
     source = (detail.get("historical_source") or {}).get("source") or {}
     v1_metadata = acquisition_time_metadata(
@@ -500,7 +500,7 @@ def feedback_snapshot(store):
     return latest
 
 
-def dataset_preview(store):
+def dataset_preview(store, *, persist=True):
     from cloud_training import snapshot
     _, properties = snapshot(store)
     def dataset_split(prop):
@@ -548,6 +548,33 @@ def dataset_preview(store):
         }
         if challenge_batch_id:
             known[property_id]["challenge_batch_id"] = challenge_batch_id
+    excluded_typed_reviews = []
+    for prop in properties:
+        review = prop.get("review") or {}
+        if review.get("label_schema_version") != "actvision-labels-v2" or review.get("status") != "approved":
+            continue
+        # An explicit unknown overrides cohort provenance; it must not become a positive or negative.
+        known.pop(prop["id"], None)
+        target = {"target": "TARGET", "not_target": "NOT_TARGET"}.get(review.get("target_fit"))
+        if not target or prop.get("label_exclusion"):
+            excluded_typed_reviews.append({"property_id": prop["id"], "reason": prop.get("label_exclusion") or "Acquisition fit UNKNOWN"})
+            continue
+        from studio_v2 import label_evidence
+        detail = store.property(prop["id"])
+        current = detail["property"]
+        identity = label_evidence(prop["id"], current.get("mls_remarks") or "", detail["images"], current.get("metadata"))
+        if identity != review.get("label_evidence_id"):
+            excluded_typed_reviews.append({"property_id": prop["id"], "reason": "Evidence changed after review"})
+            continue
+        known[prop["id"]] = {
+            "property_id": prop["id"], "group_id": prop["group_id"], "split": dataset_split(prop),
+            "target_label": target, "hard_negative": False,
+            "physical_condition": review.get("physical_condition", "UNKNOWN"),
+            "modernization_state": review.get("modernization_state", "UNKNOWN"),
+            "text_signals": review.get("text_signals", []),
+            "label_evidence_id": identity, "source_review_revision": review.get("revision"),
+            "origin": "training-studio-v2",
+        }
     examples = sorted(known.values(),key=lambda row:row["property_id"])
     fingerprint = digest(examples)
     latest = store.document("workbench-dataset-latest")
@@ -604,6 +631,7 @@ def dataset_preview(store):
         "protected_test_before_sha256":digest(protected_before),
         "protected_test_after_sha256":digest(protected_after),
         "policy":"workbench-dataset-v1",
+        "excluded_typed_reviews": excluded_typed_reviews,
     }
     class_counts = {
         split:{
@@ -621,7 +649,8 @@ def dataset_preview(store):
     if not protected_unchanged:
         reasons.append("Protected test changed; freeze is blocked")
     preview.update(class_counts=class_counts,trainable=not reasons,reasons=reasons)
-    store.save_document("workbench-dataset-preview:"+preview["id"],preview,0)
+    if persist:
+        store.save_document("workbench-dataset-preview:"+preview["id"],preview,0)
     return preview
 
 
@@ -635,6 +664,14 @@ def freeze_dataset(store, payload):
     if digest(preview["examples"])!=preview["fingerprint"]:
         raise ValueError("Dataset preview fingerprint changed")
     if preview.get("protected_groups_unchanged") is not True:
+        raise ValueError("Protected test changed; dataset freeze is blocked")
+    current_preview = dataset_preview(store, persist=False)
+    if (
+        current_preview["fingerprint"] != preview["fingerprint"]
+        or current_preview["excluded_typed_reviews"] != preview.get("excluded_typed_reviews", [])
+    ):
+        raise ValueError("Labels or evidence changed; create a new dataset preview")
+    if current_preview["protected_groups_unchanged"] is not True:
         raise ValueError("Protected test changed; dataset freeze is blocked")
     current_feedback = feedback_snapshot(store)
     current_reviewed = sorted(
@@ -651,6 +688,9 @@ def freeze_dataset(store, payload):
             "workbench-feedback","promoted-challenge-feedback",
         }
     )
+    typed_properties = {row["property_id"] for row in preview["examples"] if row.get("origin") == "training-studio-v2"}
+    typed_properties.update(row["property_id"] for row in preview.get("excluded_typed_reviews", []))
+    current_reviewed = [key for key in current_reviewed if key not in typed_properties]
     if current_reviewed!=preview_reviewed:
         raise ValueError("Feedback changed; create a new dataset preview")
     latest = store.document("workbench-dataset-latest")

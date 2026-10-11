@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 
 
@@ -15,6 +16,83 @@ PHOTO_CONTEXTS = {
 }
 EXCLUDED_CONTEXTS = {"shared_amenity", "floor_plan", "unrelated"}
 PREDICTION_MODES = {"automatic", "images_only", "metadata_only", "images_and_metadata"}
+V2_MODALITIES = ("vision", "text", "structured", "fusion")
+
+
+@dataclass
+class VisionEvidenceModel:
+    """Physical heads over frozen SigLIP2 bags; legacy target heads stay separate."""
+    heads: Any
+    feature_schema_version: str = "actvision-siglip2-heads-v2"
+    backbone: str = "google/siglip2-base-patch16-224"
+
+    @classmethod
+    def fit(cls, bags, labels):
+        import numpy as np
+        from structured_model import EvidenceHeads
+        if len(bags) != len(labels):
+            raise ValueError("Vision bags and labels must align")
+        vectors = [vision_vector(bag) for bag in bags]
+        present = [i for i, value in enumerate(vectors) if value is not None]
+        if not present:
+            raise ValueError("No usable subject image bags")
+        return cls(EvidenceHeads.fit(np.stack([vectors[i] for i in present]), [labels[i] for i in present]))
+
+    def predict(self, bags):
+        from actvision_contract import unknown_result
+        results = []
+        for bag in bags:
+            vector = vision_vector(bag)
+            results.append(self.heads.predict(vector.reshape(1, -1))[0] if vector is not None else unknown_result())
+        return results
+
+
+@dataclass
+class PhysicalModelAdapter:
+    modality: str
+    model: Any
+    version: str
+    calibration_version: str
+
+    def __post_init__(self):
+        from release_bundle import FEATURE_SCHEMAS
+        if self.modality not in V2_MODALITIES or getattr(self.model, "feature_schema_version", None) not in FEATURE_SCHEMAS[self.modality]:
+            raise ValueError("Only compatible v2 physical models can enter this adapter; legacy targets cannot")
+        if not self.version or not self.calibration_version:
+            raise ValueError("Adapters require model and calibration versions")
+
+    def predict(self, evidence, coverage=None):
+        if self.modality == "fusion":
+            return self.model.predict([evidence], [coverage])[0]
+        return self.model.predict([evidence])[0]
+
+
+def predict_components_v2(adapters, *, vectors, remarks, structured, coverage):
+    """Use only explicitly supplied physical-evidence adapters, never legacy target heads."""
+    from actvision_contract import unavailable_component, _validate_result
+    from structured_model import completeness
+
+    inputs = {"vision": vectors, "text": remarks, "structured": structured}
+    present = {"vision": bool(len(vectors)), "text": bool(remarks.strip()),
+               "structured": completeness(structured) > 0}
+    results = {}
+    for name in V2_MODALITIES:
+        if name != "fusion" and not present[name]:
+            results[name] = unavailable_component("missing", f"No {name} evidence")
+        elif name not in adapters:
+            results[name] = unavailable_component("unavailable", f"No trained v2 {name} artifact")
+        elif name == "fusion" and not any(c["status"] == "available" for c in results.values()):
+            results[name] = unavailable_component("missing", "No available components for fusion")
+        else:
+            adapter = adapters[name]
+            result = adapter.predict(results, coverage) if name == "fusion" else adapter.predict(inputs[name])
+            _validate_result(result)
+            results[name] = {
+                "status": "available", "version": adapter.version,
+                "calibration_version": adapter.calibration_version,
+                "result": result, "reason": None,
+            }
+    return results
 
 METADATA_FIELDS = {
     "year_built": (("YearBuilt", "year_built"), "number"),
@@ -92,20 +170,46 @@ def target_class(review: dict | None) -> int | None:
     return {"target": 1, "not_target": 0}.get(review.get("target_fit"))
 
 
-def vision_vector(vectors: list[np.ndarray] | np.ndarray) -> np.ndarray | None:
+VISION_ROOMS = ("kitchen", "bathroom", "living", "bedroom", "exterior", "other")
+
+
+def vision_vector(vectors) -> "np.ndarray | None":
+    """Room-balanced property aggregation over frozen image embeddings.
+
+    Accepts either the legacy NxD ndarray/list of vectors or a list of
+    {"vector": embedding, "room": label} records. Room balancing prevents a
+    listing with many living-room photos from drowning out a single kitchen or
+    bathroom. Missing rooms are explicit coverage features, never fake vectors.
+    """
     import numpy as np
     if isinstance(vectors, np.ndarray):
         values = vectors
+        rooms = ["other"] * len(values)
     elif vectors:
-        values = np.stack(vectors)
+        if isinstance(vectors[0], dict):
+            values = np.stack([np.asarray(item["vector"]) for item in vectors])
+            rooms = [str(item.get("room") or "other") for item in vectors]
+        else:
+            values = np.stack(vectors)
+            rooms = ["other"] * len(values)
     else:
         return None
-    if values.ndim != 2 or not len(values):
+    if values.ndim != 2 or not len(values) or not np.isfinite(values).all():
         return None
+
+    room_means = []
+    room_features = []
+    for room in VISION_ROOMS:
+        selected = values[[i for i, value in enumerate(rooms) if value == room]]
+        room_features.extend((float(len(selected) > 0), math.log1p(len(selected))))
+        if len(selected):
+            room_means.append(selected.mean(axis=0))
+    balanced = np.stack(room_means).mean(axis=0) if room_means else values.mean(axis=0)
     return np.concatenate([
         values.mean(axis=0),
+        balanced,
         values.max(axis=0),
-        np.asarray([math.log1p(len(values))], dtype=values.dtype),
+        np.asarray([math.log1p(len(values)), *room_features], dtype=values.dtype),
     ])
 
 
@@ -195,17 +299,29 @@ def evaluation_slices(properties: list[dict]) -> dict[str, list[dict]]:
     """Human condition and fit are separate evaluation axes, never input features."""
     decisive = [p for p in properties if p.get("split") == "test"
                 and target_class(p.get("review")) is not None]
-    maintained = {"updated", "slightly_dated", "maintained_original"}
-    rehab = {"rough", "major"}
+    def condition_group(review):
+        if "physical_condition" in review or review.get("label_schema_version") == "actvision-labels-v2":
+            physical = review.get("physical_condition", "UNKNOWN")
+            if physical in {"C1_NEW", "C2_LIKE_NEW", "C3_WELL_MAINTAINED"}:
+                return "maintained"
+            if physical in {"C5_REHAB_NEEDED", "C6_SEVERE_DISTRESS"}:
+                return "rough"
+            return None
+        if review.get("condition_label") in {"updated", "slightly_dated", "maintained_original"}:
+            return "maintained"
+        if review.get("condition_label") in {"rough", "major"}:
+            return "rough"
+        return None
+
     return {
         "maintained_targets": [p for p in decisive if target_class(p["review"]) == 1
-                               and p["review"].get("condition_label") in maintained],
+                               and condition_group(p["review"]) == "maintained"],
         "rough_targets": [p for p in decisive if target_class(p["review"]) == 1
-                          and p["review"].get("condition_label") in rehab],
+                          and condition_group(p["review"]) == "rough"],
         "rough_non_targets": [p for p in decisive if target_class(p["review"]) == 0
-                              and p["review"].get("condition_label") in rehab],
+                              and condition_group(p["review"]) == "rough"],
         "maintained_non_targets": [p for p in decisive if target_class(p["review"]) == 0
-                                   and p["review"].get("condition_label") in maintained],
+                                   and condition_group(p["review"]) == "maintained"],
         "pricing_or_characteristics": [p for p in decisive
                                        if p["review"].get("fit_basis") in {"pricing", "layout_location"}],
     }

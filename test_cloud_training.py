@@ -148,6 +148,16 @@ def test_supabase_snapshot_joins_reviews_and_protects_outside_cohort_image_alias
     assert certified['target_origin']=='human-certified-mls-validation'
     assert next(i for i in images if i['property_id']=='validated-listing')['sha256']==validated_digest
 
+    # Typed experiments need live reviews and group protection, never the large
+    # imported legacy review document. Skipping it must retain both safeguards.
+    eras['property','2'] = {'status':'approved','label_schema_version':'live-typed','reviewer':'human'}
+    store = Store(DB(),None)
+    store._legacy = Mock(side_effect=AssertionError('Legacy extraction must be skipped'))
+    _, typed_properties = snapshot(store, include_legacy=False)
+    assert {p['id']:p['split'] for p in typed_properties} == {p['id']:p['split'] for p in properties}
+    assert next(p for p in typed_properties if p['id']=='2')['review']['reviewer']=='human'
+    store._legacy.assert_not_called()
+
 
 def test_subjective_target_ratings_do_not_override_workbook_provenance():
     rows = [property_row(str(i), target='not_target', status='unreviewed') for i in range(5)]
@@ -159,3 +169,4 @@ def test_missing_training_preview_is_a_validation_error(tmp_path):
     jobs=SupabaseJobs(Mock(),tmp_path)
     with pytest.raises(ValueError,match='preview'):
         jobs.start({'id':'b'*32})
+

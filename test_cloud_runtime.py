@@ -364,3 +364,246 @@ def test_cloud_room_suggestions_are_automatic_but_never_human_labels():
     assert image['review'].get('status')!='approved'
     db.states['document','model-proposal:house']['images'][0]['sha256']='b'*64
     assert store.property('house')['images'][0]['room_source']=='Unknown'
+
+
+
+def test_quarantined_retained_gallery_stays_visible_but_is_not_trainable():
+    class ReferenceStore(Store):
+        def _examples(self,db,identifier):
+            selected=candidate()
+            selected['listing']['CloseDate']='2026-09-01'
+            selected['match']['sale_agreements']=[{'source_sale':'prior','sale_date':'2026-01-01'}]
+            return [{'listing_key':'house','source_rows':[1],'source_snapshot':{'mls_candidates':[selected],'spreadsheet':{}},'protected_test':False}]
+        def _photos(self,db,identifier):
+            return [{'image_id':'house:photo','image_sha256':'a'*64,'protected_test':False,'context':'unknown','context_evidence':{}}]
+        def _legacy(self,*args):return {}
+        def _reviews(self,*args):return {}
+    detail=ReferenceStore(MemoryDatabase(),None).property('house')
+    assert detail['historical_source']['blocked']
+    assert len(detail['images'])==1 and detail['stored_photo_count']==1
+    assert detail['images'][0]['source_quarantined']
+    assert detail['images'][0]['training_allowed'] is False
+    assert 'source review only' in detail['photo_display_notice']
+    assert detail['capabilities']['autolabel'] is False
+
+
+
+def test_private_storage_artifact_upload_is_immutable_and_hashed(tmp_path):
+    body = b"candidate-artifact"
+    client, calls = storage(tmp_path, b"", status=201)
+    result = client.put("acq-training-private", "models/actvision-v2/release/vision.joblib", body)
+    assert result["sha256"] == hashlib.sha256(body).hexdigest()
+    assert calls[0].method == "POST"
+    assert calls[0].content == body
+    assert "/storage/v1/object/acq-training-private/models/actvision-v2/release/vision.joblib" in str(calls[0].url)
+
+    duplicate, _ = storage(tmp_path / "duplicate", b"", status=409)
+    with pytest.raises(FileExistsError):
+        duplicate.put("acq-training-private", "models/actvision-v2/release/vision.joblib", body)
+
+
+
+def test_event_map_prefers_acquisition_and_supersedes_old_wrong_era():
+    acquisition = {
+        "listing": {
+            "ListingKey": "before",
+            "ListingId": "BEFORE",
+            "StandardStatus": "Closed",
+            "CloseDate": "2026-03-12",
+            "UnparsedAddress": "10174 Camino Ruiz 46",
+        },
+        "match": {
+            "exact_apn": True,
+            "street_number_matches": True,
+            "unit_conflict": False,
+            "sale_agreements": [{
+                "source_sale": "prior",
+                "sale_date": "2026-03-04",
+                "price_agrees": False,
+                "price_gap_dollars": 8500,
+            }],
+        },
+    }
+    after = {
+        "listing": {
+            "ListingKey": "after",
+            "ListingId": "AFTER",
+            "StandardStatus": "Closed",
+            "CloseDate": "2026-06-29",
+            "UnparsedAddress": "10174 Camino Ruiz 46",
+        },
+        "match": {
+            "exact_apn": True,
+            "street_number_matches": True,
+            "unit_conflict": False,
+            "sale_agreements": [{
+                "source_sale": "last",
+                "sale_date": "2026-06-18",
+                "price_agrees": True,
+            }],
+        },
+    }
+    example = {
+        "listing_key": "after",
+        "source_rows": [253],
+        "source_snapshot": {
+            "spreadsheet": {
+                "Prior Sale Date": "2026-03-04",
+                "Last Sale Date": "2026-06-18",
+            },
+            "event_map": {
+                "policy": "exact-apn-chronology-v1",
+                "recovery_status": "mapped",
+                "acquisition_listing_key": "before",
+                "prior_sale_date": "2026-03-04",
+                "after_listing_key": "after",
+                "after_close_date": "2026-06-29",
+                "mapped_at": "2026-10-06T12:00:00+00:00",
+            },
+            "mls_candidates": [after, acquisition],
+        },
+        "first_sale_date": "2026-03-04",
+    }
+    selected = SupabaseStore._selected(example)
+    assert selected["listing"]["ListingKey"] == "before"
+    assert selected["match"]["identity_chronology_override"]["prior_sale_date"] == "2026-03-04"
+    assert selected["match"]["sale_agreements"][0]["price_agrees"] is False
+
+    old_wrong = {
+        "decision": "wrong_era",
+        "at": "2026-10-05T12:00:00+00:00",
+        "evidence_hash": "old",
+    }
+    history = Store(MemoryDatabase(), None)._history(
+        [example],
+        [],
+        old_wrong,
+    )
+    assert history["sale_policy"]["supported"] is True
+    assert history["blocked"] is False
+    assert history["event_map"]["after_listing_key"] == "after"
+
+
+def test_validation_candidate_uses_event_mapped_acquisition():
+    before = {
+        "listing": {"ListingKey": "before", "ListingId": "B"},
+        "match": {"rank_score": 10},
+    }
+    after = {
+        "listing": {"ListingKey": "after", "ListingId": "A"},
+        "match": {"rank_score": 100},
+    }
+    example = {
+        "listing_key": "after",
+        "source_snapshot": {
+            "event_map": {
+                "recovery_status": "mapped",
+                "acquisition_listing_key": "before",
+            },
+            "mls_candidates": [after, before],
+        },
+    }
+    assert validation_candidate(example)["listing"]["ListingKey"] == "before"
+
+
+
+def test_source_only_acquisition_never_falls_back_to_resale():
+    after = {
+        "listing": {
+            "ListingKey": "after",
+            "ListingId": "AFTER",
+            "StandardStatus": "Closed",
+            "CloseDate": "2026-08-20",
+            "PhotosCount": 51,
+            "PublicRemarks": "Completely renovated.",
+        },
+        "match": {
+            "exact_apn": True,
+            "street_number_matches": True,
+            "unit_conflict": False,
+        },
+    }
+    example = {
+        "listing_key": "after",
+        "source_rows": [458],
+        "source_snapshot": {
+            "spreadsheet": {
+                "Address": "28148 Mountain Meadow Rd",
+                "City": "Escondido",
+                "Zip": "92026",
+                "Bedrooms": 3,
+                "Total Bathrooms": 3,
+                "Building Sqft": 2410,
+                "Effective Year Built": 1990,
+                "Property Type": "Single Family Residential",
+                "Prior Sale Date": "2025-07-24",
+            },
+            "event_map": {
+                "recovery_status": "acquisition_mls_unavailable",
+                "prior_sale_date": "2025-07-24",
+                "after_listing_key": "after",
+            },
+            "mls_candidates": [after],
+        },
+    }
+    selected = SupabaseStore._selected(example)
+    assert selected["listing"]["ListingKey"] is None
+    assert selected["listing"]["UnparsedAddress"] == "28148 Mountain Meadow Rd"
+    assert selected["listing"]["PublicRemarks"] == ""
+    assert selected["listing"]["PhotosCount"] == 0
+    assert selected["match"]["source_transaction_only"] is True
+    assert validation_candidate(example)["listing"]["ListingKey"] is None
+
+
+def test_source_only_acquisition_is_resolved_without_visual_training():
+    example = {
+        "listing_key": "after",
+        "source_rows": [491],
+        "source_snapshot": {
+            "spreadsheet": {
+                "Address": "5236 Nutmeg St",
+                "City": "San Diego",
+                "Zip": "92105",
+                "Prior Sale Date": "2025-08-14",
+            },
+            "event_map": {
+                "recovery_status": "acquisition_mls_unavailable",
+                "prior_sale_date": "2025-08-14",
+                "after_listing_key": "after",
+            },
+            "mls_candidates": [],
+        },
+    }
+    history = Store(MemoryDatabase(), None)._history([example], [], None)
+    assert history["blocked"] is False
+    assert history["acquisition_status"] == "acquisition_mls_unavailable"
+    assert history["photo_coverage"] == "no_interior"
+    assert history["timing_verified"] is False
+    assert history["sale_policy"]["supported"] is True
+    assert history["sale_policy"]["selected_close_date"] is None
+
+
+
+def test_event_media_recovery_done_handles_zero_photo_listing():
+    from event_media_recovery import media_recovery_done
+
+    assert media_recovery_done({
+        "status": "complete",
+        "reported_photo_count": 0,
+        "images": [],
+    })
+    assert media_recovery_done({
+        "status": "sampled",
+        "reported_photo_count": 5,
+        "images": [{"provider_media_key": "one"}],
+    })
+    assert not media_recovery_done({
+        "status": "running",
+        "reported_photo_count": 0,
+        "images": [],
+    })
+    assert not media_recovery_done({
+        "status": "complete",
+        "reported_photo_count": 5,
+        "images": [],
+    })

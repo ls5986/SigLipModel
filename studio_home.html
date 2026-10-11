@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ActVision Studio</title>
+<script>(()=>{const requested=new URLSearchParams(location.search).get('scoutTheme');document.documentElement.dataset.theme=['dark','light'].includes(requested)?requested:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')})()</script>
+<style>
+
+:root {
+  color-scheme: light;
+  --cp-bg: #f3f6fa;
+  --cp-bg-elevated: #e9eff5;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #edf3f8;
+  --cp-border: #cfdae5;
+  --cp-border-strong: #7890a5;
+  --cp-text: #09253e;
+  --cp-text-muted: #526b80;
+  --cp-text-soft: #6c8193;
+  --cp-accent: #155eef;
+  --cp-accent-hover: #0b4dcc;
+  --cp-accent-soft: rgba(21, 94, 239, 0.1);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #079c88;
+  --cp-danger: #cf3349;
+  --cp-warning: #bb6812;
+  --cp-link: #155eef;
+  --cp-shadow: 0 14px 38px rgba(7, 31, 53, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(7, 156, 136, 0.1);
+  --cp-brand-navy: #071f35;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #155eef;
+  --cp-brand-blue-bright: #2f72ff;
+  --cp-brand-teal: #12bfa7;
+  --cp-brand-glow: rgba(21, 94, 239, 0.2);
+  --cp-nav-bg: #071f35;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(47, 114, 255, 0.22);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #071722;
+  --cp-bg-elevated: #0a1d2d;
+  --cp-surface: #0d263a;
+  --cp-surface-soft: #102d43;
+  --cp-border: #29475f;
+  --cp-border-strong: #668198;
+  --cp-text: #eaf3fa;
+  --cp-text-muted: #9eb1c2;
+  --cp-text-soft: #bdcad5;
+  --cp-accent: #4b83ff;
+  --cp-accent-hover: #6b99ff;
+  --cp-accent-soft: rgba(75, 131, 255, 0.16);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #2bd3b8;
+  --cp-danger: #ff7181;
+  --cp-warning: #f5b451;
+  --cp-link: #70a0ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(7, 23, 34, 0.88);
+  --cp-panel: rgba(13, 38, 58, 0.76);
+  --cp-panel-strong: rgba(13, 38, 58, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(43, 211, 184, 0.12);
+  --cp-brand-navy: #061827;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #4b83ff;
+  --cp-brand-blue-bright: #70a0ff;
+  --cp-brand-teal: #2bd3b8;
+  --cp-brand-glow: rgba(75, 131, 255, 0.28);
+  --cp-nav-bg: #061827;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(75, 131, 255, 0.24);
+}
+
+
+*{box-sizing:border-box}body{margin:0;background:var(--cp-bg);color:var(--cp-text);font:14px/1.5 'Segoe UI',Aptos,system-ui,sans-serif}a{color:var(--cp-link)}button{font:inherit;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid var(--cp-accent);outline-offset:4px}.sidebar{position:fixed;inset:0 auto 0 0;width:236px;background:var(--cp-nav-bg);color:var(--cp-nav-text);padding:28px 18px;display:flex;flex-direction:column;border-top:3px solid var(--cp-brand-teal)}.brand{display:flex;align-items:center;gap:12px;margin-bottom:40px}.mark{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--cp-brand-blue-bright);border-radius:8px;color:var(--cp-brand-teal);font-weight:800}.brand strong{font-size:21px}.brand strong span{color:var(--cp-brand-blue-bright)}.brand small{display:block;color:var(--cp-nav-muted);font-size:11px}.caption{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--cp-nav-muted);margin:0 12px 10px;text-transform:uppercase}.nav{display:grid;gap:5px}.nav a{color:var(--cp-nav-muted);text-decoration:none;padding:12px;border-radius:4px;font-weight:600;display:flex;align-items:center;gap:12px}.nav a:hover,.nav a[aria-current]{color:var(--cp-nav-text);background:var(--cp-nav-active)}.nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}.foot{margin-top:auto;border-top:1px solid var(--cp-brand-navy-soft);padding:20px 12px 0;color:var(--cp-nav-muted);font-size:12px}.foot strong{display:block;color:var(--cp-nav-text);margin-bottom:6px}header{margin-left:236px;background:var(--cp-surface);border-bottom:1px solid var(--cp-border);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px}header strong{font-size:18px}header small{display:block;color:var(--cp-text-muted);font-size:12px}.header-actions{display:flex;gap:10px;align-items:center}.badge{font-size:11px;font-weight:650;border:1px solid var(--cp-border);border-radius:999px;padding:5px 10px;background:var(--cp-surface-soft);white-space:nowrap}.badge.teal{color:var(--cp-brand-teal);background:var(--cp-nav-bg);border-color:var(--cp-brand-navy-soft)}#theme{background:var(--cp-surface);border:1px solid var(--cp-border);color:var(--cp-text);border-radius:4px;padding:7px 12px}main{margin-left:236px;padding:32px;max-width:1570px}h1{font-size:30px;letter-spacing:-.035em;margin:0 0 8px}h2{font-size:19px;letter-spacing:-.02em;margin:0 0 8px}h3{font-size:16px;margin:0 0 8px}p{margin:0 0 16px;color:var(--cp-text-muted)}.intro{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:26px}.button{display:inline-flex;justify-content:center;align-items:center;min-height:42px;padding:10px 16px;background:var(--cp-accent);color:var(--cp-accent-fg);text-decoration:none;border-radius:4px;font-weight:650;border:1px solid var(--cp-accent)}.button:hover{background:var(--cp-accent-hover)}.button.secondary{background:var(--cp-surface);color:var(--cp-text);border-color:var(--cp-border)}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:28px}.metric,.card,.panel{background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:6px}.metric{padding:18px 20px;text-decoration:none;color:var(--cp-text)}.metric small{display:block;color:var(--cp-text-muted);font-size:12px}.metric strong{display:block;font-size:29px;letter-spacing:-.03em;margin:4px 0}.metric span{font-size:11px;color:var(--cp-text-soft)}.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:20px}.panel{padding:24px}.steps{display:grid;gap:0;margin-top:22px}.step{display:grid;grid-template-columns:32px 1fr auto;gap:14px;align-items:center;padding:19px 0;border-top:1px solid var(--cp-border)}.step p{margin:0;font-size:13px}.number{display:grid;place-items:center;width:28px;height:28px;background:var(--cp-accent-soft);color:var(--cp-accent);border-radius:4px;font-weight:700}.step a{font-weight:650;text-decoration:none}.status-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 0;border-top:1px solid var(--cp-border)}.status-row span:first-child{font-size:13px}.status-row .badge{white-space:normal;text-align:right}.small{font-size:12px}.models{margin-top:30px}.model-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:18px}.card{padding:20px}.card .badge{display:inline-block;margin-bottom:16px}.card p{font-size:13px;margin:0}.model-icon{width:30px;height:30px;background:var(--cp-accent-soft);color:var(--cp-accent);display:grid;place-items:center;border-radius:4px;margin-bottom:14px;font-weight:750}.bottom{display:flex;justify-content:space-between;gap:12px;margin-top:20px;font-size:12px;color:var(--cp-text-muted)}.notice{padding:12px 16px;background:var(--cp-accent-soft);border:1px solid var(--cp-border);border-radius:4px;margin:0 0 20px;color:var(--cp-text)}[hidden]{display:none!important}@media(max-width:1100px){.model-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.step{grid-template-columns:28px 1fr}.step a{grid-column:2}}@media(max-width:820px){.sidebar{position:static;width:100%;padding:16px}.brand{margin-bottom:14px}.caption,.foot{display:none}.nav{display:flex;overflow-x:auto}.nav a{white-space:nowrap;flex-shrink:0}.nav svg{display:none}header,main{margin-left:0}header{padding:16px 20px}main{padding:24px 20px}.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.intro{align-items:flex-start;flex-direction:column}h1{font-size:27px}}@media(max-width:480px){.model-grid{grid-template-columns:1fr}.header-actions .badge{display:none}.bottom{flex-direction:column}.panel{padding:20px}}
+</style></head><body>
+<aside class="sidebar"><div class="brand"><div class="mark" aria-hidden="true">AV</div><div><strong>ACQ <span>Vision</span></strong><small>TRAINING STUDIO</small></div></div><div class="caption">Workspace</div><nav class="nav" aria-label="Studio navigation">
+<a href="/" aria-current="page"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v11H3Z"/><path d="M9 21v-8h6v8"/></svg>Overview</a>
+<a href="/studio"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m3 16 5-5 5 5 4-4 4 5"/><circle cx="16" cy="8" r="1"/></svg>Review properties</a>
+<a href="/studio#train"><svg viewBox="0 0 24 24"><path d="M4 20V4m0 16h16M8 16v-5m5 5V7m5 9V3"/></svg>Model readiness</a>
+
+<a href="/studio#review">Feedback inbox</a><a href="/studio#releases">Releases</a><a href="/studio#operations">Worker &amp; connections</a><a href="/mls-validation"><svg viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></svg>Verify listing sources</a>
+<a href="/source-rows"><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18M8 3v18"/></svg>All source records</a>
+</nav><div class="foot"><strong>Human review comes first</strong>Draft tags stay separate from approved labels. Reviews never start training automatically.</div></aside>
+<header><div><strong>Studio overview</strong><small>Review evidence. Build useful labels. Track model readiness.</small></div><div class="header-actions"><span class="badge teal">Development</span><button id="theme" type="button">Switch theme</button></div></header>
+<main><section class="intro"><div><h1>Your property training workspace</h1><p>Generate AI drafts in a batch, review the suggestions, then prepare a candidate for testing.</p></div><a class="button" href="/studio">Review properties &rarr;</a></section>
+<p class="notice">MLS match confirmation, acquisition-era verification and approved labels are separate. Your imported records remain saved. Missing photos can still support metadata-only review.</p><p id="inventory-summary" class="notice" role="status">Loading saved source confirmations…</p><p id="load-error" class="notice" role="status" hidden></p>
+<section class="metrics" aria-label="Full workspace inventory"><a class="metric" href="/studio"><small>Acquisition target properties</small><strong id="count-target_properties">&mdash;</strong><span>Imported cohort. No per-property target reconfirmation required.</span></a><a class="metric" href="/studio"><small>Acquisition MLS listings</small><strong id="count-acquisition_mls_listings">&mdash;</strong><span>Current before-state listing evidence</span></a><a class="metric" href="/studio"><small>Unresolved source issues</small><strong id="count-unresolved_source_issues">&mdash;</strong><span>True remaining source recovery only</span></a><a class="metric" href="/studio"><small>AI drafts still missing</small><strong id="count-missing_acquisition_ai_drafts">&mdash;</strong><span>Draft coverage, not human review</span></a></section>
+<div class="grid"><section class="panel"><h2>What to do next</h2><p>Candidate 001 does not require you to approve every property.</p><div class="steps"><div class="step"><span class="number">1</span><div><h3>Automatic source recovery</h3><p>The imported cohort already defines acquisition TARGET provenance. Only true source/photo exceptions need attention.</p></div><a href="/source-rows">See source status &rarr;</a></div><div class="step"><span class="number">2</span><div><h3>Review only useful corrections</h3><p>AI drafts are unreviewed training provenance. Correct condition, modernization, acquisition-fit exceptions, or bad evidence when useful. You do not need to approve all targets.</p></div><a href="/studio">Review AI drafts &rarr;</a></div><div class="step"><span class="number">3</span><div><h3>Train &amp; test Candidate 001</h3><p>Freeze the grouped dataset, train the multimodal candidate, then use human-reviewed examples for quality checks and later promotion gates.</p></div><a href="/studio#train">See model readiness &rarr;</a></div></div></section>
+<section class="panel"><h2>Worker &amp; release status</h2><p>Draft labeling, v2 model work and release readiness are tracked independently.</p><div class="status-row"><span>OpenAI draft labeling</span><span id="label-worker" class="badge">Checking connection</span></div><div class="status-row"><span>ActVision v2 model worker</span><span id="model-worker" class="badge">Checking connection</span></div><div class="status-row"><span>Latest candidate</span><span id="candidate-status" class="badge">Checking</span></div><div class="status-row"><span>Approved inference release</span><span id="inference-status" class="badge">Checking</span></div><p class="small" style="margin-top:18px">A completed candidate is still research-only until protected release gates pass and an explicit promotion occurs.</p><a href="/studio#operations">Inspect data &amp; worker details &rarr;</a></section></div>
+<section class="models"><h2>The models we are building</h2><p>Photos, listing facts and descriptions will each contribute to the combined model.</p><div class="model-grid"><article class="card"><div class="model-icon">V</div><h3>Vision</h3><span class="badge">Draft labeling available</span><p>SigLIP proposes rooms; OpenAI proposes visible features. The new trained candidate is still pending.</p></article><article class="card"><div class="model-icon">M</div><h3>Metadata</h3><span class="badge">Training not connected</span><p>Learn from pre-decision listing facts. Approved labels and grouped evaluation are needed before a first candidate.</p></article><article class="card"><div class="model-icon">T</div><h3>Text</h3><span class="badge">Text encoder ready</span><p>The hosted worker has a pinned semantic encoder tested on real remarks. Supervised text labels and a trained candidate are still needed.</p></article><article class="card"><div class="model-icon">F</div><h3>Fusion</h3><span class="badge">Training not connected</span><p>Combine component predictions with missing-modality handling and calibration. No trained combined candidate is deployed.</p></article></div><div class="bottom"><span>Legacy experiment screens have been retired from navigation.</span><a href="/studio#train">See current model readiness &rarr;</a></div></section>
+</main><script>
+'use strict';
+document.getElementById('theme').onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'};
+async function get(path){const r=await fetch(path,{redirect:'error'});if(r.status===401){location.assign('/login');throw Error('Sign in again to load your workspace.')}if(!r.headers.get('content-type')?.includes('application/json'))throw Error('The server returned an unexpected response. Refresh or sign in again.');const data=await r.json();if(!r.ok)throw Error(data.error||'Workspace data could not be loaded.');return data;}
+async function loadCounts(){try{const data=await get('/api/studio/v2/inventory/status');const x=data.counts||{};document.getElementById('inventory-summary').textContent=String(x.target_properties??'Unknown')+' acquisition targets → '+String(x.acquisition_mls_listings??'Unknown')+' acquisition MLS listings + '+String(x.source_only_acquisitions??'Unknown')+' source-only acquisitions. '+String(x.unresolved_source_issues??'Unknown')+' unresolved source issues. '+String(x.current_acquisition_ai_drafts??'Unknown')+' current AI drafts, '+String(x.missing_acquisition_ai_drafts??'Unknown')+' drafts still missing. Human review is optional correction for Candidate 001.';for(const key of ['target_properties','acquisition_mls_listings','unresolved_source_issues','missing_acquisition_ai_drafts']){const value=x[key],el=document.getElementById('count-'+key);if(el)el.textContent=Number.isInteger(value)?value.toLocaleString():'Unavailable';}}catch(e){const notice=document.getElementById('load-error');notice.hidden=false;notice.textContent=e.message;}}
+async function loadWorkers(){try{const results=await Promise.all([get('/api/studio/autolabel?id='),get('/api/studio/v2/operations'),get('/api/studio/v2/training/status')]);const draft=results[0],ops=results[1],training=results[2];document.getElementById('label-worker').textContent=draft.worker_online?'Connected':draft.worker_status==='unconfigured'?'Needs configuration':'Offline';const model=ops.workers?.actvision_v2_model;document.getElementById('model-worker').textContent=model?.online?'Connected · '+(model.deployed_commit||'commit unknown'):'Offline';document.getElementById('candidate-status').textContent=training.release?('Candidate V'+training.release.version+(training.release.evaluation_summary?.protected_slices_passed?' · gates passed':' · research only')):(training.request?.status==='running'?'Training':'None trained');document.getElementById('inference-status').textContent=ops.inference_enabled?'Configured':'No approved release';}catch{document.getElementById('label-worker').textContent='Status unavailable';document.getElementById('model-worker').textContent='Status unavailable';}}
+loadCounts();loadWorkers();
+</script></body></html>
+

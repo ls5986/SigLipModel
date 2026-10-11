@@ -153,7 +153,7 @@ async def download_image(client, url):
     token = await client._access_token()
     redirect = None
     async with client.http.stream(
-        "GET", url, headers={"Authorization": f"******", "Accept": "image/*"}
+        "GET", url, headers={"Authorization": "Bearer " + token, "Accept": "image/*"}
     ) as response:
         if response.status_code in {301,302,303,307,308}:
             redirect = response.headers.get("location")

@@ -1,73 +1,92 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ACQ Vision · Training status</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ActVision Studio</title>
+<script>(()=>{const requested=new URLSearchParams(location.search).get('scoutTheme');document.documentElement.dataset.theme=['dark','light'].includes(requested)?requested:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')})()</script>
 <style>
-:root{color-scheme:light;--bg:#f7f4ef;--surface:#fff;--soft:#f5f5f5;--border:#dedede;--text:#242424;--muted:#5c5c5c;--accent:#b11f4b;--success:#167a3f;--warning:#9a6700}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Segoe UI",Aptos,sans-serif}header{height:64px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:center;gap:10px}.logo{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:var(--accent);color:#fff;font-weight:800}a{color:var(--accent)}header a{text-decoration:none;font-weight:650}main{width:min(1080px,calc(100% - 32px));margin:30px auto 56px}.hero{display:grid;gap:8px;margin-bottom:24px}.hero h1{margin:0;font-size:30px}.hero p{margin:0;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;min-width:0}.card h2{font-size:18px;margin:0 0 12px}.card h3{font-size:14px;margin:18px 0 5px}.card p{margin:7px 0;color:var(--muted)}.wide{grid-column:1/-1}.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.step{background:var(--soft);border-radius:10px;padding:14px}.step strong,.metric strong{display:block}.number{color:var(--accent);font-weight:800;font-size:12px;text-transform:uppercase}.status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;background:#fff3cd;color:var(--warning)}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.metric{padding:12px;background:var(--soft);border-radius:9px}.metric strong{font-size:22px}.callout{border-left:4px solid var(--accent);padding:12px 14px;background:var(--soft);border-radius:8px}.good{color:var(--success);font-weight:700}.small{font-size:12px}.error{color:#a12622}ul{padding-left:20px;margin-bottom:0}@media(max-width:760px){header{padding:0 16px}.grid,.steps{grid-template-columns:1fr}.wide{grid-column:auto}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.hero h1{font-size:24px}}
-</style>
-</head>
-<body>
-<header><div class="brand"><span class="logo">A</span><strong>ACQ Vision</strong><span>Cloud development</span></div><a href="/">← Back to review</a></header>
-<main>
- <section class="hero"><h1>Training and data status</h1><p>What your reviews mean, what is saved, and what is actually trained.</p></section>
- <div class="grid">
-  <section class="card wide">
-   <h2>The review workflow</h2>
-   <div class="steps">
-    <div class="step"><span class="number">Step 1</span><strong>Confirm the photos</strong><p>Verify these are the correct property and acquisition-era photos. Mark later renovations, floor plans, amenities, and unrelated images so they cannot teach condition.</p></div>
-    <div class="step"><span class="number">Step 2</span><strong>Known target provenance</strong><p>The imported workbook contains known target properties. Once the acquisition sale and photos are confirmed, the example can teach similarity. No target/pass rating is required.</p></div>
-    <div class="step"><span class="number">Step 3</span><strong>Teach individual evidence</strong><p>Select standout photos and correct photo context, room, and opportunity when needed. Approved corrections become candidate training labels.</p></div>
-   </div>
-  </section>
-  <section class="card" id="models">
-   <h2>Model status</h2>
-   <span class="status" id="training-state">Checking…</span><p><button id="train" hidden disabled>Build known-target similarity candidate</button></p><p id="job-state"></p>
-   <p><strong>Saving a review does not immediately retrain the model.</strong></p>
-   <p id="training-copy">The hosted review app is checking whether a training worker and promoted candidate are connected.</p>
-   <div class="callout"><strong>Current safe behavior</strong><br>Reviews are durable feedback. New weights require a frozen dataset, a versioned training run, protected evaluation, and explicit promotion.</div>
-  </section>
-  <section class="card" id="data">
-   <h2>Review data</h2><p><a href="/">Open the live property review queue</a></p><p><a href="/source-rows">Review all imported workbook rows, including unresolved matches</a></p><p id="cohort-status">Checking sale and photo verification…</p>
-   <div class="metrics"><div class="metric"><strong id="properties">—</strong><span>properties</span></div><div class="metric"><strong id="reviewed">—</strong><span>photo sets verified</span></div><div class="metric"><strong id="photo-match">—</strong><span>photo sets to verify</span></div><div class="metric"><strong id="photos">—</strong><span>photos</span></div></div>
-   <h3>MLS metadata</h3>
-   <p>The full sanitized listing snapshot is retained with the confirmed listing. The current metadata candidate uses <strong>9 descriptive feature groups</strong>, with price, days on market and resale outcomes excluded.</p>
-   <p class="small">Identifiers, private/contact fields, URLs, and later-sale outcome fields are excluded from model input. Additional safe MLS fields can be added under a versioned feature policy after leakage review.</p>
-  </section>
-  <section class="card wide">
-   <h2>When a property becomes trainable</h2>
-   <ul><li>The property/listing identity and acquisition era are confirmed.</li><li>The source workbook supplies known-target provenance. No overall rating or negative class is required.</li><li>Wrong-era, amenity, floor-plan, and unrelated photos are excluded.</li><li>The verified sale is joined to its stored acquisition metadata and photo hashes.</li><li>A new candidate is trained and evaluated by physical-property group before promotion.</li></ul>
-  </section>
- </div>
- <p id="error" class="error" hidden></p>
-</main>
-<script>
-(async()=>{
- try{
-  const response=await fetch('/api/studio/summary',{cache:'no-store',credentials:'same-origin'});
-  const data=await response.json();if(!response.ok)throw Error(data.error||'Status unavailable');
-  const counts=data.counts||{};
-  document.getElementById('properties').textContent=counts.all??0;
-  document.getElementById('reviewed').textContent=(counts.all??0)-(counts.photo_match??0);
-  document.getElementById('photo-match').textContent=counts.photo_match??0;
-  document.getElementById('photos').textContent=data.photo_count??0;
-  const gateResponse=await fetch('/api/studio/training-readiness',{cache:'no-store',credentials:'same-origin'});
-  const gate=await gateResponse.json();
-  document.getElementById('cohort-status').textContent=gateResponse.ok?`${gate.reviewed}/${gate.properties} matched listings verified · ${gate.pending_photo_matches} photo sets to verify · ${gate.eligible_targets} training references · ${gate.verified_heldout_properties??0} verified evaluation references. ${gate.reasons.join('. ')}`:(gate.error||'Training batch status unavailable');
-  const enabled=data.capabilities?.training===true;
-  document.getElementById('training-state').textContent=enabled?'Training connected':'Reviews saved · training not connected';
-  const button=document.getElementById('train');button.hidden=!enabled;button.disabled=!gate.ready;
-  button.onclick=async()=>{
-    button.disabled=true;
-    const post=async(path,body)=>{const r=await fetch('/api/studio/'+path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Review-Token':data.token},body:JSON.stringify(body)});const value=await r.json();if(!r.ok)throw Error(value.error||'Training failed');return value;};
-    try{const preview=await post('train/preview',{});const job=await post('train',{id:preview.id});document.getElementById('job-state').textContent=`Job ${job.id}: ${job.status}. Keep the local worker running; reload to check progress.`;}
-    catch(error){document.getElementById('job-state').textContent=error.message;button.disabled=!gate.ready;}
-  };
-  if(data.jobs?.length)document.getElementById('job-state').textContent=`Latest job: ${data.jobs[0].status} · ${data.jobs[0].error||JSON.stringify(data.jobs[0].detail)}`;
-  document.getElementById('training-copy').textContent=enabled?'A versioned training worker is available. Check the active candidate and evaluation before promotion.':'The hosted app currently records reviews in Supabase, but it does not fit or promote model weights yet.';
- }catch(error){const node=document.getElementById('error');node.hidden=false;node.textContent=error.message;}
-})();
-</script>
-</body>
-</html>
+
+:root {
+  color-scheme: light;
+  --cp-bg: #f3f6fa;
+  --cp-bg-elevated: #e9eff5;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #edf3f8;
+  --cp-border: #cfdae5;
+  --cp-border-strong: #7890a5;
+  --cp-text: #09253e;
+  --cp-text-muted: #526b80;
+  --cp-text-soft: #6c8193;
+  --cp-accent: #155eef;
+  --cp-accent-hover: #0b4dcc;
+  --cp-accent-soft: rgba(21, 94, 239, 0.1);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #079c88;
+  --cp-danger: #cf3349;
+  --cp-warning: #bb6812;
+  --cp-link: #155eef;
+  --cp-shadow: 0 14px 38px rgba(7, 31, 53, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(7, 156, 136, 0.1);
+  --cp-brand-navy: #071f35;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #155eef;
+  --cp-brand-blue-bright: #2f72ff;
+  --cp-brand-teal: #12bfa7;
+  --cp-brand-glow: rgba(21, 94, 239, 0.2);
+  --cp-nav-bg: #071f35;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(47, 114, 255, 0.22);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #071722;
+  --cp-bg-elevated: #0a1d2d;
+  --cp-surface: #0d263a;
+  --cp-surface-soft: #102d43;
+  --cp-border: #29475f;
+  --cp-border-strong: #668198;
+  --cp-text: #eaf3fa;
+  --cp-text-muted: #9eb1c2;
+  --cp-text-soft: #bdcad5;
+  --cp-accent: #4b83ff;
+  --cp-accent-hover: #6b99ff;
+  --cp-accent-soft: rgba(75, 131, 255, 0.16);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #2bd3b8;
+  --cp-danger: #ff7181;
+  --cp-warning: #f5b451;
+  --cp-link: #70a0ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(7, 23, 34, 0.88);
+  --cp-panel: rgba(13, 38, 58, 0.76);
+  --cp-panel-strong: rgba(13, 38, 58, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(43, 211, 184, 0.12);
+  --cp-brand-navy: #061827;
+  --cp-brand-navy-soft: #0c314e;
+  --cp-brand-blue: #4b83ff;
+  --cp-brand-blue-bright: #70a0ff;
+  --cp-brand-teal: #2bd3b8;
+  --cp-brand-glow: rgba(75, 131, 255, 0.28);
+  --cp-nav-bg: #061827;
+  --cp-nav-text: #f2f7fb;
+  --cp-nav-muted: #9eb1c2;
+  --cp-nav-active: rgba(75, 131, 255, 0.24);
+}
+
+
+*{box-sizing:border-box}body{margin:0;background:var(--cp-bg);color:var(--cp-text);font:14px/1.5 'Segoe UI',Aptos,system-ui,sans-serif}a{color:var(--cp-link)}button{font:inherit;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid var(--cp-accent);outline-offset:4px}.sidebar{position:fixed;inset:0 auto 0 0;width:236px;background:var(--cp-nav-bg);color:var(--cp-nav-text);padding:28px 18px;display:flex;flex-direction:column;border-top:3px solid var(--cp-brand-teal)}.brand{display:flex;align-items:center;gap:12px;margin-bottom:40px}.mark{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--cp-brand-blue-bright);border-radius:8px;color:var(--cp-brand-teal);font-weight:800}.brand strong{font-size:21px}.brand strong span{color:var(--cp-brand-blue-bright)}.brand small{display:block;color:var(--cp-nav-muted);font-size:11px}.caption{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--cp-nav-muted);margin:0 12px 10px;text-transform:uppercase}.nav{display:grid;gap:5px}.nav a{color:var(--cp-nav-muted);text-decoration:none;padding:12px;border-radius:4px;font-weight:600;display:flex;align-items:center;gap:12px}.nav a:hover,.nav a[aria-current]{color:var(--cp-nav-text);background:var(--cp-nav-active)}.nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}.foot{margin-top:auto;border-top:1px solid var(--cp-brand-navy-soft);padding:20px 12px 0;color:var(--cp-nav-muted);font-size:12px}.foot strong{display:block;color:var(--cp-nav-text);margin-bottom:6px}header{margin-left:236px;background:var(--cp-surface);border-bottom:1px solid var(--cp-border);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px}header strong{font-size:18px}header small{display:block;color:var(--cp-text-muted);font-size:12px}.header-actions{display:flex;gap:10px;align-items:center}.badge{font-size:11px;font-weight:650;border:1px solid var(--cp-border);border-radius:999px;padding:5px 10px;background:var(--cp-surface-soft);white-space:nowrap}.badge.teal{color:var(--cp-brand-teal);background:var(--cp-nav-bg);border-color:var(--cp-brand-navy-soft)}#theme{background:var(--cp-surface);border:1px solid var(--cp-border);color:var(--cp-text);border-radius:4px;padding:7px 12px}main{margin-left:236px;padding:32px;max-width:1570px}h1{font-size:30px;letter-spacing:-.035em;margin:0 0 8px}h2{font-size:19px;letter-spacing:-.02em;margin:0 0 8px}h3{font-size:16px;margin:0 0 8px}p{margin:0 0 16px;color:var(--cp-text-muted)}.intro{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:26px}.button{display:inline-flex;justify-content:center;align-items:center;min-height:42px;padding:10px 16px;background:var(--cp-accent);color:var(--cp-accent-fg);text-decoration:none;border-radius:4px;font-weight:650;border:1px solid var(--cp-accent)}.button:hover{background:var(--cp-accent-hover)}.button.secondary{background:var(--cp-surface);color:var(--cp-text);border-color:var(--cp-border)}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:28px}.metric,.card,.panel{background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:6px}.metric{padding:18px 20px;text-decoration:none;color:var(--cp-text)}.metric small{display:block;color:var(--cp-text-muted);font-size:12px}.metric strong{display:block;font-size:29px;letter-spacing:-.03em;margin:4px 0}.metric span{font-size:11px;color:var(--cp-text-soft)}.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:20px}.panel{padding:24px}.steps{display:grid;gap:0;margin-top:22px}.step{display:grid;grid-template-columns:32px 1fr auto;gap:14px;align-items:center;padding:19px 0;border-top:1px solid var(--cp-border)}.step p{margin:0;font-size:13px}.number{display:grid;place-items:center;width:28px;height:28px;background:var(--cp-accent-soft);color:var(--cp-accent);border-radius:4px;font-weight:700}.step a{font-weight:650;text-decoration:none}.status-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 0;border-top:1px solid var(--cp-border)}.status-row span:first-child{font-size:13px}.status-row .badge{white-space:normal;text-align:right}.small{font-size:12px}.models{margin-top:30px}.model-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:18px}.card{padding:20px}.card .badge{display:inline-block;margin-bottom:16px}.card p{font-size:13px;margin:0}.model-icon{width:30px;height:30px;background:var(--cp-accent-soft);color:var(--cp-accent);display:grid;place-items:center;border-radius:4px;margin-bottom:14px;font-weight:750}.bottom{display:flex;justify-content:space-between;gap:12px;margin-top:20px;font-size:12px;color:var(--cp-text-muted)}.notice{padding:12px 16px;background:var(--cp-accent-soft);border:1px solid var(--cp-border);border-radius:4px;margin:0 0 20px;color:var(--cp-text)}[hidden]{display:none!important}@media(max-width:1100px){.model-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.step{grid-template-columns:28px 1fr}.step a{grid-column:2}}@media(max-width:820px){.sidebar{position:static;width:100%;padding:16px}.brand{margin-bottom:14px}.caption,.foot{display:none}.nav{display:flex;overflow-x:auto}.nav a{white-space:nowrap;flex-shrink:0}.nav svg{display:none}header,main{margin-left:0}header{padding:16px 20px}main{padding:24px 20px}.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.intro{align-items:flex-start;flex-direction:column}h1{font-size:27px}}@media(max-width:480px){.model-grid{grid-template-columns:1fr}.header-actions .badge{display:none}.bottom{flex-direction:column}.panel{padding:20px}}
+</style></head><body><aside class="sidebar"><div class="brand"><div class="mark" aria-hidden="true">AV</div><div><strong>ACQ <span>Vision</span></strong><small>TRAINING STUDIO</small></div></div><div class="caption">Workspace</div><nav class="nav" aria-label="Studio navigation">
+<a href="/"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v11H3Z"/><path d="M9 21v-8h6v8"/></svg>Overview</a>
+<a href="/property-review"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m3 16 5-5 5 5 4-4 4 5"/><circle cx="16" cy="8" r="1"/></svg>Label properties</a>
+<a href="/status" aria-current="page"><svg viewBox="0 0 24 24"><path d="M4 20V4m0 16h16M8 16v-5m5 5V7m5 9V3"/></svg>Model readiness</a>
+
+<a href="/mls-validation"><svg viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></svg>Verify listing sources</a>
+<a href="/source-rows"><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18M8 3v18"/></svg>All source records</a>
+</nav><div class="foot"><strong>Human review comes first</strong>Draft tags stay separate from approved labels. Reviews never start training automatically.</div></aside>
+<header><div><strong>Model readiness</strong><small>Every imported workbook row, including unresolved and repeated properties.</small></div><div class="header-actions"><span class="badge teal">Development</span><button id="theme" type="button">Switch theme</button></div></header>
+<main><section class="intro"><div><h1>Models and worker readiness</h1><p>What is running, what is saved, and what still needs implementation.</p></div><a class="button" href="/property-review">Review properties</a></section><p id="error" class="notice" hidden></p><section class="metrics"><div class="metric"><small>Imported source rows</small><strong id="rows">Loading</strong><span>Full saved inventory</span></div><div class="metric"><small>Confirmed MLS match rows</small><strong id="matches">Loading</strong><span>Imported match status, separate from era</span></div><div class="metric"><small>Acquisition MLS listings</small><strong id="listings">Loading</strong><span>Current before-state MLS evidence</span></div><div class="metric"><small>Human corrections</small><strong id="labels">Loading</strong><span>Optional overrides, not a training prerequisite</span></div></section><div class="grid"><section class="panel"><h2>Hosted labeling</h2><div class="status-row"><span>OpenAI feature worker</span><span id="worker" class="badge">Checking</span></div><p>SigLIP proposes rooms and OpenAI proposes photo features. Drafts require your review. The pinned semantic text encoder is provisioned on the dev worker and has processed seven real descriptions.</p><a href="/source-rows">Inspect every source record</a></section><section class="panel"><h2>First trained candidate</h2><div class="status-row"><span>Metadata / text / fusion</span><span class="badge">Not trained</span></div><div class="status-row"><span>MLS dev integration</span><span class="badge">Not activated</span></div><p>Next: finish automatic acquisition-evidence recovery, fill missing AI draft coverage, freeze the grouped dataset, then train Candidate 001. Human approval of every target is not required. UNKNOWN stays unknown and promotion remains separate.</p></section></div><section class="panel" style="margin-top:20px"><h2>How the counts relate</h2><p>The imported acquisition cohort establishes TARGET provenance for Candidate 001. Acquisition-event MLS evidence, AI draft coverage and human corrections are separate denominators. Only true unresolved source/photo exceptions belong in a recovery queue.</p><p>The old workbench and legacy experiment pages now lead here. Existing saved reviews, datasets and experiment history are preserved.</p></section></main><script>document.getElementById('theme').onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'};async function get(url){const r=await fetch(url,{cache:'no-store'});if(r.status===401){location.assign('/login');throw Error('Sign in again.');}if(!r.headers.get('content-type')?.includes('application/json'))throw Error('Unexpected server response');const d=await r.json();if(!r.ok)throw Error(d.error||'Unable to load status');return d;}get('/api/studio/v2/inventory/status').then(d=>{const x=d.counts||{};for(const [id,value] of Object.entries({rows:x.imported_source_rows,matches:x.acquisition_mls_listings,listings:x.acquisition_mls_listings,labels:x.human_reviewed}))document.getElementById(id).textContent=Number.isInteger(value)?value.toLocaleString():'Unavailable';}).catch(e=>{const el=document.getElementById('error');el.hidden=false;el.textContent=e.message;});get('/api/studio/autolabel?id=').then(d=>document.getElementById('worker').textContent=d.worker_online?'Connected':d.worker_status==='unconfigured'?'Needs configuration':'Offline').catch(()=>document.getElementById('worker').textContent='Status unavailable');</script></body></html>

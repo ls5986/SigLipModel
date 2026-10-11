@@ -1,0 +1,35 @@
+{
+  "kind": "inference_request",
+  "schema_version": "actvision-v2",
+  "request_id": "fixture-multimodal-request",
+  "evidence_id": "66e54edde141fd8501906a6e8081d3772c97f5027a7da2839bb795b566b605aa",
+  "evidence": {
+    "workspace_id": "fixture-workspace",
+    "property_id": "fixture-property",
+    "listing_id": "fixture-listing",
+    "snapshot_at": "2026-10-02T00:00:00Z",
+    "visual_generation": 0,
+    "photos_change_timestamp": null,
+    "selected_photos": [
+      {
+        "photo_id": "fixture-photo",
+        "sha256": null,
+        "uri_sha256": "ee0841f4f748884f8cefdde48be686a64c254093728aef9b956a485109b97494"
+      }
+    ],
+    "remarks_sha256": "a64b11a0b89d2d5afdc187bb4502a493a47894910e417c5ce604737c7e279e24",
+    "structured_sha256": "941fc7de61e4df9953bd819f7d3e7082989ace8951c4da103b424c8739e9867f",
+    "release_id": "fixture-shadow-v2"
+  },
+  "public_remarks": "Bring your vision.",
+  "structured": {
+    "YearBuilt": 1963,
+    "PropertyType": "Residential"
+  },
+  "photo_inputs": [
+    {
+      "photo_id": "fixture-photo",
+      "uri": "https://fixture.invalid/synthetic-photo"
+    }
+  ]
+}

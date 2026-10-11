@@ -6,10 +6,10 @@ from pilot import read_json
 
 def review_queue(studio, args):
     scope = args.get("scope", "acquisitions")
-    if scope not in {"acquisitions", "quarantine", "reference"}:
+    if scope not in {"all", "acquisitions", "quarantine", "reference"}:
         raise ValueError("Unknown dataset scope")
     queue = args.get("queue", "all")
-    if queue not in {"all", "ready", "unscored", "reviewed", "photo_match"}:
+    if queue not in {"all", "ready", "unscored", "reviewed", "photo_match", "missing_text"}:
         raise ValueError("Unknown review queue")
     offset, limit = max(0, int(args.get("offset", 0))), min(40, max(1, int(args.get("limit", 20))))
     search = args.get("search", "").strip().casefold()
@@ -59,18 +59,22 @@ def review_queue(studio, args):
             "target": job.get("review_target") if ready else None,
             "human_target": review.get("target_fit") if reviewed else None,
             "human_score": review.get("target_score") if reviewed else None,
+            "missing_text": not bool(review.get("text_signals")),
         })
     counts = {
         "all": len(items), "ready": sum(i["status"] == "ready" for i in items),
         "unscored": sum(i["status"] in {"unscored", "failed"} for i in items),
         "reviewed": sum(i["status"] == "reviewed" for i in items),
         "photo_match": sum(i["needs_photo_match"] for i in items),
+        "missing_text": sum(i["missing_text"] for i in items),
     }
     filtered = [i for i in items if (
         queue == "all" or queue == "photo_match" and i["needs_photo_match"]
+        or queue == "missing_text" and i["missing_text"]
         or queue == "unscored" and i["status"] in {"unscored", "failed"} or i["status"] == queue
     ) and (not search or search in " ".join(str(i[k] or "") for k in ("id", "address", "city", "listing_id")).casefold())]
     priority = {"ready": 0, "running": 1, "unscored": 2, "failed": 3, "reviewed": 4}
     filtered.sort(key=lambda i: (not i["image_count"], priority[i["status"]], i["source_role"] == "comp", i["address"]))
     return {"items": filtered[offset:offset+limit], "counts": counts,
             "total": len(filtered), "offset": offset, "limit": limit, "token": studio.app.token}
+
