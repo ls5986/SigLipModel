@@ -1,3 +1,8 @@
+from contextlib import contextmanager
+
+import pytest
+
+import paired_condition
 from paired_condition_evidence import apply_policy,extract
 
 def base():
@@ -84,3 +89,36 @@ def test_single_uncertain_modality_does_not_force_weak_target():
  assert apply_policy(p,'')['overall']['decision']=='INSUFFICIENT_EVIDENCE'
  p['image']['strength']=80;p['usable_photo_count']=5
  assert apply_policy(p,'')['overall']['decision']=='TARGET'
+
+
+def test_correction_rejects_browser_reviewer_and_persists_server_actor(monkeypatch):
+ class Result:
+  def fetchone(self):return {'revision':0}
+ class Database:
+  def __init__(self):self.inserts=[]
+  @contextmanager
+  def connect(self):yield self
+  def execute(self,sql,params):
+   if 'INSERT INTO acq_training.property_label_events' in sql:self.inserts.append(params)
+   return Result()
+ database=Database()
+ store=type('Store',(),{'workspace':'workspace-','database':database})()
+ monkeypatch.setattr(paired_condition,'live_label',lambda _store,_evidence:{
+  'group_id':'22222222-2222-4222-8222-222222222222',
+  'evidence_id':'11111111-1111-4111-8111-111111111111',
+  'evidence_sha256':'e'*64,
+  'frozen_evidence':{'photo_manifest':[{'sha256':'a'*64}]},
+ })
+ payload={
+  'evidence_id':'11111111-1111-4111-8111-111111111111','expected_revision':0,
+  'image':{'decision':'TARGET','strength':50},
+  'metadata':{'decision':'INSUFFICIENT_EVIDENCE','strength':None},
+  'overall':'TARGET','notes':'localized kitchen','candidate_id':'candidate-current',
+  'excluded_photos':{},
+ }
+ result=paired_condition.correction(store,payload,'owner@example.test')
+ assert result=={'saved':True,'revision':1,'dataset_unchanged':True}
+ assert {params[3] for params in database.inserts}=={'image','metadata','overall','notes','photo_exclusions'}
+ assert {params[6] for params in database.inserts}=={'owner@example.test'}
+ with pytest.raises(ValueError,match='Invalid correction fields'):
+  paired_condition.correction(store,{**payload,'reviewer':'browser value'},'owner@example.test')

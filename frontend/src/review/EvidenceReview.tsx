@@ -5,13 +5,24 @@ import {
   loadQueue,
   loadStatus,
   mediaUrl,
+  saveCorrection,
   type Decision,
+  type DecisionName,
   type PairedEvent,
   type PairedProperty,
   type PairedQueueItem,
 } from './api';
 
 type Tab = 'evidence' | 'models' | 'review' | 'source';
+type ReviewDraft = {
+  image: DecisionName;
+  imageStrength: number;
+  metadata: DecisionName;
+  metadataStrength: number;
+  overall: DecisionName;
+  notes: string;
+  excluded: Record<string, string>;
+};
 
 const pretty = (value: unknown) =>
   value == null || value === ''
@@ -38,6 +49,48 @@ function reviewCandidate(event?: PairedEvent) {
     || review.image?.candidate_id
     || review.metadata?.candidate_id
     || review.notes?.candidate_id;
+}
+
+function draftForEvent(event?: PairedEvent): ReviewDraft {
+  const review = event?.review;
+  return {
+    image: review?.image?.decision || 'INSUFFICIENT_EVIDENCE',
+    imageStrength: review?.image?.strength || 50,
+    metadata: review?.metadata?.decision || 'INSUFFICIENT_EVIDENCE',
+    metadataStrength: review?.metadata?.strength || 50,
+    overall: review?.overall?.decision || 'INSUFFICIENT_EVIDENCE',
+    notes: review?.notes?.text || '',
+    excluded: { ...(review?.photo_exclusions?.excluded || {}) },
+  };
+}
+
+function DecisionEditor({ label, decision, strength, disabled = false, onDecision, onStrength }: {
+  label: string;
+  decision: DecisionName;
+  strength: number;
+  disabled?: boolean;
+  onDecision: (decision: DecisionName) => void;
+  onStrength: (strength: number) => void;
+}) {
+  return <div className="decision-editor">
+    <label>{label} decision
+      <select value={decision} disabled={disabled} onChange={change => onDecision(change.target.value as DecisionName)}>
+        <option value="TARGET">TARGET</option>
+        <option value="NOT_TARGET">NOT TARGET</option>
+        <option value="INSUFFICIENT_EVIDENCE">Cannot tell</option>
+      </select>
+    </label>
+    {decision === 'TARGET' && <label>{label} target strength
+      <input
+        type="number"
+        min="50"
+        max="100"
+        step="5"
+        value={strength}
+        onChange={change => onStrength(Number(change.target.value))}
+      />
+    </label>}
+  </div>;
 }
 
 function PhotoEvidence({ event }: { event: PairedEvent }) {
@@ -121,6 +174,8 @@ export default function EvidenceReview() {
   const [tab, setTab] = useState<Tab>('evidence');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [draft, setDraft] = useState<ReviewDraft>(() => draftForEvent());
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -130,11 +185,13 @@ export default function EvidenceReview() {
   }, [items, search]);
   const selectedIndex = filtered.findIndex(item => item.group_id === property?.group_id);
   const event = property?.events[eventIndex];
+  const hasUsablePhotos = Boolean(event?.photo_manifest?.some(photo => !draft.excluded[photo.sha256]));
 
   async function openProperty(groupId: string) {
     const detail = await loadProperty(groupId);
     setProperty(detail);
     setEventIndex(0);
+    setDraft(draftForEvent(detail.events[0]));
     setTab('evidence');
     history.replaceState(null, '', `/property-review?property=${encodeURIComponent(groupId)}`);
   }
@@ -165,6 +222,51 @@ export default function EvidenceReview() {
   function changeProperty(offset: number) {
     const item = filtered[selectedIndex + offset];
     if (item) void openProperty(item.group_id).catch(caught => setError((caught as Error).message));
+  }
+
+  function selectEvent(index: number) {
+    setEventIndex(index);
+    setDraft(draftForEvent(property?.events[index]));
+    setNotice('');
+  }
+
+  async function save(next: boolean) {
+    if (!property || !event?.evidence_id) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await saveCorrection({
+        evidence_id: event.evidence_id,
+        expected_revision: event.revision || 0,
+        image: {
+          decision: hasUsablePhotos ? draft.image : 'INSUFFICIENT_EVIDENCE',
+          strength: hasUsablePhotos && draft.image === 'TARGET' ? draft.imageStrength : null,
+        },
+        metadata: {
+          decision: draft.metadata,
+          strength: draft.metadata === 'TARGET' ? draft.metadataStrength : null,
+        },
+        overall: draft.overall,
+        notes: draft.notes,
+        candidate_id: property.candidate?.candidate_id,
+        excluded_photos: draft.excluded,
+      });
+      setNotice('Review saved against this evidence and candidate.');
+      const nextItem = next ? filtered[selectedIndex + 1] : undefined;
+      if (nextItem) await openProperty(nextItem.group_id);
+      else {
+        const updated = await loadProperty(property.group_id);
+        setProperty(updated);
+        const updatedIndex = Math.min(eventIndex, Math.max(0, updated.events.length - 1));
+        setEventIndex(updatedIndex);
+        setDraft(draftForEvent(updated.events[updatedIndex]));
+      }
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return <div className="app-shell">
@@ -200,6 +302,7 @@ export default function EvidenceReview() {
       </aside>
       <main className="review-main">
         {error && <div className="alert error" role="alert">{error}</div>}
+        {notice && <div className="alert success" role="status">{notice}</div>}
         {busy && !property && <div className="empty">Loading saved review evidence…</div>}
         {!busy && !property && !error && <div className="empty">No saved properties match this queue.</div>}
         {property && <>
@@ -215,7 +318,7 @@ export default function EvidenceReview() {
               type="button"
               key={`${item.event_role}-${item.evidence_id || index}`}
               className={index === eventIndex ? 'active' : ''}
-              onClick={() => setEventIndex(index)}
+              onClick={() => selectEvent(index)}
             >
               {item.event_role === 'acquisition' ? 'Prior sale' : item.event_role === 'resale' ? 'Resale' : pretty(item.event_role)}
               <small>{item.listing_id || 'MLS not established'}</small>
@@ -235,11 +338,45 @@ export default function EvidenceReview() {
             <article className="model-card"><h3>Overall</h3><strong>{decisionText(event.prediction?.overall)}</strong></article>
           </section>}
           {tab === 'review' && event && <section className="tab-content review-layout">
-            <div className="review-card"><h3>Saved human review</h3>
-              <p>Photos: {decisionText(event.review?.image)}</p>
-              <p>Metadata: {decisionText(event.review?.metadata)}</p>
-              <p>Overall: {decisionText(event.review?.overall)}</p>
-              <p>{event.review?.notes?.text || 'No review notes saved.'}</p>
+            <div className="review-card"><h3>Independent condition review</h3>
+              {!hasUsablePhotos && <div className="notice">No usable stored photos. Photos must remain Cannot tell.</div>}
+              <div className="decision-fields">
+                <DecisionEditor
+                  label="Photos"
+                  decision={hasUsablePhotos ? draft.image : 'INSUFFICIENT_EVIDENCE'}
+                  strength={draft.imageStrength}
+                  disabled={!hasUsablePhotos}
+                  onDecision={image => setDraft(current => ({ ...current, image }))}
+                  onStrength={imageStrength => setDraft(current => ({ ...current, imageStrength }))}
+                />
+                <DecisionEditor
+                  label="Metadata"
+                  decision={draft.metadata}
+                  strength={draft.metadataStrength}
+                  onDecision={metadata => setDraft(current => ({ ...current, metadata }))}
+                  onStrength={metadataStrength => setDraft(current => ({ ...current, metadataStrength }))}
+                />
+                <label>Overall decision
+                  <select value={draft.overall} onChange={change => setDraft(current => ({ ...current, overall: change.target.value as DecisionName }))}>
+                    <option value="TARGET">TARGET</option>
+                    <option value="NOT_TARGET">NOT TARGET</option>
+                    <option value="INSUFFICIENT_EVIDENCE">Cannot tell</option>
+                  </select>
+                </label>
+              </div>
+              <label>Review notes
+                <textarea
+                  value={draft.notes}
+                  maxLength={4000}
+                  onChange={change => setDraft(current => ({ ...current, notes: change.target.value }))}
+                  placeholder="Describe the specific evidence and whether it is localized or broad."
+                />
+              </label>
+              <div className="review-note">These human decisions stay separate from model outputs and do not modify a frozen dataset.</div>
+              <div className="form-actions">
+                <button className="button secondary" type="button" disabled={busy} onClick={() => void save(false)}>Save review</button>
+                <button className="button primary" type="button" disabled={busy} onClick={() => void save(true)}>Save and next</button>
+              </div>
             </div>
           </section>}
           {tab === 'source' && event && <section className="tab-content"><pre>{JSON.stringify({
