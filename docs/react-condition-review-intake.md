@@ -38,3 +38,25 @@ The first implementation slice adds a React 19/TypeScript/Vite evidence viewer a
 The local browser test stubs the queue and detail endpoints and verifies the save request carries the current expected revision. Python route tests verify authenticated app and asset delivery, asset path confinement, and existing authentication behavior. No schema changes or shared Supabase writes are included.
 
 The staged MLS search/intake, separately authorized training eligibility event, and comparable-selection section remain unimplemented. They depend on a confirmed development provider/data contract and isolated development database. The connected Model Training project is populated and has no development branch, so it was not used for writes. The live provider, hosted browser, and Render deployment acceptance remain required before merging the broader workflow.
+
+## Paired-condition integration verification
+
+The React viewer is now integrated on a branch descended from the deployed paired-condition backend rather than the legacy Studio review contract. It uses the paired-condition status, queue, property, and correction endpoints; presents Photos, Metadata, and Overall as independent TARGET / NOT TARGET / Cannot tell decisions; and leaves reviewer identity bound to the authenticated server session.
+
+Verified locally on 2026-10-12:
+
+- reproducible `npm ci` using the configured package mirror;
+- production TypeScript/Vite build;
+- six Playwright browser tests covering candidate provenance, separate current/silver photo systems, independent decisions, no-photo handling, revision conflicts, Save → Next payloads, and non-JSON API failures;
+- 81 focused Python hosted and paired-condition tests;
+- clean `git diff --check` for the React integration range.
+
+Verified read-only against the authenticated development deployment:
+
+- paired-condition status, 551-item queue, and property detail endpoints returned successfully;
+- both stored-photo and no-photo evidence paths were present;
+- repeated property reads returned stable evidence identities;
+- 5091 El Arbol retained current candidate `f9bac37b-3ac4-4b64-9b54-cd9581bd226a` separately from human-review candidate `beb45c78-052b-4905-a2bf-9fba266e8c16`;
+- current per-photo probes and older automated-silver tags remained separate systems.
+
+Write acceptance remains blocked because the development deployment uses the populated shared Model Training database and has no isolated writable development branch. No review was saved, no migration was applied, and no dataset or training state changed. Keep the integration PR draft and do not merge until an isolated DEV save/reload/Save → Next test and required CI/review pass.
