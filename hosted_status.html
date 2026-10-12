@@ -140,10 +140,16 @@ function feedbackCard(item){
   head.append(title,node('span',item.status,'badge'));
   card.append(head);
   const grid=node('div',undefined,'feedback-grid');
+  const release=event.release||{};
+  const coverage=event.scored_input?.coverage||{};
   for(const [label,value] of [
     ['Saved model axes',axisLine(event.scored_input?.displayed_decisions)],
     ['Human axes',axisLine(event.human_labels)],
     ['Evidence',`${item.evidence_id} · prediction ${item.prediction_id}`],
+    ['Reviewer / review time',`${event.reviewer_id||'unknown'} · ${event.reviewed_at||'unknown'}`],
+    ['Release / package',`${release.release_id||'unknown'} · manifest ${release.manifest_sha256||'unknown'} · candidate ${release.candidate_sha256||'unknown'} · policy ${release.evidence_policy_version||'unknown'}`],
+    ['Request / event',`${event.request_id||'unknown'} · ${event.event_id||'unknown'}`],
+    ['Usable photos',`${coverage.usable_photo_count??'unknown'} usable · ${coverage.missing_photo_count??'unknown'} missing · ${coverage.selected_photo_count??'unknown'} selected`],
   ]){
     const block=node('div');
     block.append(node('small',label),node('strong',value));
@@ -155,6 +161,13 @@ function feedbackCard(item){
   card.append(node('p',event.supporting_remark_quotes?.length?`Supporting quotes: ${event.supporting_remark_quotes.join(' · ')}`:'No supporting remark quotes.','feedback-meta'));
   card.append(node('p',event.notes?`Reviewer note: ${event.notes}`:'No reviewer note.','feedback-meta'));
   card.append(node('p',event.corrected_photos?.length?`Corrected photo references: ${event.corrected_photos.map(photo=>`${photo.photo_id}${photo.excluded?' excluded':''}${photo.exclusion_reason?` (${photo.exclusion_reason})`:''}`).join(' · ')}`:'No corrected photo references.','feedback-meta'));
+  if(item.approval){
+    const approval=node('div',undefined,'notice');
+    approval.append(node('strong',item.approval.usage==='challenge'?'Held for challenge evaluation':'Approved as training candidate'));
+    approval.append(node('p',`Approved by ${item.approval.actor} at ${item.approval.approved_at}`));
+    approval.append(node('p',`Axis eligibility: ${Object.entries(item.approval.axis_eligibility).map(([axis,value])=>`${axis}: ${value}`).join(' · ')}`));
+    card.append(approval);
+  }
   if(item.status==='pending'){
     const controls=node('div',undefined,'axis-controls');
     for(const axis of ['image','metadata','overall']){

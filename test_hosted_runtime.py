@@ -251,12 +251,23 @@ class HostedRuntimeTests(unittest.TestCase):
 
     def test_paired_feedback_page_lists_history_and_requires_operator_approval(self):
         from paired_condition_service import RELEASE_ID, digest
-        from test_paired_feedback_inbox import feedback_event
+        from test_paired_feedback_inbox import (
+            feedback_event,
+            photo_evidence,
+            refresh_request_identity,
+            release_identity,
+        )
 
         event = feedback_event(0)
         event["scored_input"]["request"]["evidence"] = {
-            "photos": [{"photo_id": "photo-1"}],
+            "photos": [photo_evidence()],
         }
+        event["scored_input"]["coverage"] = {
+            "selected_photo_count": 1,
+            "usable_photo_count": 1,
+            "missing_photo_count": 0,
+        }
+        refresh_request_identity(event)
         key = "paired-condition-feedback-inbox:" + event["event_id"]
         self.database.states[("document", key)] = {
             "status": "pending",
@@ -271,6 +282,8 @@ class HostedRuntimeTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"Paired MLS feedback", page)
         self.assertIn(b"separate from Studio Corrections", page)
+        self.assertIn(b"Usable photos", page)
+        self.assertIn(b"Approved by", page)
 
         status, _, inbox = self.request(
             "GET", f"/api/studio/paired-feedback?release_id={RELEASE_ID}"
@@ -300,7 +313,13 @@ class HostedRuntimeTests(unittest.TestCase):
             self.request("POST", "/api/studio/paired-feedback/approval", approval)[0],
             403,
         )
-        with patch.dict(os.environ, {"STUDIO_ROLE": "operator"}):
+        with (
+            patch.dict(os.environ, {"STUDIO_ROLE": "operator"}),
+            patch(
+                "paired_condition_service.load_verified_package",
+                return_value={"release": release_identity()},
+            ),
+        ):
             status, _, saved = self.request(
                 "POST", "/api/studio/paired-feedback/approval", approval
             )

@@ -1,9 +1,12 @@
+import base64
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from hashlib import sha256
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import pytest
 
+import paired_condition_service
 from paired_condition_service import (
     CANDIDATE_SHA256,
     MANIFEST_SHA256,
@@ -33,33 +36,84 @@ def decision(value="NOT_TARGET"):
     return {"decision": value, "strength": None, "affinity": 0.1}
 
 
+def release_identity():
+    return {
+        "schema_version": "actvision-paired-condition-v1",
+        "release_id": RELEASE_ID,
+        "candidate_sha256": CANDIDATE_SHA256,
+        "manifest_sha256": MANIFEST_SHA256,
+        "evidence_policy_version": POLICY_VERSION,
+        "mode": "development",
+        "production_ready": False,
+        "encoders": {
+            "vision_revision": "vision",
+            "text_checkpoint_sha256": "d" * 64,
+        },
+        "strength_meaning": (
+            "uncalibrated target strength, not probability or opportunity"
+        ),
+    }
+
+
+@pytest.fixture(autouse=True)
+def verified_package(monkeypatch):
+    monkeypatch.setattr(
+        paired_condition_service,
+        "load_verified_package",
+        lambda store: {"release": release_identity()},
+    )
+
+
+def refresh_request_identity(event):
+    request = event["scored_input"]["request"]
+    release = event["release"]
+    evidence_id = digest(
+        {
+            "release_id": release["release_id"],
+            "manifest_sha256": release["manifest_sha256"],
+            "workspace_id": event["workspace_id"],
+            "listing": request["listing"],
+            "evidence": request["evidence"],
+        }
+    )
+    request_id = str(uuid5(NAMESPACE_URL, f"actvision-paired-condition:{evidence_id}"))
+    request.update(
+        {
+            "request_id": request_id,
+            "idempotency_key": request_id,
+            "release_id": release["release_id"],
+            "manifest_sha256": release["manifest_sha256"],
+            "workspace_id": event["workspace_id"],
+            "evidence_id": evidence_id,
+        }
+    )
+    event["request_id"] = request_id
+    event["evidence_id"] = evidence_id
+    return event
+
+
+def photo_evidence(photo_id="photo-1"):
+    content = b"saved-photo"
+    return {
+        "photo_id": photo_id,
+        "content_base64": base64.b64encode(content).decode(),
+        "content_sha256": sha256(content).hexdigest(),
+        "exclusion": {"excluded": False},
+    }
+
+
 def feedback_event(index, *, prediction_id=None, reviewed_at=None):
     listing_key = f"listing-{index}"
     prediction_id = prediction_id or str(uuid4())
     event_id = str(uuid4())
     reviewed_at = reviewed_at or datetime.now(timezone.utc)
-    return {
+    event = {
         "schema_version": "actvision-paired-condition-v1",
         "event_id": event_id,
         "idempotency_key": event_id,
         "workspace_id": "mls-development",
         "prediction_id": prediction_id,
-        "request_id": str(uuid4()),
-        "evidence_id": f"{index + 1:064x}",
-        "release": {
-            "release_id": RELEASE_ID,
-            "candidate_id": "candidate",
-            "dataset_id": "dataset-v5",
-            "dataset_version": 5,
-            "manifest_sha256": MANIFEST_SHA256,
-            "candidate_sha256": CANDIDATE_SHA256,
-            "evidence_policy_version": POLICY_VERSION,
-            "training_code_commit": "c" * 40,
-            "encoders": {
-                "vision_revision": "vision",
-                "text_checkpoint_sha256": "d" * 64,
-            },
-        },
+        "release": release_identity(),
         "scored_input": {
             "request": {
                 "listing": {
@@ -68,7 +122,6 @@ def feedback_event(index, *, prediction_id=None, reviewed_at=None):
                     "listing_id": f"MLS-{index}",
                     "physical_property_id": f"property-{index}",
                 },
-                "evidence_id": f"{index + 1:064x}",
                 "evidence": {"photos": []},
             },
             "learned_prediction": {
@@ -96,6 +149,7 @@ def feedback_event(index, *, prediction_id=None, reviewed_at=None):
         "reviewer_id": "reviewer@example.test",
         "reviewed_at": reviewed_at.isoformat(),
     }
+    return refresh_request_identity(event)
 
 
 def save_inbox(store, event, received_at=None):
@@ -124,8 +178,6 @@ def current_inbox():
             prediction_id=base[index]["prediction_id"],
             reviewed_at=now + timedelta(hours=1, minutes=index),
         )
-        repeated["evidence_id"] = base[index]["evidence_id"]
-        repeated["scored_input"]["request"]["evidence_id"] = base[index]["evidence_id"]
         save_inbox(store, repeated)
 
     prior = feedback_event(
@@ -133,8 +185,8 @@ def current_inbox():
         prediction_id=str(uuid4()),
         reviewed_at=now - timedelta(hours=1),
     )
-    prior["evidence_id"] = "f" * 64
-    prior["scored_input"]["request"]["evidence_id"] = prior["evidence_id"]
+    prior["scored_input"]["request"]["evidence"]["public_remarks"] = "older evidence"
+    refresh_request_identity(prior)
     save_inbox(store, prior)
     return store
 
@@ -164,8 +216,14 @@ def one_event_store():
     store = Store()
     event = feedback_event(0)
     event["scored_input"]["request"]["evidence"] = {
-        "photos": [{"photo_id": "photo-1"}],
+        "photos": [photo_evidence()],
     }
+    event["scored_input"]["coverage"] = {
+        "selected_photo_count": 1,
+        "usable_photo_count": 1,
+        "missing_photo_count": 0,
+    }
+    refresh_request_identity(event)
     save_inbox(store, event)
     return store, event
 
@@ -310,5 +368,79 @@ def test_approval_rejects_release_mismatch_unknown_evidence_and_digest_mismatch(
             digest(event),
             "approver",
             "challenge",
+            axis_eligibility=eligibility("eligible"),
+        )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda event: event["release"].update(mode="production"),
+        lambda event: event["release"]["encoders"].update(vision_revision="other"),
+        lambda event: event["scored_input"]["request"].update(
+            manifest_sha256="0" * 64
+        ),
+        lambda event: event["scored_input"]["evidence_policy"].update(
+            version="other-policy"
+        ),
+        lambda event: event["scored_input"]["request"]["evidence"].update(
+            public_remarks="different evidence"
+        ),
+        lambda event: event.update(request_id=str(uuid4())),
+    ],
+)
+def test_approval_rejects_inconsistent_release_policy_and_request_identity(mutate):
+    store, event = one_event_store()
+    mutate(event)
+    key = f"paired-condition-feedback-inbox:{event['event_id']}"
+    store.documents[key]["event"] = deepcopy(event)
+    store.documents[key]["event_sha256"] = digest(event)
+
+    with pytest.raises(ValueError, match="(?i)(release|policy|evidence|request)"):
+        approve_feedback(
+            store,
+            event["event_id"],
+            digest(event),
+            "approver",
+            "challenge",
+            axis_eligibility=eligibility(),
+        )
+
+
+@pytest.mark.parametrize("excluded_by_review", [False, True])
+def test_image_training_eligibility_requires_usable_nonexcluded_photo_evidence(
+    excluded_by_review,
+):
+    store, event = one_event_store()
+    event["human_labels"]["image"] = decision("TARGET")
+    if excluded_by_review:
+        event["corrected_photos"] = [
+            {
+                "photo_id": "photo-1",
+                "excluded": True,
+                "exclusion_reason": "Reviewer confirmed this is a staged rendering.",
+            }
+        ]
+    else:
+        photo = event["scored_input"]["request"]["evidence"]["photos"][0]
+        photo["content_base64"] = None
+        photo["content_sha256"] = None
+        event["scored_input"]["coverage"] = {
+            "selected_photo_count": 1,
+            "usable_photo_count": 0,
+            "missing_photo_count": 1,
+        }
+        refresh_request_identity(event)
+    key = f"paired-condition-feedback-inbox:{event['event_id']}"
+    store.documents[key]["event"] = deepcopy(event)
+    store.documents[key]["event_sha256"] = digest(event)
+
+    with pytest.raises(ValueError, match="usable photo evidence"):
+        approve_feedback(
+            store,
+            event["event_id"],
+            digest(event),
+            "approver",
+            "training_candidate",
             axis_eligibility=eligibility("eligible"),
         )

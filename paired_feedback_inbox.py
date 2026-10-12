@@ -1,12 +1,14 @@
 """Immutable review and approval boundary for paired-condition MLS feedback."""
 from __future__ import annotations
 
+import base64
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
 from typing import Any, Literal
+from uuid import NAMESPACE_URL, uuid5
 
 
 Relation = Literal["current", "repeated_review", "prior_prediction"]
@@ -187,6 +189,7 @@ def list_feedback(store: Any, release_id: str) -> list[FeedbackReview]:
 
 
 def _approval_request(
+    store: Any,
     event: dict[str, Any],
     event_id: str,
     event_sha256: str,
@@ -195,10 +198,7 @@ def _approval_request(
     axis_eligibility: dict[str, str] | None,
 ) -> dict[str, Any]:
     from paired_condition_service import (
-        CANDIDATE_SHA256,
-        MANIFEST_SHA256,
-        POLICY_VERSION,
-        RELEASE_ID,
+        load_verified_package,
     )
 
     if not actor.strip():
@@ -214,36 +214,95 @@ def _approval_request(
         raise ValueError("An axis eligibility decision is required for every human label")
 
     release = event.get("release")
-    expected_release = {
-        "release_id": RELEASE_ID,
-        "manifest_sha256": MANIFEST_SHA256,
-        "candidate_sha256": CANDIDATE_SHA256,
-        "evidence_policy_version": POLICY_VERSION,
-    }
-    if not isinstance(release, dict) or any(
-        release.get(key) != value for key, value in expected_release.items()
-    ):
+    expected_release = load_verified_package(store)["release"]
+    if not isinstance(release, dict) or release != expected_release:
         raise ValueError("Feedback release identity does not match the pinned paired release")
 
     scored_input = event.get("scored_input")
     request = scored_input.get("request") if isinstance(scored_input, dict) else None
+    evidence_policy = (
+        scored_input.get("evidence_policy") if isinstance(scored_input, dict) else None
+    )
     evidence = request.get("evidence") if isinstance(request, dict) else None
     listing = request.get("listing") if isinstance(request, dict) else None
     if (
         not isinstance(evidence, dict)
         or not isinstance(listing, dict)
         or not listing.get("listing_key")
-        or request.get("evidence_id") != event.get("evidence_id")
+        or request.get("release_id") != release["release_id"]
+        or request.get("manifest_sha256") != release["manifest_sha256"]
+        or request.get("workspace_id") != event.get("workspace_id")
     ):
         raise ValueError("Feedback evidence identity is missing or inconsistent")
+    if (
+        not isinstance(evidence_policy, dict)
+        or evidence_policy.get("version") != release["evidence_policy_version"]
+    ):
+        raise ValueError("Feedback evidence policy identity is inconsistent")
+    expected_evidence_id = _digest(
+        {
+            "release_id": release["release_id"],
+            "manifest_sha256": release["manifest_sha256"],
+            "workspace_id": event["workspace_id"],
+            "listing": listing,
+            "evidence": evidence,
+        }
+    )
+    expected_request_id = str(
+        uuid5(NAMESPACE_URL, f"actvision-paired-condition:{expected_evidence_id}")
+    )
+    if (
+        request.get("evidence_id") != expected_evidence_id
+        or event.get("evidence_id") != expected_evidence_id
+        or request.get("request_id") != expected_request_id
+        or request.get("idempotency_key") != expected_request_id
+        or event.get("request_id") != expected_request_id
+        or not event.get("prediction_id")
+    ):
+        raise ValueError("Feedback request and evidence identity are inconsistent")
+
     photos = evidence.get("photos")
     if not isinstance(photos, list):
         raise ValueError("Feedback photo evidence is unknown")
-    photo_ids = {
-        str(photo["photo_id"])
-        for photo in photos
-        if isinstance(photo, dict) and photo.get("photo_id")
-    }
+    photo_ids = set()
+    usable_photo_ids = set()
+    for photo in photos:
+        if not isinstance(photo, dict) or not photo.get("photo_id"):
+            raise ValueError("Feedback photo evidence identity is missing")
+        photo_id = str(photo["photo_id"])
+        if photo_id in photo_ids:
+            raise ValueError("Feedback photo evidence identity is duplicated")
+        photo_ids.add(photo_id)
+        encoded = photo.get("content_base64")
+        expected_sha256 = photo.get("content_sha256")
+        if (encoded is None) != (expected_sha256 is None):
+            raise ValueError("Feedback photo content identity is inconsistent")
+        if encoded is None:
+            continue
+        try:
+            content = base64.b64decode(str(encoded), validate=True)
+        except ValueError:
+            raise ValueError("Feedback photo content is invalid") from None
+        if hashlib.sha256(content).hexdigest() != expected_sha256:
+            raise ValueError("Feedback photo content identity does not match")
+        exclusion = photo.get("exclusion")
+        provider_excluded = (
+            bool(exclusion.get("excluded"))
+            if isinstance(exclusion, dict)
+            else exclusion not in {None, "", "none"}
+        )
+        if not provider_excluded:
+            usable_photo_ids.add(photo_id)
+
+    coverage = scored_input.get("coverage")
+    if (
+        not isinstance(coverage, dict)
+        or coverage.get("selected_photo_count") != len(photos)
+        or coverage.get("usable_photo_count") != len(usable_photo_ids)
+        or coverage.get("missing_photo_count") != len(photos) - len(usable_photo_ids)
+    ):
+        raise ValueError("Feedback photo coverage is inconsistent")
+    corrected_exclusions = set()
     for correction in event.get("corrected_photos", []):
         if not isinstance(correction, dict) or str(correction.get("photo_id") or "") not in photo_ids:
             raise ValueError("Corrected photo references unknown evidence")
@@ -251,6 +310,9 @@ def _approval_request(
             correction.get("exclusion_reason") or ""
         ).strip():
             raise ValueError("Excluded photos require an exclusion reason")
+        if correction.get("excluded"):
+            corrected_exclusions.add(str(correction["photo_id"]))
+    usable_photo_ids -= corrected_exclusions
 
     labels = event.get("human_labels")
     if not isinstance(labels, dict):
@@ -266,8 +328,10 @@ def _approval_request(
                 raise ValueError(
                     "Insufficient evidence cannot become binary training truth"
                 )
-        if axis_eligibility["image"] == "eligible" and not photo_ids:
-            raise ValueError("Image training eligibility requires known photo evidence")
+        if axis_eligibility["image"] == "eligible" and not usable_photo_ids:
+            raise ValueError(
+                "Image training eligibility requires usable photo evidence"
+            )
 
     return {
         "schema_version": "paired-condition-feedback-approval-v1",
@@ -302,6 +366,7 @@ def approve_feedback(
         raise ValueError("Feedback event digest does not match")
 
     requested = _approval_request(
+        store,
         event,
         event_id,
         event_sha256,
