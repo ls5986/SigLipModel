@@ -1,80 +1,253 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, ChevronLeft, ChevronRight, CircleHelp, FileSearch, Filter, Images, ListChecks, MapPin, RefreshCw, Save, Search, ShieldCheck, Sparkles } from 'lucide-react';
-import { api, mediaUrl, type Detail, type ImageEvidence, type QueueItem, type Review } from './api';
+import { ChevronLeft, ChevronRight, Images, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import {
+  loadProperty,
+  loadQueue,
+  loadStatus,
+  mediaUrl,
+  type Decision,
+  type PairedEvent,
+  type PairedProperty,
+  type PairedQueueItem,
+} from './api';
 
-type QueueResponse = { token: string; items: QueueItem[]; counts: Record<string, number>; total: number };
 type Tab = 'evidence' | 'models' | 'review' | 'source';
-const pretty = (value: unknown) => value == null || value === '' ? 'Not established' : String(value).replaceAll('_',' ').replace(/\b\w/g, c => c.toUpperCase());
-const dateText = (value: unknown) => value ? String(value).slice(0,10) : 'Not established';
-const money = (value: unknown) => { if (value == null || value === '') return 'Not established'; const n=Number(String(value).replace(/[$,]/g,'')); return Number.isFinite(n) ? n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}) : 'Not established'; };
-function Badge({children, tone='neutral'}:{children:React.ReactNode;tone?:'neutral'|'blue'|'green'|'amber'}) { return <span className={`badge badge-${tone}`}>{children}</span>; }
-function EvidenceCard({image, index, open}:{image:ImageEvidence;index:number;open:(image:ImageEvidence)=>void}) {
-  const features = Object.entries(image.effective?.features || {}).filter(([,v])=>v===true).map(([k])=>pretty(k));
-  const human = image.review?.status === 'approved';
-  const model = image.suggestions?.[0];
-  return <article className="evidence-card">
-    <button className="photo-button" onClick={()=>open(image)} aria-label={`Open photo ${index+1}`}><img src={mediaUrl(image.id,true)} alt={`Property evidence photo ${index+1}`} loading="lazy"/><span className="zoom-hint">View photo</span></button>
-    <div className="photo-copy">
-      <div className="photo-heading"><strong>Photo {index+1}</strong><Badge tone={human?'green':model?'blue':'neutral'}>{human?'Human reviewed':model?'Model suggestion':'Unlabeled'}</Badge></div>
-      <div className="tag-row"><Badge>{pretty(image.effective?.room || image.room || 'unknown')}</Badge><Badge>{pretty(image.effective?.context || image.provider_context || 'unknown')}</Badge>{image.split==='test'&&<Badge tone="amber">Protected test</Badge>}</div>
-      {model&&<p className="small-copy"><Sparkles size={13}/> Suggestion: {pretty(model.condition_label || image.condition_draft || 'No condition label')} · {pretty(model.source || image.room_source || 'automated')}</p>}
-      {human&&<p className="small-copy"><BadgeCheck size={13}/> Saved label: {pretty(image.review?.condition_label || image.review?.physical_condition || 'Reviewed')}</p>}
-      {features.length>0&&<p className="small-copy">Signals: {features.join(', ')}</p>}
-      {image.provider_description&&<p className="description">{image.provider_description}</p>}
-      {image.warnings?.map(w=><p className="warning" key={w}>{w}</p>)}
-    </div>
-  </article>;
+
+const pretty = (value: unknown) =>
+  value == null || value === ''
+    ? 'Not established'
+    : String(value).replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
+
+function Badge({ children, tone = 'neutral' }: {
+  children: React.ReactNode;
+  tone?: 'neutral' | 'blue' | 'green' | 'amber';
+}) {
+  return <span className={`badge badge-${tone}`}>{children}</span>;
 }
-function Field({label,value}:{label:string;value:unknown}) { return <div className="field"><span>{label}</span><strong>{value == null || value === '' ? 'Not established' : String(value)}</strong></div>; }
+
+function decisionText(value?: Decision | null) {
+  if (!value?.decision) return 'Cannot tell';
+  const name = value.decision === 'INSUFFICIENT_EVIDENCE' ? 'Cannot tell' : pretty(value.decision);
+  return value.decision === 'TARGET' && value.strength != null ? `${name} · ${value.strength}` : name;
+}
+
+function reviewCandidate(event?: PairedEvent) {
+  const review = event?.review;
+  if (!review) return undefined;
+  return review.overall?.candidate_id
+    || review.image?.candidate_id
+    || review.metadata?.candidate_id
+    || review.notes?.candidate_id;
+}
+
+function PhotoEvidence({ event }: { event: PairedEvent }) {
+  const probes = new Map((event.prediction?.photos || []).map(photo => [photo.sha256, photo]));
+  const tags = new Map((event.photo_tags || []).map(photo => [photo.sha256, photo]));
+  if (!event.evidence_id || !event.photo_manifest?.length) {
+    return <div className="empty"><Images size={24}/><p>No stored photos for this listing.</p></div>;
+  }
+  return <div className="evidence-grid">
+    {event.photo_manifest.map((photo, index) => {
+      const probe = probes.get(photo.sha256);
+      const tag = tags.get(photo.sha256);
+      return <article className="evidence-card" key={photo.sha256}>
+        <button className="photo-button" type="button" aria-label={`Open photo ${index + 1}`}>
+          <img
+            src={mediaUrl(event.evidence_id!, photo.sha256, true)}
+            alt={`Saved listing photo ${index + 1}`}
+            loading="lazy"
+          />
+        </button>
+        <div className="photo-copy">
+          <div className="photo-heading"><strong>Saved photo {index + 1}</strong><Badge>Immutable evidence</Badge></div>
+          <p className="small-copy">Current probe · {probe?.room || 'room unknown'}</p>
+          <p className="small-copy">{decisionText(probe)}</p>
+          <p className="small-copy">Older silver tag · {tag?.room || 'room unknown'} · {decisionText(tag)}</p>
+        </div>
+      </article>;
+    })}
+  </div>;
+}
+
+function ProvenanceSummary({ property, event }: { property: PairedProperty; event?: PairedEvent }) {
+  const candidateId = property.candidate?.candidate_id;
+  const reviewedCandidate = reviewCandidate(event);
+  const stale = Boolean(candidateId && reviewedCandidate && candidateId !== reviewedCandidate);
+  return <section className="provenance-stack" aria-label="Evidence provenance">
+    <div className="evidence-summary">
+      <div>
+        <span className="eyebrow">CURRENT MODEL</span>
+        <strong>Current candidate: {candidateId || 'Not established'}</strong>
+        <small>Current property and per-photo outputs</small>
+      </div>
+      <div>
+        <span className="eyebrow">SAVED HUMAN REVIEW</span>
+        <strong>Reviewed candidate: {reviewedCandidate || 'Not established'}</strong>
+        <small>Evidence-bound and revisioned</small>
+      </div>
+      <div>
+        <span className="eyebrow">LISTING EVIDENCE</span>
+        <strong>{event?.evidence_id || 'Not established'}</strong>
+        <small>Saved snapshot identity</small>
+      </div>
+    </div>
+    {stale && <div className="notice warning">Earlier prediction review — not transferred</div>}
+    <div className="model-grid">
+      <article className="model-card">
+        <span className="eyebrow">PROPERTY PHOTOS</span>
+        <h3>Learned property image head</h3>
+        <strong>{decisionText(event?.prediction?.image)}</strong>
+        <p>Not a vote over photo probes. The learned head aggregates room-weighted image embeddings.</p>
+      </article>
+      <article className="model-card">
+        <span className="eyebrow">CURRENT SYSTEM</span>
+        <h3>Current per-photo model probes</h3>
+        <p>Diagnostic affinity outputs from the current candidate. They are not human labels.</p>
+      </article>
+      <article className="model-card">
+        <span className="eyebrow">SEPARATE OLDER SYSTEM</span>
+        <h3>Older automated-silver tags</h3>
+        <p>Frozen automated-silver references. They are not equivalent to current probes.</p>
+      </article>
+    </div>
+  </section>;
+}
+
 export default function EvidenceReview() {
-  const [items,setItems]=useState<QueueItem[]>([]),[detail,setDetail]=useState<Detail|null>(null),[counts,setCounts]=useState<Record<string,number>>({}),[total,setTotal]=useState(0);
-  const [search,setSearch]=useState(''),[filter,setFilter]=useState('todo'),[evidenceFilter,setEvidenceFilter]=useState('all'),[tab,setTab]=useState<Tab>('evidence');
-  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[zoom,setZoom]=useState<ImageEvidence|null>(null);
-  const [targetScore,setTargetScore]=useState(''),[reason,setReason]=useState(''),[confidence,setConfidence]=useState('medium');
-  const filtered=useMemo(()=>items.filter(i=>`${i.address} ${i.city||''} ${i.id}`.toLowerCase().includes(search.toLowerCase())),[items,search]);
-  async function loadQueue(preferred?:string) {
-    setBusy(true);setError('');
-    try { const data=await api<QueueResponse>(`review-queue?${new URLSearchParams({queue:filter,scope:'acquisitions',evidence:evidenceFilter,search:search.trim(),offset:'0',limit:'40'})}`); setItems(data.items||[]);setCounts(data.counts||{});setTotal(data.total||data.items?.length||0); const requested=new URLSearchParams(window.location.search).get('property');const next=(preferred&&data.items.find(i=>i.id===preferred))||(requested&&data.items.find(i=>i.id===requested))||data.items.find(i=>i.id===detail?.property.id)||data.items[0]; if(next) await loadProperty(next.id); else setDetail(null); }
-    catch(e){setError((e as Error).message)} finally {setBusy(false)}
+  const [items, setItems] = useState<PairedQueueItem[]>([]);
+  const [property, setProperty] = useState<PairedProperty | null>(null);
+  const [eventIndex, setEventIndex] = useState(0);
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<Tab>('evidence');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return items;
+    return items.filter(item =>
+      `${item.address} ${item.group_id} ${item.prior_mls || ''} ${item.last_mls || ''}`.toLowerCase().includes(query));
+  }, [items, search]);
+  const selectedIndex = filtered.findIndex(item => item.group_id === property?.group_id);
+  const event = property?.events[eventIndex];
+
+  async function openProperty(groupId: string) {
+    const detail = await loadProperty(groupId);
+    setProperty(detail);
+    setEventIndex(0);
+    setTab('evidence');
+    history.replaceState(null, '', `/property-review?property=${encodeURIComponent(groupId)}`);
   }
-  async function loadProperty(id:string) { const d=await api<Detail>(`property?${new URLSearchParams({id})}`);setDetail(d);history.replaceState(null,'',`/property-review?property=${encodeURIComponent(id)}`);setTargetScore(d.property.review?.target_score?String(d.property.review.target_score):'');setReason(d.property.review?.reason||'');setConfidence(d.property.review?.confidence||'medium');setTab('evidence'); }
-  useEffect(()=>{void loadQueue();},[filter,evidenceFilter]);
-  const currentIndex=filtered.findIndex(i=>i.id===detail?.property.id);
-  const changeProperty=(offset:number)=>{const row=filtered[currentIndex+offset];if(row)void loadProperty(row.id)};
-  async function save(next:boolean) {
-    if(!detail)return;setBusy(true);setError('');setNotice('');
-    try { const score=targetScore&&targetScore!=='insufficient'?Number(targetScore):null;const fit=score==null?'unsure':score>=4?'target':score<=2?'not_target':'unsure';
-      await api<Review>('review',{kind:'property',id:detail.property.id,expected_revision:detail.property.review?.revision||0,reviewer:'Cloud reviewer',status:'approved',target_fit:fit,target_score:score,confidence,evidence_source:targetScore==='insufficient'?'insufficient':detail.images.length?'both':'metadata',reason:reason|| (targetScore==='insufficient'?'Not enough evidence to judge this property.':''),physical_condition:detail.property.review?.physical_condition||'unknown',modernization_state:detail.property.review?.modernization_state||'unknown',reason_tags:[],standout_image_ids:[],notes:JSON.stringify({scope:'evidence_review',evidence_hash:detail.historical_source?.evidence_hash||null})});
-      setNotice('Review saved against the current evidence revision.');await loadQueue(next?filtered[currentIndex+1]?.id:detail.property.id);
-    } catch(e){setError((e as Error).message)} finally{setBusy(false)}
+
+  async function refresh(preferred?: string) {
+    setBusy(true);
+    setError('');
+    try {
+      await loadStatus();
+      const queue = await loadQueue();
+      setItems(queue.items || []);
+      const requested = new URLSearchParams(window.location.search).get('property');
+      const next = queue.items.find(item => item.group_id === preferred)
+        || queue.items.find(item => item.group_id === requested)
+        || queue.items.find(item => item.group_id === property?.group_id)
+        || queue.items[0];
+      if (next) await openProperty(next.group_id);
+      else setProperty(null);
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
-  const prop=detail?.property, source=detail?.historical_source, listing=source?.mls_listing||{};
+
+  useEffect(() => { void refresh(); }, []);
+
+  function changeProperty(offset: number) {
+    const item = filtered[selectedIndex + offset];
+    if (item) void openProperty(item.group_id).catch(caught => setError((caught as Error).message));
+  }
+
   return <div className="app-shell">
-    <header className="topbar"><a className="brand" href="/property-review"><span className="brand-mark"><ShieldCheck size={18}/></span><span><strong>ACQ Vision</strong><small>Evidence review</small></span></a><div className="top-meta"><Badge tone="green">Private workspace</Badge><button className="icon-button" onClick={()=>void loadQueue(detail?.property.id)} aria-label="Refresh queue"><RefreshCw size={16}/></button></div></header>
+    <header className="topbar">
+      <a className="brand" href="/property-review">
+        <span className="brand-mark"><ShieldCheck size={18}/></span>
+        <span><strong>ACQ Vision</strong><small>Paired condition review</small></span>
+      </a>
+      <div className="top-meta">
+        <Badge tone="green">Private workspace</Badge>
+        <button className="icon-button" type="button" onClick={() => void refresh(property?.group_id)} aria-label="Refresh queue">
+          <RefreshCw size={16}/>
+        </button>
+      </div>
+    </header>
     <div className="workspace">
       <aside className="queue-panel">
-        <div className="queue-title"><div><span className="eyebrow">WORK QUEUE</span><h1>Property reviews</h1></div><Badge>{total}</Badge></div>
-        <label className="search-box"><Search size={16}/><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void loadQueue();}} placeholder="Search address or listing"/><kbd>↵</kbd></label>
-        <div className="filters"><label><Filter size={14}/><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="todo">Needs review</option><option value="all">All properties</option><option value="reviewed">Reviewed</option><option value="photo_match">Confirm photos</option><option value="complete">Complete</option></select></label><select value={evidenceFilter} onChange={e=>setEvidenceFilter(e.target.value)} aria-label="Filter by evidence quality"><option value="all">All evidence</option><option value="interior">Interior photos</option><option value="limited">Limited photos</option><option value="metadata_only">Metadata only</option></select></div>
-        <div className="queue-stats"><span><strong>{counts.todo??'—'}</strong>to review</span><span><strong>{counts.verified??'—'}</strong>photo sets verified</span></div>
-        <nav className="queue-list" aria-label="Review queue">{filtered.map(i=><button key={i.id} className={`queue-item ${detail?.property.id===i.id?'active':''}`} onClick={()=>void loadProperty(i.id)}><span className="queue-thumb">{i.hero_image_id?<img src={mediaUrl(i.hero_image_id,true)} alt=""/>:<Images size={18}/>}</span><span className="queue-item-copy"><strong>{i.address||i.id}</strong><small>{[i.city,`${i.image_count||0} photos`].filter(Boolean).join(' · ')}</small><small>{i.needs_photo_match?'Listing photos need confirmation':i.review_complete?'Review complete':'Condition review pending'}</small></span><ChevronRight size={15}/></button>)}</nav>
-        <div className="queue-footer"><span>{filtered.length} shown</span><span>Page 1</span></div>
+        <div className="queue-title"><div><span className="eyebrow">SAVED QUEUE</span><h1>Property reviews</h1></div><Badge>{items.length}</Badge></div>
+        <label className="search-box"><Search size={16}/><input value={search} onChange={change => setSearch(change.target.value)} placeholder="Filter saved address or MLS"/></label>
+        <p className="queue-help">This filters saved review records. It does not search or import from an MLS provider.</p>
+        <div className="queue-list">
+          {filtered.map(item => <button
+            className={`queue-item ${item.group_id === property?.group_id ? 'active' : ''}`}
+            type="button"
+            key={item.group_id}
+            onClick={() => void openProperty(item.group_id).catch(caught => setError((caught as Error).message))}
+          >
+            <span className="queue-address">{item.address}</span>
+            <span className="queue-city">Prior {item.prior_mls || 'MLS missing'} · Last {item.last_mls || 'MLS missing'}</span>
+            <span className="queue-bottom"><Badge tone={item.reviewed ? 'green' : 'amber'}>{item.reviewed ? 'Reviewed' : 'Needs review'}</Badge></span>
+          </button>)}
+        </div>
       </aside>
-      <main className="detail-panel">
-        {!prop?<div className="empty-state"><FileSearch size={40}/><h2>{error?'Unable to load reviews':'No property selected'}</h2><p>{error||'Choose a property from the queue to inspect its evidence.'}</p>{error&&<button className="button secondary" onClick={()=>void loadQueue()}>Try again</button>}</div>:<>
-          <div className="property-heading"><div><div className="crumb"><span>Acquisitions</span><ChevronRight size={13}/><span>Evidence review</span></div><h2>{prop.address||prop.id}</h2><p><MapPin size={14}/>{[prop.city,prop.property_type&&pretty(prop.property_type),prop.year_built&&`Built ${prop.year_built}`].filter(Boolean).join(' · ')||'Property details pending'}</p></div><div className="property-actions"><button className="button secondary" disabled={currentIndex<=0||busy} onClick={()=>changeProperty(-1)}><ChevronLeft size={16}/>Previous</button><button className="button secondary" disabled={currentIndex<0||currentIndex>=filtered.length-1||busy} onClick={()=>changeProperty(1)}>Next<ChevronRight size={16}/></button></div></div>
-          {(error||notice)&&<div className={`flash ${error?'flash-error':'flash-success'}`} role={error?'alert':'status'}>{error||notice}</div>}
-          {source?.block_reason&&<div className="review-alert"><CircleHelp size={17}/><span><strong>Evidence needs verification</strong><small>{source.block_reason}</small></span></div>}
-          <div className="evidence-summary"><div><span className="eyebrow">RECORD STATUS</span><strong>{pretty(source?.acquisition_status||'historical candidate')}</strong><small>Historical candidate · not training approved</small></div><div><span className="eyebrow">PHOTO EVIDENCE</span><strong>{detail.images.length} photos</strong><small>{pretty(source?.photo_coverage||'unverified')} coverage</small></div><div><span className="eyebrow">EVIDENCE REVISION</span><strong>{source?.evidence_hash?source.evidence_hash.slice(0,12):'Not established'}</strong><small>Content hash · read only</small></div></div>
-          <div className="tabbar" role="tablist">{([['evidence','Evidence',Images],['models','Model outputs',Sparkles],['review','Human review',ListChecks],['source','Source record',FileSearch]] as const).map(([id,label,Icon])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}><Icon size={15}/>{label}</button>)}</div>
-          {tab==='evidence'&&<section className="tab-content"><div className="section-heading"><div><h3>Saved property evidence</h3><p>Photos and facts currently attached to this property review.</p></div><Badge tone="blue">{detail.images.length} retained</Badge></div>{detail.images.length?<div className="evidence-grid">{detail.images.map((image,index)=><EvidenceCard key={image.id} image={image} index={index} open={setZoom}/>)}</div>:<div className="empty-card"><Images size={24}/><strong>No retained photos</strong><span>Use metadata evidence carefully and record when the photos cannot support a condition decision.</span></div>}<div className="facts-card"><div className="section-heading"><div><h3>Listing facts</h3><p>Captured listing details and deterministic remarks evidence.</p></div><Badge>Source data</Badge></div><div className="facts-grid"><Field label="Listing ID" value={listing.ListingId||listing.ListingKey}/><Field label="Status" value={listing.StandardStatus}/><Field label="List price" value={money(listing.ListPrice)}/><Field label="Close date" value={dateText(listing.CloseDate)}/><Field label="Property type" value={listing.PropertySubType||prop.property_type}/><Field label="Year built" value={listing.YearBuilt||prop.year_built}/></div>{prop.mls_remarks&&<details className="remarks"><summary>Public remarks</summary><p>{prop.mls_remarks}</p></details>}</div></section>}
-          {tab==='models'&&<section className="tab-content"><div className="section-heading"><div><h3>Automated outputs</h3><p>Suggestions stay separate from confirmed labels.</p></div><Badge tone="amber">Not human verified</Badge></div><div className="model-grid">{detail.images.map((image,index)=><article className="model-card" key={image.id}><div><strong>Photo {index+1}</strong><Badge tone="blue">{pretty(image.room_source||'Model suggestion')}</Badge></div><dl><dt>Room</dt><dd>{pretty(image.effective?.room||image.room)}</dd><dt>Context</dt><dd>{pretty(image.effective?.context||image.provider_context)}</dd><dt>Condition draft</dt><dd>{pretty(image.condition_draft||image.effective?.condition_label)}</dd><dt>Local score</dt><dd>{image.effective?.local_score??'Not scored'}</dd><dt>OpenAI scope score</dt><dd>{image.effective?.gpt_scope_score??'Not scored'}</dd></dl><p>{image.selection?.reason||'No automated evidence note.'}</p></article>)}</div>{!detail.images.length&&<div className="empty-card">No model outputs are attached to this property.</div>}</section>}
-          {tab==='review'&&<section className="tab-content review-layout"><div className="review-card"><div className="section-heading"><div><h3>Condition and fit review</h3><p>Your decision is saved with an expected revision check.</p></div><Badge tone={prop.review?.status==='approved'?'green':'amber'}>{prop.review?.status==='approved'?'Saved review':'Draft'}</Badge></div><label className="form-field">Target fit score<select value={targetScore} onChange={e=>setTargetScore(e.target.value)}><option value="">Choose a score</option><option value="1">1 · Not a fit</option><option value="2">2 · Weak fit</option><option value="3">3 · Unclear</option><option value="4">4 · Good fit</option><option value="5">5 · Strong fit</option><option value="insufficient">Cannot determine</option></select></label><label className="form-field">Confidence<select value={confidence} onChange={e=>setConfidence(e.target.value)}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label><label className="form-field">Reason<textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={4000} placeholder="Describe which evidence supports your decision."/></label><div className="review-note"><ShieldCheck size={16}/><span>This saves a human review only. It does not add an Opportunity, approve training, or change a frozen dataset.</span></div><div className="form-actions"><button className="button secondary" disabled={busy} onClick={()=>void save(false)}><Save size={15}/>Save review</button><button className="button primary" disabled={busy} onClick={()=>void save(true)}><Save size={15}/>Save and next</button></div></div><aside className="review-side"><h4>Evidence provenance</h4><Field label="Source role" value={source?.acquisition_status}/><Field label="Source rows" value={source?.source_rows?.join(', ')}/><Field label="Evidence hash" value={source?.evidence_hash}/><Field label="Current review revision" value={prop.review?.revision||0}/><p>Saved labels stay linked to this property and the evidence revision shown above.</p></aside></section>}
-          {tab==='source'&&<section className="tab-content"><div className="section-heading"><div><h3>Source and review history</h3><p>Inspect where the current property and evidence came from.</p></div><Badge>Read only</Badge></div><div className="source-grid"><div className="facts-card"><h4>Selected historical listing</h4>{Object.entries(listing).length?<div className="facts-grid">{Object.entries(listing).slice(0,18).map(([k,v])=><Field key={k} label={pretty(k)} value={typeof v==='object'?JSON.stringify(v):v}/>)}</div>:<p>No selected listing facts were saved.</p>}</div><div className="facts-card"><h4>Candidate and evidence identity</h4><Field label="Source rows" value={source?.source_rows?.join(', ')}/><Field label="Listing role" value={source?.acquisition_status}/><Field label="Evidence snapshot hash" value={source?.evidence_hash}/><Field label="Photo coverage" value={source?.photo_coverage}/><Field label="Saved review" value={prop.review?.status||'No human review'}/></div></div></section>}
-          <footer className="bottom-save"><span>{busy?'Saving changes…':`Revision ${prop.review?.revision||0} · ${detail.images.length} photos`}</span><button className="button primary" disabled={busy} onClick={()=>void save(true)}><Save size={15}/>Save and next</button></footer>
+      <main className="review-main">
+        {error && <div className="alert error" role="alert">{error}</div>}
+        {busy && !property && <div className="empty">Loading saved review evidence…</div>}
+        {!busy && !property && !error && <div className="empty">No saved properties match this queue.</div>}
+        {property && <>
+          <div className="property-header">
+            <div><span className="eyebrow">SAVED PROPERTY</span><h2>{property.address}</h2><p>{property.apn ? `APN ${property.apn}` : 'APN not established'}</p></div>
+            <div className="nav-buttons">
+              <button className="icon-button" type="button" disabled={selectedIndex <= 0} onClick={() => changeProperty(-1)} aria-label="Previous property"><ChevronLeft size={18}/></button>
+              <button className="icon-button" type="button" disabled={selectedIndex < 0 || selectedIndex >= filtered.length - 1} onClick={() => changeProperty(1)} aria-label="Next property"><ChevronRight size={18}/></button>
+            </div>
+          </div>
+          <div className="event-switcher" aria-label="Listing evidence">
+            {property.events.map((item, index) => <button
+              type="button"
+              key={`${item.event_role}-${item.evidence_id || index}`}
+              className={index === eventIndex ? 'active' : ''}
+              onClick={() => setEventIndex(index)}
+            >
+              {item.event_role === 'acquisition' ? 'Prior sale' : item.event_role === 'resale' ? 'Resale' : pretty(item.event_role)}
+              <small>{item.listing_id || 'MLS not established'}</small>
+            </button>)}
+          </div>
+          <ProvenanceSummary property={property} event={event}/>
+          <div className="tabs" role="tablist">
+            {([['evidence', 'Saved evidence'], ['models', 'Model outputs'], ['review', 'Human review'], ['source', 'Listing source']] as const).map(([key, label]) =>
+              <button type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)} key={key}>{label}</button>)}
+          </div>
+          {tab === 'evidence' && event && <section className="tab-content">
+            <PhotoEvidence event={event}/>
+          </section>}
+          {tab === 'models' && event && <section className="tab-content model-grid">
+            <article className="model-card"><h3>Photos</h3><strong>{decisionText(event.prediction?.image)}</strong></article>
+            <article className="model-card"><h3>Metadata</h3><strong>{decisionText(event.prediction?.metadata)}</strong></article>
+            <article className="model-card"><h3>Overall</h3><strong>{decisionText(event.prediction?.overall)}</strong></article>
+          </section>}
+          {tab === 'review' && event && <section className="tab-content review-layout">
+            <div className="review-card"><h3>Saved human review</h3>
+              <p>Photos: {decisionText(event.review?.image)}</p>
+              <p>Metadata: {decisionText(event.review?.metadata)}</p>
+              <p>Overall: {decisionText(event.review?.overall)}</p>
+              <p>{event.review?.notes?.text || 'No review notes saved.'}</p>
+            </div>
+          </section>}
+          {tab === 'source' && event && <section className="tab-content"><pre>{JSON.stringify({
+            listing: event.raw_snapshot,
+            metadata_input: event.metadata_snapshot,
+          }, null, 2)}</pre></section>}
         </>}
       </main>
     </div>
-    {zoom&&<div className="lightbox" role="dialog" aria-modal="true" aria-label="Evidence photo" onClick={()=>setZoom(null)}><button className="close-lightbox" onClick={()=>setZoom(null)}>Close</button><img src={mediaUrl(zoom.id)} alt="Full size property evidence"/></div>}
   </div>;
 }
