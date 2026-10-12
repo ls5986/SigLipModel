@@ -137,9 +137,31 @@ def create_server(port, app, auth):
                 return self.reply(303,b"",headers=[("Location","/login")])
             if path=="/" and parse_qs(urlparse(self.path).query).get("property"):
                 return self.reply(303,b"",headers=[("Location","/property-review?"+urlparse(self.path).query)])
+            if path=="/property-review":
+                built_app=CODE_ROOT/"frontend-dist"/"index.html"
+                if built_app.is_file():
+                    return self.reply(200,built_app.read_bytes(),"text/html; charset=utf-8")
+                page=(CODE_ROOT/"review_ui.html").read_bytes().replace(
+                    b"Local preview",b"Cloud development"
+                ).replace(
+                    b'/advanced?tab=experiments',b'/status#models'
+                ).replace(
+                    b'Models &amp; results \xe2\x86\x97',b'Training status'
+                ).replace(
+                    b'/advanced?tab=dataset',b'/status#data'
+                ).replace(
+                    b'Data \xe2\x86\x97',b'Data coverage'
+                )
+                return self.reply(200,page,"text/html; charset=utf-8")
             if path=="/":
                 return self.reply(200,(CODE_ROOT/"mls_validation_ui.html").read_bytes(),"text/html; charset=utf-8")
-            if path in {"/property-review","/review"}:
+            if path.startswith("/assets/"):
+                asset=(CODE_ROOT/"frontend-dist"/path.lstrip("/")).resolve()
+                asset_root=(CODE_ROOT/"frontend-dist"/"assets").resolve()
+                if asset_root not in asset.parents or not asset.is_file():
+                    return self.data(404,{"error":"Not found"})
+                return self.reply(200,asset.read_bytes(),mimetypes.guess_type(asset.name)[0] or "application/octet-stream")
+            if path=="/review":
                 page=(CODE_ROOT/"review_ui.html").read_bytes().replace(
                     b"Local preview",b"Cloud development"
                 ).replace(
