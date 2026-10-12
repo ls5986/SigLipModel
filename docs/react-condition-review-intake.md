@@ -47,8 +47,9 @@ Verified locally on 2026-10-12:
 
 - reproducible `npm ci` using the configured package mirror;
 - production TypeScript/Vite build;
-- six Playwright browser tests covering candidate provenance, separate current/silver photo systems, independent decisions, no-photo handling, revision conflicts, Save → Next payloads, and non-JSON API failures;
+- seven Playwright browser tests covering candidate provenance, separate current/silver photo systems, independent decisions, stale-review isolation, no-photo handling, revision conflict reload/retry, Save → Next payloads, and non-JSON API failures;
 - 81 focused Python hosted and paired-condition tests;
+- zero npm audit vulnerabilities after removing unused React Router and updating build/test tooling;
 - clean `git diff --check` for the React integration range.
 
 Verified read-only against the authenticated development deployment:
