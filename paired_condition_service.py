@@ -547,6 +547,37 @@ class PairedConditionService:
         package = load_verified_package(self.store)
         if payload["release"] != package["release"]:
             raise ValueError("Feedback release identity mismatch")
+        stored = self.store.document(
+            "paired-condition-prediction:" + payload["request_id"]
+        ) or {}
+        prediction = stored.get("prediction")
+        scored_input = payload["scored_input"]
+        request = scored_input.get("request")
+        expected_display = (
+            {
+                key: prediction[key]
+                for key in ("image", "remarks", "structured", "metadata", "overall")
+            }
+            if isinstance(prediction, dict)
+            else None
+        )
+        if (
+            stored.get("status") != "completed"
+            or not isinstance(prediction, dict)
+            or not isinstance(request, dict)
+            or stored.get("request_sha256") != digest(request)
+            or prediction.get("prediction_id") != payload["prediction_id"]
+            or prediction.get("request_id") != payload["request_id"]
+            or prediction.get("evidence_id") != payload["evidence_id"]
+            or prediction.get("release") != payload["release"]
+            or scored_input.get("learned_prediction")
+            != prediction.get("learned_prediction")
+            or scored_input.get("displayed_decisions") != expected_display
+            or scored_input.get("evidence_policy") != prediction.get("evidence_policy")
+            or scored_input.get("coverage") != prediction.get("coverage")
+            or scored_input.get("modality_errors") != prediction.get("modality_errors")
+        ):
+            raise ValueError("Feedback prediction provenance mismatch")
         event_digest = digest(payload)
         key = "paired-condition-feedback-inbox:" + payload["event_id"]
         existing = self.store.document(key) or {}

@@ -19,6 +19,7 @@ from paired_condition_service import (
     POLICY_VERSION,
     RELEASE_ID,
     PairedConditionService,
+    digest,
     validate_paired,
 )
 
@@ -217,6 +218,28 @@ def feedback_payload(prediction=None):
         "reviewer_id": "reviewer@example.test",
         "reviewed_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def bound_feedback_payload():
+    request = request_payload()
+    request["idempotency_key"] = request["request_id"]
+    prediction = prediction_payload()
+    prediction["request_id"] = request["request_id"]
+    prediction["evidence_id"] = request["evidence_id"]
+    payload = feedback_payload(prediction)
+    payload["idempotency_key"] = payload["event_id"]
+    payload["scored_input"] = {
+        "request": copy.deepcopy(request),
+        "learned_prediction": copy.deepcopy(prediction["learned_prediction"]),
+        "displayed_decisions": {
+            key: copy.deepcopy(prediction[key])
+            for key in ("image", "remarks", "structured", "metadata", "overall")
+        },
+        "evidence_policy": copy.deepcopy(prediction["evidence_policy"]),
+        "coverage": copy.deepcopy(prediction["coverage"]),
+        "modality_errors": copy.deepcopy(prediction["modality_errors"]),
+    }
+    return request, prediction, payload
 
 
 @pytest.mark.parametrize("kind,payload", [
@@ -691,8 +714,13 @@ def test_feedback_inbox_is_idempotent_and_conflicting_reuse_fails(monkeypatch):
     store = Store()
     monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: fake_package())
     service = PairedConditionService(store)
-    payload = feedback_payload()
-    payload["idempotency_key"] = payload["event_id"]
+    request, prediction, payload = bound_feedback_payload()
+    store.documents["paired-condition-prediction:" + request["request_id"]] = {
+        "request_sha256": digest(request),
+        "prediction": prediction,
+        "status": "completed",
+        "revision": 1,
+    }
 
     assert service.receive_feedback(payload)["status"] == "accepted"
     assert service.receive_feedback(payload)["status"] == "duplicate"
@@ -704,6 +732,25 @@ def test_feedback_inbox_is_idempotent_and_conflicting_reuse_fails(monkeypatch):
     changed["notes"] = "different immutable event"
     with pytest.raises(RuntimeError, match="different content"):
         service.receive_feedback(changed)
+
+
+def test_feedback_rejects_prediction_provenance_that_differs_from_stored_result(monkeypatch):
+    store = Store()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: fake_package())
+    service = PairedConditionService(store)
+    request, prediction, payload = bound_feedback_payload()
+    store.documents["paired-condition-prediction:" + request["request_id"]] = {
+        "request_sha256": digest(request),
+        "prediction": prediction,
+        "status": "completed",
+        "revision": 1,
+    }
+    payload["scored_input"]["learned_prediction"]["overall"] = decision(
+        "NOT_TARGET", affinity=0.1
+    )
+
+    with pytest.raises(ValueError, match="Feedback prediction provenance mismatch"):
+        service.receive_feedback(payload)
 
 
 def test_concurrent_identical_inference_reuses_completed_prediction(monkeypatch):
