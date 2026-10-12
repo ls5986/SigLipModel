@@ -8,6 +8,7 @@ import pytest
 from PIL import Image
 
 from hosted_server import HostedAuth, create_server
+import hosted_server
 
 
 class Studio:
@@ -67,6 +68,11 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         status,_,body=request(port,'GET','/mls-validation',headers={'Cookie':cookie})
         assert status==200 and b'Acquisition MLS Validation' in body
         status,_,body=request(port,'GET','/property-review',headers={'Cookie':cookie})
+        if (hosted_server.CODE_ROOT/'frontend-dist'/'index.html').is_file():
+            assert status==200 and b'/assets/' in body and b'type="module"' in body
+        else:
+            assert status==303
+        status,_,body=request(port,'GET','/review',headers={'Cookie':cookie})
         assert status==303
         status,_,body=request(port,'GET','/source-evidence',headers={'Cookie':cookie})
         assert status==200 and b'Review acquisition cohort' in body
@@ -90,6 +96,24 @@ def test_hosted_login_session_and_csrf(monkeypatch):
         assert request(port,'POST','/api/studio/review',payload,{'Cookie':cookie,'Origin':'https://studio.example.test','Content-Type':'application/json'})[0]==403
         status,_,body=request(port,'POST','/api/studio/review',payload,{'Cookie':cookie,'Origin':'https://studio.example.test','X-Review-Token':'csrf','Content-Type':'application/json'})
         assert status==200 and json.loads(body)['revision']==1
+    finally:
+        server.shutdown();server.server_close();thread.join()
+
+
+def test_property_review_serves_built_react_assets(monkeypatch,tmp_path):
+    built=tmp_path/'frontend-dist';assets=built/'assets';assets.mkdir(parents=True)
+    (built/'index.html').write_text('<html><script type="module" src="/assets/app.js"></script></html>')
+    (assets/'app.js').write_text('export const app = true;')
+    monkeypatch.setattr(hosted_server,'CODE_ROOT',tmp_path)
+    app=App();server=create_server(0,app,auth(monkeypatch));thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();port=server.server_address[1]
+    try:
+        session=HostedAuth().issue()
+        cookie=f'{hosted_server.COOKIE}={session}'
+        status,_,body=request(port,'GET','/property-review',headers={'Cookie':cookie})
+        assert status==200 and b'/assets/app.js' in body
+        status,headers,body=request(port,'GET','/assets/app.js',headers={'Cookie':cookie})
+        assert status==200 and headers['Content-Type'].startswith('text/javascript') and b'app = true' in body
+        assert request(port,'GET','/assets/../index.html',headers={'Cookie':cookie})[0]==404
     finally:
         server.shutdown();server.server_close();thread.join()
 

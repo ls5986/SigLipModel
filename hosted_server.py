@@ -279,9 +279,18 @@ def create_server(port, app, auth):
             if path == "/mls-validation":
                 page = "mls_validation_ui.html"
                 return self.reply(200,(CODE_ROOT/page).read_bytes(),"text/html; charset=utf-8")
-            if path=="/research":
-                return self.reply(503,b"Prompt-lab research tools require the local research backend. No paid/model action was started.")
-            if path in {"/property-review", "/review"}:
+            if path=="/property-review":
+                built_app=CODE_ROOT/"frontend-dist"/"index.html"
+                if built_app.is_file():
+                    return self.reply(200,built_app.read_bytes(),"text/html; charset=utf-8")
+                return self.reply(303,b"",headers=[("Location","/studio")])
+            if path.startswith("/assets/"):
+                asset=(CODE_ROOT/"frontend-dist"/path.lstrip("/")).resolve()
+                asset_root=(CODE_ROOT/"frontend-dist"/"assets").resolve()
+                if asset_root not in asset.parents or not asset.is_file():
+                    return self.data(404,{"error":"Not found"})
+                return self.reply(200,asset.read_bytes(),mimetypes.guess_type(asset.name)[0] or "application/octet-stream")
+            if path=="/review":
                 return self.reply(303,b"",headers=[("Location","/studio"+("?"+urlparse(self.path).query if urlparse(self.path).query else ""))])
             if path=="/source-evidence":
                 page=(CODE_ROOT/"review_ui.html").read_bytes().replace(
