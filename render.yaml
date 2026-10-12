@@ -6,7 +6,7 @@ services:
     plan: 0.5c-512mb
     branch: develop
     autoDeployTrigger: commit
-    buildCommand: pip install -r requirements-hosted.txt
+    buildCommand: npm ci && npm run build && pip install -r requirements-hosted.txt
     startCommand: python -B hosted_server.py
     healthCheckPath: /health
     envVars:

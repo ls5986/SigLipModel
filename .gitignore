@@ -45,6 +45,8 @@ __pycache__/
 .ruff_cache/
 *.pyc
 node_modules/
+frontend-dist/
+*.tsbuildinfo
 test-results/
 playwright-report/
 *.log
