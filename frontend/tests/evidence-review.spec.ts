@@ -1,29 +1,88 @@
 import { expect, test } from '@playwright/test';
 
-test('shows evidence provenance separately and saves a revisioned human review', async ({ page }) => {
-  const detail = {
-    property: { id: 'listing-17', address: '17 Cedar Avenue', city: 'Columbus', year_built: 1986, property_type: 'Single Family', metadata: {}, review: { revision: 2, status: 'approved', target_score: 3, target_fit: 'unsure', confidence: 'medium', reason: 'Earlier review' }, mls_remarks: 'Updated kitchen.' },
-    images: [{ id: 'listing-17:photo-1', sha256: 'a'.repeat(64), room: 'kitchen', room_source: 'SigLIP suggestion', provider_context: 'subject', provider_context_source: 'MLS description', provider_description: 'Kitchen photo', condition_draft: 'average', effective: { room: 'kitchen', context: 'subject', features: { dated_cabinets: true } }, suggestions: [{ source: 'SigLIP', condition_label: 'average' }], review: { status: 'approved', condition_label: 'average' }, selection: { included: true, reason: 'Subject interior' }, split: 'learning' }],
-    coverage: { kitchen: 'confirmed' }, historical_source: { source_rows: ['source-row-1'], mls_listing: { ListingId: 'MLS-117', StandardStatus: 'Closed', ListPrice: '250000', CloseDate: '2025-02-01' }, evidence_hash: 'e'.repeat(64), acquisition_status: 'prior_acquisition_candidate', photo_coverage: 'confirmed' }, capabilities: { assessment: false, training: false },
-  };
-  await page.route('**/api/studio/review-queue**', route => route.fulfill({ json: { token: 'review-token', items: [{ id: 'listing-17', address: '17 Cedar Avenue', city: 'Columbus', image_count: 1, hero_image_id: 'listing-17:photo-1', status: 'reviewed', needs_photo_match: false }], counts: { todo: 1, verified: 1 }, total: 1 } }));
-  await page.route('**/api/studio/property**', route => route.fulfill({ json: detail }));
-  await page.route('**/api/studio/thumbnail**', route => route.fulfill({ status: 200, contentType: 'image/jpeg', body: Buffer.from('fake-image') }));
+const evidenceId = '11111111-1111-4111-8111-111111111111';
+const groupId = '22222222-2222-4222-8222-222222222222';
+const photoHash = 'a'.repeat(64);
+
+test('paired-condition provenance is distinct and reviewer stays server-bound', async ({ page }) => {
+  await page.route('**/api/studio/paired-condition/status', route => route.fulfill({
+    json: { token: 'review-token', candidate: { candidate_id: 'candidate-current' } },
+  }));
+  await page.route('**/api/studio/paired-condition/list', route => route.fulfill({
+    json: {
+      items: [{
+        group_id: groupId,
+        address: '17 Cedar Avenue',
+        prior_mls: 'MLS-117',
+        last_mls: null,
+        reviewed: true,
+        photo_events: [{ evidence_id: evidenceId, reviewed: true, stored: 1, usable: 1, kitchen_bath: false, best_coverage: false }],
+      }],
+      total: 1,
+      review_batches: {},
+    },
+  }));
+  await page.route('**/api/studio/paired-condition/property**', route => route.fulfill({
+    json: {
+      group_id: groupId,
+      address: '17 Cedar Avenue',
+      apn: '123-456',
+      source: {},
+      candidate: { candidate_id: 'candidate-current' },
+      events: [{
+        evidence_id: evidenceId,
+        event_role: 'acquisition',
+        listing_id: 'MLS-117',
+        listing_key: 'listing-key-117',
+        standard_status: 'Closed',
+        revision: 2,
+        raw_snapshot: { PublicRemarks: 'Updated kitchen.', ListPrice: 250000 },
+        metadata_snapshot: { structured: { YearBuilt: 1986 } },
+        photo_manifest: [{ sha256: photoHash, listing_key: 'listing-key-117' }],
+        prediction: {
+          status: 'completed',
+          candidate_id: 'candidate-current',
+          image: { decision: 'TARGET', strength: 50 },
+          metadata: { decision: 'NOT_TARGET', strength: null },
+          overall: { decision: 'TARGET', strength: 50 },
+          photos: [{ sha256: photoHash, room: 'kitchen', decision: 'TARGET', strength: 50 }],
+        },
+        silver_reference: {
+          image: { decision: 'NOT_TARGET', strength: null },
+          metadata: { decision: 'NOT_TARGET', strength: null },
+          overall: { decision: 'NOT_TARGET', strength: null },
+        },
+        photo_tags: [{ sha256: photoHash, room: 'kitchen', exclusion: 'none', decision: 'NOT_TARGET', strength: null }],
+        review: {
+          image: { decision: 'TARGET', strength: 50, candidate_id: 'candidate-older' },
+          metadata: { decision: 'INSUFFICIENT_EVIDENCE', strength: null, candidate_id: 'candidate-older' },
+          overall: { decision: 'TARGET', candidate_id: 'candidate-older' },
+          notes: { text: 'Earlier review', candidate_id: 'candidate-older' },
+          photo_exclusions: { excluded: {} },
+        },
+      }],
+    },
+  }));
+  await page.route('**/api/studio/paired-review/image**', route => route.fulfill({
+    status: 200,
+    contentType: 'image/jpeg',
+    body: Buffer.from('fake-image'),
+  }));
   let saved: Record<string, unknown> | undefined;
-  await page.route('**/api/studio/review', async route => { saved = route.request().postDataJSON(); await route.fulfill({ json: { revision: 3, saved: true } }); });
+  await page.route('**/api/studio/paired-condition/correct', async route => {
+    saved = route.request().postDataJSON();
+    await route.fulfill({ json: { saved: true, revision: 3, dataset_unchanged: true } });
+  });
 
   await page.goto('/property-review');
   await expect(page.getByRole('heading', { name: '17 Cedar Avenue' })).toBeVisible();
-  await expect(page.getByText('Saved property evidence')).toBeVisible();
-  await expect(page.getByText('Human reviewed', { exact: true })).toBeVisible();
-  await expect(page.getByText('Not training approved')).toBeVisible();
-  await page.getByRole('tab', { name: 'Model outputs' }).click();
-  await expect(page.getByText('SigLIP Suggestion', { exact: true })).toBeVisible();
+  await expect(page.getByText('Current candidate: candidate-current')).toBeVisible();
+  await expect(page.getByText('Current per-photo model probes')).toBeVisible();
+  await expect(page.getByText('Older automated-silver tags')).toBeVisible();
   await page.getByRole('tab', { name: 'Human review' }).click();
-  await page.getByLabel('Target fit score').selectOption('4');
-  await page.getByLabel('Reason').fill('The visible kitchen finishes support a good fit.');
   await page.getByRole('button', { name: 'Save review' }).click();
-  await expect.poll(() => saved?.expected_revision).toBe(2);
-  expect(saved?.target_score).toBe(4);
-  expect(saved?.evidence_source).toBe('both');
+  await expect.poll(() => saved).toBeTruthy();
+  expect(saved).not.toHaveProperty('reviewer');
+  expect(saved?.candidate_id).toBe('candidate-current');
+  expect(saved?.evidence_id).toBe(evidenceId);
 });
