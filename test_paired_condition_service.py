@@ -2,6 +2,7 @@ import base64
 import copy
 import hashlib
 import http.client
+import io
 import json
 import sys
 import threading
@@ -10,6 +11,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
+from PIL import Image
 
 from paired_condition_service import (
     CANDIDATE_SHA256,
@@ -44,6 +46,65 @@ def release_payload():
         },
         "strength_meaning": "uncalibrated target strength, not probability or opportunity",
     }
+
+
+def test_default_vision_encoder_uses_normalized_image_features(monkeypatch):
+    class Tensor:
+        def float(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def tolist(self):
+            return [[0.6, 0.8]]
+
+    class Model:
+        def get_image_features(self, *, pixel_values):
+            assert pixel_values == "pixels"
+            return Tensor()
+
+        def __call__(self, **_inputs):
+            raise AssertionError("full multimodal model requires text input")
+
+    class Torch:
+        class nn:
+            class functional:
+                @staticmethod
+                def normalize(values, *, dim):
+                    assert dim == -1
+                    return values
+
+        @staticmethod
+        def set_num_threads(value):
+            assert value == 1
+
+        @staticmethod
+        def inference_mode():
+            class Context:
+                def __enter__(self):
+                    return None
+
+                def __exit__(self, *_args):
+                    return False
+
+            return Context()
+
+    runtime = SimpleNamespace(
+        revision="vision-revision",
+        torch=Torch(),
+        processor=lambda **_kwargs: {"pixel_values": "pixels"},
+        model=Model(),
+    )
+    monkeypatch.setattr("automatic_labels.SiglipLabels", lambda: runtime)
+    image = io.BytesIO()
+    Image.new("RGB", (1, 1), "white").save(image, format="JPEG")
+
+    result = PairedConditionService(SimpleNamespace())._default_vision_encoder(
+        image.getvalue(), "vision-revision"
+    )
+
+    assert result == [0.6, 0.8]
 
 
 def request_payload(*, photos=True):

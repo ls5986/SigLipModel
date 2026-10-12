@@ -201,8 +201,13 @@ class PairedConditionService:
             image = ImageOps.exif_transpose(source).convert("RGB")
         inputs = self._vision_runtime.processor(images=[image], return_tensors="pt")
         with self._vision_runtime.torch.inference_mode():
-            output = self._vision_runtime.model(**inputs)
-        return output.image_embeds.float().cpu().tolist()[0]
+            vectors = self._vision_runtime.model.get_image_features(
+                pixel_values=inputs["pixel_values"]
+            ).float()
+            vectors = self._vision_runtime.torch.nn.functional.normalize(
+                vectors, dim=-1
+            )
+        return vectors.cpu().tolist()[0]
 
     def _default_text_encoder(self, text: str, identity: str) -> list[float]:
         if self._text_runtime is None:
