@@ -302,6 +302,10 @@ def create_server(port, app, auth):
                 return self.reply(
                     200,(CODE_ROOT/"hosted_status.html").read_bytes(),"text/html; charset=utf-8"
                 )
+            if path=="/paired-feedback":
+                return self.reply(
+                    200,(CODE_ROOT/"hosted_status.html").read_bytes(),"text/html; charset=utf-8"
+                )
             if path=="/workbench":
                 return self.reply(
                     200,(CODE_ROOT/"workbench_ui.html").read_bytes(),"text/html; charset=utf-8"
@@ -420,6 +424,9 @@ def create_server(port, app, auth):
                     return self.data(404,{"error":"Not found"})
                 if path in TRAINING_ACTIONS:
                     require_operator()
+                if path=="/api/studio/paired-feedback/approval":
+                    require_operator()
+                    payload={**payload,"actor":auth.username}
                 if path=="/api/studio/paired-review/save":
                     from paired_review import PairedReview
                     return self.data(200,PairedReview(app.get_studio().store).save(payload,auth.username))

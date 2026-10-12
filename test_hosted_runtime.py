@@ -62,6 +62,23 @@ class MemoryDatabase:
         elif "SELECT DISTINCT ON (e.listing_key)" in sql:
             self.rows = [{"listing_key": "house", "group_id": "synthetic-group",
                           "protected_test": True, "listing": self.listing, "photo_count": 1}]
+        elif ("FROM acq_training.studio_state" in sql and
+              "workspace_id=%s" in sql and "kind='document'" in sql and
+              "item_id LIKE %s" in sql):
+            prefix = params[1].removesuffix("%")
+            self.rows = [
+                {
+                    "item_id": identifier,
+                    "payload": {
+                        key: deepcopy(value)
+                        for key, value in payload.items()
+                        if key != "revision"
+                    },
+                    "revision": payload.get("revision", 1),
+                }
+                for (kind, identifier), payload in self.states.items()
+                if kind == "document" and identifier.startswith(prefix)
+            ]
         elif "FROM acq_training.studio_state" in sql or "FROM acq_training.review_events" in sql:
             pass
         elif "pg_advisory_xact_lock" in sql:
@@ -231,6 +248,72 @@ class HostedRuntimeTests(unittest.TestCase):
             self.assertEqual(status, 200)
             with Image.open(io.BytesIO(blob)) as image:
                 self.assertEqual(image.size, (20, 20))
+
+    def test_paired_feedback_page_lists_history_and_requires_operator_approval(self):
+        from paired_condition_service import RELEASE_ID, digest
+        from test_paired_feedback_inbox import feedback_event
+
+        event = feedback_event(0)
+        event["scored_input"]["request"]["evidence"] = {
+            "photos": [{"photo_id": "photo-1"}],
+        }
+        key = "paired-condition-feedback-inbox:" + event["event_id"]
+        self.database.states[("document", key)] = {
+            "status": "pending",
+            "event_sha256": digest(event),
+            "event": deepcopy(event),
+            "received_at": "2026-10-12T15:00:00+00:00",
+            "training_approved": False,
+            "revision": 1,
+        }
+
+        status, _, page = self.request("GET", "/paired-feedback")
+        self.assertEqual(status, 200)
+        self.assertIn(b"Paired MLS feedback", page)
+        self.assertIn(b"separate from Studio Corrections", page)
+
+        status, _, inbox = self.request(
+            "GET", f"/api/studio/paired-feedback?release_id={RELEASE_ID}"
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(inbox["counts"], {
+            "events": 1,
+            "current": 1,
+            "pending": 1,
+            "held": 0,
+            "approved": 0,
+        })
+        self.assertEqual(inbox["items"][0]["event"]["human_labels"], event["human_labels"])
+        self.assertEqual(inbox["items"][0]["relation"], "current")
+
+        approval = {
+            "event_id": event["event_id"],
+            "event_sha256": digest(event),
+            "usage": "training_candidate",
+            "axis_eligibility": {
+                "image": "excluded",
+                "metadata": "eligible",
+                "overall": "eligible",
+            },
+        }
+        self.assertEqual(
+            self.request("POST", "/api/studio/paired-feedback/approval", approval)[0],
+            403,
+        )
+        with patch.dict(os.environ, {"STUDIO_ROLE": "operator"}):
+            status, _, saved = self.request(
+                "POST", "/api/studio/paired-feedback/approval", approval
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(saved["actor"], "reviewer@example.test")
+        self.assertEqual(saved["usage"], "training_candidate")
+        self.assertEqual(
+            self.database.states[
+                ("document", "paired-condition-feedback-approval:" + event["event_id"])
+            ]["revision"],
+            1,
+        )
+        self.assertFalse(self.database.states[("document", key)]["training_approved"])
 
 
 class AcquisitionMetadataTests(unittest.TestCase):

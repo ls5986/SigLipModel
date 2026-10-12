@@ -48,6 +48,23 @@ class CloudStudio:
     def get(self, path):
         parsed = urlparse(path)
         args = {k:v[0] for k,v in parse_qs(parsed.query).items()}
+        if parsed.path == '/api/studio/paired-feedback':
+            from paired_condition_service import RELEASE_ID
+            from paired_feedback_inbox import feedback_dict, list_feedback
+            release_id = args.get('release_id', RELEASE_ID)
+            reviews = list_feedback(self.store, release_id)
+            return {
+                'release_id':release_id,
+                'counts':{
+                    'events':len(reviews),
+                    'current':sum(item.relation=='current' for item in reviews),
+                    'pending':sum(item.status=='pending' for item in reviews),
+                    'held':sum(item.status=='held' for item in reviews),
+                    'approved':sum(item.status=='approved' for item in reviews),
+                },
+                'items':[feedback_dict(item) for item in reviews],
+                'token':self.app.token,
+            }
         if parsed.path.startswith('/api/studio/v2/'):
             from studio_v2 import get
             return get(self, path)
@@ -112,6 +129,18 @@ class CloudStudio:
 
     def post(self, path, payload):
         from studio_v2 import TRAINING_ACTIONS, require_operator
+        if path == '/api/studio/paired-feedback/approval':
+            from dataclasses import asdict
+            from paired_feedback_inbox import approve_feedback
+            require_operator()
+            return asdict(approve_feedback(
+                self.store,
+                payload.get('event_id',''),
+                payload.get('event_sha256',''),
+                payload.get('actor',''),
+                payload.get('usage',''),
+                axis_eligibility=payload.get('axis_eligibility'),
+            ))
         if path in TRAINING_ACTIONS and self.jobs is not None:
             require_operator()
         if path.startswith('/api/studio/v2/'):
