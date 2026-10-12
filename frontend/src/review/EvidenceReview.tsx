@@ -51,8 +51,9 @@ function reviewCandidate(event?: PairedEvent) {
     || review.notes?.candidate_id;
 }
 
-function draftForEvent(event?: PairedEvent): ReviewDraft {
-  const review = event?.review;
+function draftForEvent(event?: PairedEvent, currentCandidate?: string): ReviewDraft {
+  const storedCandidate = reviewCandidate(event);
+  const review = !currentCandidate || storedCandidate === currentCandidate ? event?.review : undefined;
   return {
     image: review?.image?.decision || 'INSUFFICIENT_EVIDENCE',
     imageStrength: review?.image?.strength || 50,
@@ -191,7 +192,7 @@ export default function EvidenceReview() {
     const detail = await loadProperty(groupId);
     setProperty(detail);
     setEventIndex(0);
-    setDraft(draftForEvent(detail.events[0]));
+    setDraft(draftForEvent(detail.events[0], detail.candidate?.candidate_id));
     setTab('evidence');
     history.replaceState(null, '', `/property-review?property=${encodeURIComponent(groupId)}`);
   }
@@ -226,7 +227,7 @@ export default function EvidenceReview() {
 
   function selectEvent(index: number) {
     setEventIndex(index);
-    setDraft(draftForEvent(property?.events[index]));
+    setDraft(draftForEvent(property?.events[index], property?.candidate?.candidate_id));
     setNotice('');
   }
 
@@ -260,10 +261,23 @@ export default function EvidenceReview() {
         setProperty(updated);
         const updatedIndex = Math.min(eventIndex, Math.max(0, updated.events.length - 1));
         setEventIndex(updatedIndex);
-        setDraft(draftForEvent(updated.events[updatedIndex]));
+        setDraft(draftForEvent(updated.events[updatedIndex], updated.candidate?.candidate_id));
       }
     } catch (caught) {
-      setError((caught as Error).message);
+      const message = (caught as Error).message;
+      if (message.includes('changed in another window') && event.evidence_id) {
+        try {
+          const updated = await loadProperty(property.group_id);
+          const updatedIndex = Math.max(0, updated.events.findIndex(item => item.evidence_id === event.evidence_id));
+          setProperty(updated);
+          setEventIndex(updatedIndex);
+          setError(`${message} The latest revision is loaded and your unsaved inputs were kept.`);
+        } catch (reloadError) {
+          setError(`${message} Reload failed: ${(reloadError as Error).message}`);
+        }
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }

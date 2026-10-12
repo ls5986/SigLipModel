@@ -5,7 +5,12 @@ const groupId = '22222222-2222-4222-8222-222222222222';
 const photoHash = 'a'.repeat(64);
 const secondPhotoHash = 'b'.repeat(64);
 
-async function mockPairedReview(page: Page, reviewCandidate = 'candidate-older', photos = true) {
+async function mockPairedReview(
+  page: Page,
+  reviewCandidate = 'candidate-older',
+  photos = true,
+  revision: number | (() => number) = 2,
+) {
   const manifests = photos ? [
     { sha256: photoHash, listing_key: 'listing-key-117' },
     { sha256: secondPhotoHash, listing_key: 'listing-key-117' },
@@ -48,7 +53,7 @@ async function mockPairedReview(page: Page, reviewCandidate = 'candidate-older',
         listing_id: 'MLS-117',
         listing_key: 'listing-key-117',
         standard_status: 'Closed',
-        revision: 2,
+        revision: typeof revision === 'function' ? revision() : revision,
         raw_snapshot: { PublicRemarks: 'Updated kitchen.', ListPrice: 250000 },
         metadata_snapshot: { structured: { YearBuilt: 1986 } },
         photo_manifest: manifests,
@@ -137,6 +142,17 @@ test('independent review and save and next bind evidence without a browser revie
   expect(saved).not.toHaveProperty('reviewer');
 });
 
+test('independent review does not transfer stale candidate answers into a new correction', async ({ page }) => {
+  await mockPairedReview(page, 'candidate-older');
+  await page.goto('/property-review');
+  await page.getByRole('tab', { name: 'Human review' }).click();
+  await expect(page.getByLabel('Photos decision')).toHaveValue('INSUFFICIENT_EVIDENCE');
+  await expect(page.getByLabel('Metadata decision')).toHaveValue('INSUFFICIENT_EVIDENCE');
+  await expect(page.getByLabel('Overall decision')).toHaveValue('INSUFFICIENT_EVIDENCE');
+  await expect(page.getByLabel('Review notes')).toHaveValue('');
+  await expect(page.getByText('Earlier prediction review — not transferred')).toBeVisible();
+});
+
 test('independent review requires Cannot tell when no usable photos exist', async ({ page }) => {
   await mockPairedReview(page, 'candidate-current', false);
   await page.goto('/property-review');
@@ -146,17 +162,31 @@ test('independent review requires Cannot tell when no usable photos exist', asyn
 });
 
 test('revision conflict keeps independent review values for retry', async ({ page }) => {
-  await mockPairedReview(page);
-  await page.route('**/api/studio/paired-condition/correct', route => route.fulfill({
-    status: 409,
-    json: { error: 'This listing changed in another window. Reload before saving.' },
-  }));
+  let revision = 2;
+  const attempts: Array<Record<string, unknown>> = [];
+  await mockPairedReview(page, 'candidate-current', true, () => revision);
+  await page.route('**/api/studio/paired-condition/correct', async route => {
+    attempts.push(route.request().postDataJSON());
+    if (attempts.length === 1) {
+      revision = 3;
+      await route.fulfill({
+        status: 409,
+        json: { error: 'This listing changed in another window. Reload before saving.' },
+      });
+    } else {
+      await route.fulfill({ json: { saved: true, revision: 4, dataset_unchanged: true } });
+    }
+  });
   await page.goto('/property-review');
   await page.getByRole('tab', { name: 'Human review' }).click();
   await page.getByLabel('Review notes').fill('Keep this value after conflict.');
   await page.getByRole('button', { name: 'Save review' }).click();
   await expect(page.getByRole('alert')).toContainText('changed in another window');
   await expect(page.getByLabel('Review notes')).toHaveValue('Keep this value after conflict.');
+  await page.getByRole('button', { name: 'Save review' }).click();
+  await expect.poll(() => attempts.length).toBe(2);
+  expect(attempts[0].expected_revision).toBe(2);
+  expect(attempts[1].expected_revision).toBe(3);
 });
 
 test('API failure is an error and never an empty queue', async ({ page }) => {
