@@ -301,6 +301,15 @@ def test_partial_prediction_requires_explicit_modality_error():
         validate_paired(payload, "prediction")
 
 
+def test_modality_error_cannot_be_reported_as_overall_not_target():
+    payload = prediction_payload()
+    payload["overall"] = decision("NOT_TARGET", affinity=0.1)
+    with pytest.raises(
+        ValueError, match="Predictions with modality errors cannot be overall NOT_TARGET"
+    ):
+        validate_paired(payload, "prediction")
+
+
 class Store:
     workspace = "model-development"
 
@@ -363,6 +372,47 @@ def test_inference_sanitizes_private_remarks_and_keeps_metadata_when_photos_miss
     assert result["modality_errors"][0]["modality"] == "image"
     assert "Original kitchen needs repair" in captured["text"]
     assert "Gate code" not in captured["text"] and "555-111-2222" not in captured["text"]
+
+
+def test_missing_modality_preserves_raw_negative_but_abstains_overall(monkeypatch):
+    store = Store()
+    monkeypatch.setattr("paired_condition_service.load_verified_package", lambda _store: fake_package())
+    raw_negative = decision("NOT_TARGET", affinity=0.1)
+    monkeypatch.setattr(
+        "release_sources.trained_classifier.predict",
+        lambda _bundle, _rows: [
+            {
+                "image": raw_negative,
+                "text": raw_negative,
+                "structured": decision(),
+                "metadata": raw_negative,
+                "overall": raw_negative,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "release_sources.trained_classifier.predict_component",
+        lambda *_args: [0.1],
+    )
+    payload = request_payload()
+    payload["idempotency_key"] = payload["request_id"]
+    payload["evidence"]["public_remarks"] = "Fully updated and move-in ready."
+    payload["evidence"]["private_remarks"] = ""
+    payload["evidence"]["structured"] = {}
+    service = PairedConditionService(
+        store,
+        vision_encoder=lambda *_: [0.2, 0.3],
+        text_encoder=lambda *_: [0.1],
+    )
+
+    result = service.infer(payload)
+
+    assert result["status"] == "partial"
+    assert result["learned_prediction"]["overall"]["decision"] == "NOT_TARGET"
+    assert result["overall"]["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert [error["code"] for error in result["modality_errors"]] == [
+        "missing_structured_evidence"
+    ]
 
 
 def test_photo_cache_uses_content_hash_and_encoder_identity(monkeypatch):

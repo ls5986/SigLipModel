@@ -65,6 +65,8 @@ def _validate_semantics(payload: dict[str, Any], kind: Kind) -> None:
             raise ValueError("Complete predictions cannot contain modality errors")
         if payload["status"] == "partial" and not payload["modality_errors"]:
             raise ValueError("Partial predictions require explicit modality errors")
+        if payload["modality_errors"] and payload["overall"]["decision"] == "NOT_TARGET":
+            raise ValueError("Predictions with modality errors cannot be overall NOT_TARGET")
         if payload["status"] == "unavailable" and payload["overall"]["decision"] != (
             "INSUFFICIENT_EVIDENCE"
         ):
@@ -485,6 +487,12 @@ class PairedConditionService:
                         "retryable": False,
                     }
                 )
+        if errors and adjusted["overall"]["decision"] == "NOT_TARGET":
+            adjusted["overall"] = _unknown(
+                "Missing modality evidence prevents a safe NOT TARGET decision."
+            )
+            adjusted["evidence_policy"]["reason"] = "missing_modality_evidence"
+            adjusted["evidence_policy"]["needs_review"] = True
         if classifier_failed:
             status = "unavailable"
         elif all(availability.values()) and not errors:
