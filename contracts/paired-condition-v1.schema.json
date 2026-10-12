@@ -1,0 +1,986 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://acq-bot.local/contracts/paired-condition-v1.schema.json",
+  "title": "ActVision paired condition v1",
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "strength",
+        "affinity"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "TARGET",
+            "NOT_TARGET",
+            "INSUFFICIENT_EVIDENCE"
+          ]
+        },
+        "strength": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "affinity": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "TARGET"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "strength": {
+                "type": "integer",
+                "minimum": 50,
+                "maximum": 100
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "strength": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "encoders": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vision_revision",
+        "text_checkpoint_sha256"
+      ],
+      "properties": {
+        "vision_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "text_checkpoint_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "release_id",
+        "candidate_sha256",
+        "manifest_sha256",
+        "evidence_policy_version",
+        "mode",
+        "production_ready",
+        "encoders",
+        "strength_meaning"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "actvision-paired-condition-v1"
+        },
+        "release_id": {
+          "const": "f9bac37b-3ac4-4b64-9b54-cd9581bd226a"
+        },
+        "candidate_sha256": {
+          "const": "09a9cbe6877d9dfc6ee4899640c0b4dfd502d5be79a49f0d7be1cb1aa3556b6f"
+        },
+        "manifest_sha256": {
+          "const": "3bcf16d679e032d8d7ac8520ca209ef6532c1b35472df8ca3ae5a29bedb2d273"
+        },
+        "evidence_policy_version": {
+          "const": "remarks-condition-evidence-v3"
+        },
+        "mode": {
+          "const": "development"
+        },
+        "production_ready": {
+          "const": false
+        },
+        "encoders": {
+          "$ref": "#/$defs/encoders"
+        },
+        "strength_meaning": {
+          "const": "uncalibrated target strength, not probability or opportunity"
+        }
+      }
+    },
+    "listing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "listing_key",
+        "physical_property_id"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "listing_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "listing_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 500
+        },
+        "physical_property_id": {
+          "$ref": "#/$defs/uuid"
+        }
+      }
+    },
+    "structured": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "YearBuilt": {
+          "type": [
+            "number",
+            "string",
+            "null"
+          ]
+        },
+        "LivingArea": {
+          "type": [
+            "number",
+            "string",
+            "null"
+          ]
+        },
+        "BedroomsTotal": {
+          "type": [
+            "number",
+            "string",
+            "null"
+          ]
+        },
+        "BathroomsTotalInteger": {
+          "type": [
+            "number",
+            "string",
+            "null"
+          ]
+        },
+        "LotSizeSquareFeet": {
+          "type": [
+            "number",
+            "string",
+            "null"
+          ]
+        },
+        "AssociationFee": {
+          "type": [
+            "number",
+            "string",
+            "null"
+          ]
+        },
+        "PropertyType": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "PropertySubType": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "PropertyAttachedYN": {
+          "type": [
+            "string",
+            "boolean",
+            "null"
+          ]
+        },
+        "AssociationYN": {
+          "type": [
+            "string",
+            "boolean",
+            "null"
+          ]
+        },
+        "Appliances": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "Flooring": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "Heating": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "Cooling": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "Roof": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "ConstructionMaterials": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "Sewer": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "PropertyCondition": {
+          "type": [
+            "string",
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "photo_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "photo_id",
+        "provider_media_id",
+        "uri",
+        "uri_sha256",
+        "content_sha256",
+        "content_base64",
+        "room",
+        "exclusion"
+      ],
+      "properties": {
+        "photo_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "provider_media_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "uri_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "content_sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "content_base64": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "contentEncoding": "base64",
+          "maxLength": 12000000
+        },
+        "room": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "exclusion": {
+          "enum": [
+            "none",
+            "floor_plan",
+            "amenity",
+            "artificial_or_staged",
+            "unrelated",
+            "user_excluded"
+          ]
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "request_id",
+        "idempotency_key",
+        "release_id",
+        "manifest_sha256",
+        "workspace_id",
+        "evidence_id",
+        "requested_at",
+        "listing",
+        "evidence"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "actvision-paired-condition-v1"
+        },
+        "request_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/uuid"
+        },
+        "release_id": {
+          "const": "f9bac37b-3ac4-4b64-9b54-cd9581bd226a"
+        },
+        "manifest_sha256": {
+          "const": "3bcf16d679e032d8d7ac8520ca209ef6532c1b35472df8ca3ae5a29bedb2d273"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "evidence_id": {
+          "$ref": "#/$defs/sha256"
+        },
+        "requested_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "listing": {
+          "$ref": "#/$defs/listing"
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "captured_at",
+            "media_generation",
+            "media_timestamp",
+            "public_remarks",
+            "private_remarks",
+            "structured",
+            "photos"
+          ],
+          "properties": {
+            "captured_at": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "media_generation": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 500
+            },
+            "media_timestamp": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "public_remarks": {
+              "type": "string",
+              "maxLength": 50000
+            },
+            "private_remarks": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 50000
+            },
+            "structured": {
+              "$ref": "#/$defs/structured"
+            },
+            "photos": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "$ref": "#/$defs/photo_input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "evidence_signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_field",
+        "category",
+        "scope",
+        "confidence",
+        "phrase",
+        "snippet",
+        "start_offset",
+        "end_offset"
+      ],
+      "properties": {
+        "source_field": {
+          "enum": [
+            "PublicRemarks",
+            "PrivateRemarks"
+          ]
+        },
+        "category": {
+          "enum": [
+            "dated",
+            "fully_updated",
+            "room_updated",
+            "opportunity_language"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "room",
+            "whole_property"
+          ]
+        },
+        "confidence": {
+          "enum": [
+            "low",
+            "high"
+          ]
+        },
+        "phrase": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "snippet": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "start_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_offset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "reason",
+        "signals",
+        "condition_signal",
+        "conflict",
+        "needs_review",
+        "automated",
+        "not_human_review"
+      ],
+      "properties": {
+        "version": {
+          "const": "remarks-condition-evidence-v3"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4000
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_signal"
+          }
+        },
+        "condition_signal": {
+          "enum": [
+            "mixed_condition",
+            "dated_or_rehab_needed",
+            "whole_property_updated",
+            "unknown"
+          ]
+        },
+        "conflict": {
+          "type": "boolean"
+        },
+        "needs_review": {
+          "type": "boolean"
+        },
+        "automated": {
+          "const": true
+        },
+        "not_human_review": {
+          "const": true
+        }
+      }
+    },
+    "photo_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "photo_id",
+        "provider_media_id",
+        "content_sha256",
+        "room",
+        "exclusion",
+        "result",
+        "error"
+      ],
+      "properties": {
+        "photo_id": {
+          "type": "string"
+        },
+        "provider_media_id": {
+          "type": "string"
+        },
+        "content_sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "room": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exclusion": {
+          "type": "string"
+        },
+        "result": {
+          "$ref": "#/$defs/decision"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1000
+        }
+      }
+    },
+    "modality_error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "modality",
+        "code",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "modality": {
+          "enum": [
+            "image",
+            "remarks",
+            "structured",
+            "metadata",
+            "overall"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "learned_prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "image",
+        "remarks",
+        "structured",
+        "metadata",
+        "overall"
+      ],
+      "properties": {
+        "image": {
+          "$ref": "#/$defs/decision"
+        },
+        "remarks": {
+          "$ref": "#/$defs/decision"
+        },
+        "structured": {
+          "$ref": "#/$defs/decision"
+        },
+        "metadata": {
+          "$ref": "#/$defs/decision"
+        },
+        "overall": {
+          "$ref": "#/$defs/decision"
+        }
+      }
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "prediction_id",
+        "request_id",
+        "evidence_id",
+        "release",
+        "status",
+        "image",
+        "remarks",
+        "structured",
+        "metadata",
+        "overall",
+        "learned_prediction",
+        "evidence_policy",
+        "photo_evidence",
+        "coverage",
+        "modality_errors",
+        "created_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "actvision-paired-condition-v1"
+        },
+        "prediction_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "request_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "evidence_id": {
+          "$ref": "#/$defs/sha256"
+        },
+        "release": {
+          "$ref": "#/$defs/release"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "image": {
+          "$ref": "#/$defs/decision"
+        },
+        "remarks": {
+          "$ref": "#/$defs/decision"
+        },
+        "structured": {
+          "$ref": "#/$defs/decision"
+        },
+        "metadata": {
+          "$ref": "#/$defs/decision"
+        },
+        "overall": {
+          "$ref": "#/$defs/decision"
+        },
+        "learned_prediction": {
+          "$ref": "#/$defs/learned_prediction"
+        },
+        "evidence_policy": {
+          "$ref": "#/$defs/policy"
+        },
+        "photo_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/photo_evidence"
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selected_photo_count",
+            "usable_photo_count",
+            "missing_photo_count"
+          ],
+          "properties": {
+            "selected_photo_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "usable_photo_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing_photo_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "modality_errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/modality_error"
+          }
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "event_id",
+        "idempotency_key",
+        "workspace_id",
+        "prediction_id",
+        "request_id",
+        "evidence_id",
+        "release",
+        "scored_input",
+        "human_labels",
+        "corrected_photos",
+        "supporting_remark_quotes",
+        "notes",
+        "reviewer_id",
+        "reviewed_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "actvision-paired-condition-v1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/uuid"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "prediction_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "request_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "evidence_id": {
+          "$ref": "#/$defs/sha256"
+        },
+        "release": {
+          "$ref": "#/$defs/release"
+        },
+        "scored_input": {
+          "type": "object"
+        },
+        "human_labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "image",
+            "metadata",
+            "overall"
+          ],
+          "properties": {
+            "image": {
+              "$ref": "#/$defs/decision"
+            },
+            "metadata": {
+              "$ref": "#/$defs/decision"
+            },
+            "overall": {
+              "$ref": "#/$defs/decision"
+            }
+          }
+        },
+        "corrected_photos": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "photo_id",
+              "excluded",
+              "exclusion_reason"
+            ],
+            "properties": {
+              "photo_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "excluded": {
+                "type": "boolean"
+              },
+              "exclusion_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 1000
+              }
+            }
+          }
+        },
+        "supporting_remark_quotes": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "reviewer_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "reviewed_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "event_id",
+        "status",
+        "inbox_status"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "actvision-paired-condition-v1"
+        },
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "status": {
+          "enum": [
+            "accepted",
+            "duplicate"
+          ]
+        },
+        "inbox_status": {
+          "const": "pending"
+        }
+      }
+    }
+  }
+}

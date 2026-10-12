@@ -106,10 +106,53 @@ def test_review_is_explicit_conflict_checked_and_separate_from_property(tmp_path
         store.save_review(payload)
     store.save_review({"kind": "property", "id": "p1", "expected_revision": 0,
                        "reviewer": "Reviewer", "status": "approved", "target_fit": "not_target",
+                       "target_score": 2, "confidence": "high", "evidence_source": "both",
+                       "reason_tags": ["Too updated"], "standout_image_ids": ["p1:m1"],
                        "condition_label": "mixed", "reason": "Not enough scope"})
     restored = StudioStore(store.root, store.source)
     assert restored.property("p1")["images"][0]["review"]["room"] == "bathroom"
     assert restored.property("p1")["images"][0]["review"]["preference"] == "target"
+    property_review = restored.property("p1")["property"]["review"]
+    assert property_review["target_score"] == 2
+    assert property_review["standout_image_ids"] == ["p1:m1"]
+
+
+def test_property_rating_must_match_derived_target_and_own_its_evidence(tmp_path):
+    store = imported_store(tmp_path)
+    with pytest.raises(ValueError, match="disagree"):
+        store.save_review({
+            "kind": "property", "id": "p1", "expected_revision": 0,
+            "reviewer": "Reviewer", "status": "approved", "target_fit": "target",
+            "target_score": 1, "condition_label": "updated", "reason": "Mismatch",
+        })
+
+
+def test_condition_and_modernization_are_independent_and_unknown_is_allowed(tmp_path):
+    store = imported_store(tmp_path)
+    saved = store.save_review({
+        "kind":"property","id":"p1","expected_revision":0,"reviewer":"Reviewer",
+        "status":"approved","target_fit":"target","target_score":4,
+        "condition_label":"maintained_original",
+        "physical_condition":"C3_WELL_MAINTAINED",
+        "modernization_state":"ORIGINAL",
+        "reason":"Well maintained but original finishes.",
+    })
+    assert saved["physical_condition"] == "C3_WELL_MAINTAINED"
+    assert saved["modernization_state"] == "ORIGINAL"
+    with pytest.raises(ValueError, match="physical condition"):
+        store.save_review({
+            "kind":"property","id":"p1","expected_revision":1,"reviewer":"Reviewer",
+            "status":"approved","target_fit":"target","target_score":4,
+            "physical_condition":"C7_UNKNOWN","modernization_state":"UNKNOWN",
+            "reason":"Invalid condition.",
+        })
+    with pytest.raises(ValueError, match="Standout"):
+        store.save_review({
+            "kind": "property", "id": "p1", "expected_revision": 0,
+            "reviewer": "Reviewer", "status": "approved", "target_fit": "target",
+            "target_score": 5, "condition_label": "dated", "reason": "Strong",
+            "standout_image_ids": ["another:image"],
+        })
 
 
 def test_llm_apply_creates_drafts_and_never_overwrites_human_labels(tmp_path):
@@ -190,3 +233,17 @@ def test_strict_room_score_filter_precedes_pagination_and_excludes_unknown(tmp_p
     assert page["items"][0]["id"] == "p1:m3"
     with pytest.raises(ValueError):
         store.image_list(score_above="nan")
+
+
+@pytest.mark.parametrize("condition", ["slightly_dated", "maintained_original", "updated"])
+def test_maintained_property_can_be_positive_without_approving_photos(tmp_path, condition):
+    store = imported_store(tmp_path)
+    store.save_review({"kind": "property", "id": "p1", "expected_revision": 0,
+        "reviewer": "Reviewer", "status": "approved", "target_score": 4, "target_fit": "target",
+        "condition_label": condition, "fit_basis": "pricing", "evidence_source": "both",
+        "reason": "Well maintained; asking price makes it worth investigating."})
+    prop = store.property("p1")
+    assert prop["property"]["review"]["target_fit"] == "target"
+    assert prop["property"]["review"]["fit_basis"] == "pricing"
+    assert prop["property"]["review"]["condition_label"] == condition
+    assert prop["images"][0]["review"]["status"] == "unreviewed"

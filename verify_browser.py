@@ -58,6 +58,7 @@ with tempfile.TemporaryDirectory() as directory:
         assert len(calls) == 1
         review = store.property("p1")["property"]["review"]
         assert review["status"] == "approved" and review["target_fit"] == "unsure"
+        assert review["target_score"] is None and review["evidence_source"] == "insufficient"
         assert store.property("p1")["images"][0]["review"]["status"] == "unreviewed"
     finally:
         server.shutdown()

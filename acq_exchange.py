@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from config import CODE_ROOT
 from model_loop import candidate, status
 from pilot import read_json, write_json
+from property_models import ACCEPTED_METADATA_KEYS, PREDICTION_MODES
 
 
 def digest(value):
@@ -19,16 +20,45 @@ def digest(value):
 
 
 def validate_request(request):
-    if not isinstance(request, dict) or set(request) != {"schema_version", "comparison_id", "baseline", "photos", "request_sha256"}:
+    if not isinstance(request, dict):
         raise ValueError("Choose an ACQ BOT test request JSON file")
-    if request["schema_version"] != "acq-siglip-request-v1":
+    if len(json.dumps(request, ensure_ascii=True)) > 100_000:
+        raise ValueError("Comparison request is too large")
+    version = request.get("schema_version")
+    fields = {
+        "acq-siglip-request-v1": {
+            "schema_version", "comparison_id", "baseline", "photos", "request_sha256",
+        },
+        "acq-property-request-v2": {
+            "schema_version", "comparison_id", "property_id", "baseline",
+            "metadata", "photos", "requested_mode", "request_sha256",
+        },
+    }
+    if version not in fields or set(request) != fields[version]:
         raise ValueError("Unsupported test request version")
     UUID(request["comparison_id"])
     if digest({k: v for k, v in request.items() if k != "request_sha256"}) != request["request_sha256"]:
         raise ValueError("Test request checksum mismatch")
     photos = request["photos"]
-    if not isinstance(photos, list) or not 1 <= len(photos) <= 12:
-        raise ValueError("Choose a request with 1 to 12 photos")
+    minimum = 1 if version == "acq-siglip-request-v1" else 0
+    if not isinstance(photos, list) or not minimum <= len(photos) <= 12:
+        raise ValueError(f"Choose a request with {minimum} to 12 photos")
+    if version == "acq-property-request-v2":
+        if not isinstance(request["property_id"], str) or not 1 <= len(request["property_id"]) <= 200:
+            raise ValueError("Invalid property identity")
+        if request["requested_mode"] not in PREDICTION_MODES:
+            raise ValueError("Unsupported prediction mode")
+        if not isinstance(request["baseline"], dict):
+            raise ValueError("Invalid baseline summary")
+        metadata = request["metadata"]
+        if not isinstance(metadata, dict) or set(metadata) - ACCEPTED_METADATA_KEYS:
+            raise ValueError("Metadata contains unsupported or potentially post-decision fields")
+        if len(json.dumps(metadata, ensure_ascii=True)) > 32_000:
+            raise ValueError("Metadata snapshot is too large")
+        if any(isinstance(value, (dict, list)) for value in metadata.values()):
+            raise ValueError("Metadata values must be scalar")
+        if not photos and not metadata:
+            raise ValueError("Request needs photos, supported metadata, or both")
     hosts = set()
     for i, photo in enumerate(photos, 1):
         if set(photo) != {"image_id", "url"} or photo["image_id"] != f"photo-{i}":
@@ -74,7 +104,8 @@ class Exchange:
         write_json(folder / "input.json", frozen)
         result = {"id": identifier, "status": "preview", "hosts": hosts,
                   "photos": len(request["photos"]), "model_version": pointer["version"],
-                  "baseline": request["baseline"]}
+                  "baseline": request["baseline"],
+                  "requested_mode": request.get("requested_mode", "images_only")}
         write_json(folder / "status.json", result)
         return result
 

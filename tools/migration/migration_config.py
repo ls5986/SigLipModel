@@ -3,10 +3,13 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from config import DATA_ROOT, EVIDENCE_ROOT
 
 PILOT = DATA_ROOT
+load_dotenv(PILOT / ".env.migration", override=False)
 HISTORICAL_ROOT = DATA_ROOT / "historical_samples" / "2026-09-27"
 REPORT_ROOT = Path(os.environ.get("ACQ_REPORT_ROOT") or EVIDENCE_ROOT.parent).expanduser().resolve()
 PROJECT = os.environ.get("SUPABASE_PROJECT_REF", "")

@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: acq-vision-studio-dev
+    runtime: python
+    region: ohio
+    plan: 0.5c-512mb
+    branch: develop
+    autoDeployTrigger: commit
+    buildCommand: npm ci && npm run build && pip install -r requirements-hosted.txt
+    startCommand: python -B hosted_server.py
+    healthCheckPath: /health
+    envVars:
+      - key: STUDIO_DATA_BACKEND
+        value: supabase
+      - key: SUPABASE_PROJECT_REF
+        sync: false
+      - key: STUDIO_DATABASE_URL
+        sync: false
+      - key: STUDIO_WORKSPACE_ID
+        sync: false
+      - key: STUDIO_STORAGE_SECRET
+        sync: false
+      - key: MLS_SOURCE_SUPABASE_URL
+        value: https://uxlfqsgynbbgspaakzey.supabase.co
+      - key: MLS_SOURCE_DATABASE_URL
+        sync: false
+      - key: TRESTLE_CLIENT_ID
+        sync: false
+      - key: TRESTLE_CLIENT_SECRET
+        sync: false
+      - key: STUDIO_PUBLIC_ORIGIN
+        sync: false
+      - key: STUDIO_LOGIN_USERNAME
+        sync: false
+      - key: STUDIO_LOGIN_PASSWORD
+        sync: false
+      - key: STUDIO_SESSION_SECRET
+        generateValue: true
+      - key: STUDIO_CACHE_DIR
+        value: /tmp/acq-vision-cache
+      - key: STUDIO_AUTOLABEL_PROVIDER
+        value: hybrid
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: STUDIO_OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: STUDIO_OPENAI_MAX_CALLS_PER_DAY
+        value: "100"

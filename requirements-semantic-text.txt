@@ -1,0 +1,2 @@
+# Optional candidate-training dependency; not part of hosted web/label worker.
+sentence-transformers>=3.4,<6

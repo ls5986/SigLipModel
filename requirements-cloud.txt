@@ -1,0 +1,2 @@
+# Additional backend-only dependency. Does not install PyTorch or change model versions.
+psycopg[binary]==3.2.9

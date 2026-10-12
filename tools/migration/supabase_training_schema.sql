@@ -54,6 +54,8 @@ create table acq_training.examples (
     target_transaction jsonb not null,
     source_snapshot jsonb not null,
     snapshot_at timestamptz not null,
+    available_modalities text[] not null default '{}'
+        check (available_modalities <@ array['images','metadata']::text[]),
     match_status text not null check (match_status in ('unresolved','candidate','confirmed','rejected')),
     photo_era text not null default 'unknown'
         check (photo_era in ('unknown','acquisition_candidate','acquisition_confirmed','later_resale')),
@@ -78,7 +80,8 @@ create table acq_training.photos (
     retention_until timestamptz,
     revoked_at timestamptz,
     context text not null default 'unknown' check
-        (context in ('unknown','subject_interior','subject_exterior','shared_amenity','floor_plan','unrelated')),
+        (context in ('unknown','subject','subject_interior','subject_exterior',
+                     'shared_amenity','floor_plan','unrelated')),
     context_evidence jsonb not null default '{}',
     primary key (workspace_id,id),
     unique (workspace_id,example_id,provider_media_key,image_sha256),
@@ -91,7 +94,9 @@ create table acq_training.review_events (
     example_id uuid not null,
     photo_id uuid,
     task text not null check (task in
-        ('photo_room','photo_features','photo_preference','property_condition','property_target','comp_quality','economics')),
+        ('photo_context','photo_room','photo_features','photo_target_signal',
+         'property_condition','property_target','property_priority',
+         'property_evidence','comp_quality','economics')),
     answer jsonb not null,
     status text not null check (status in ('draft','approved','unsure')),
     reviewer_id text not null,
@@ -110,6 +115,8 @@ create table acq_training.datasets (
     id uuid not null default gen_random_uuid(),
     name text not null,
     version integer not null check (version>0),
+    purpose text not null default 'training'
+        check (purpose in ('training','benchmark','challenge','temporal_shadow')),
     manifest_sha256 text,
     label_policy jsonb not null,
     frozen_at timestamptz,
@@ -162,6 +169,49 @@ create table acq_training.model_runs (
                                     and metrics is not null and completed_at is not null))
 );
 
+create table acq_training.evaluation_slices (
+    workspace_id uuid not null,
+    id uuid not null default gen_random_uuid(),
+    dataset_id uuid not null,
+    name text not null,
+    definition jsonb not null,
+    protected boolean not null default true,
+    primary key (workspace_id,id),
+    unique (workspace_id,dataset_id,name),
+    foreign key (workspace_id,dataset_id) references acq_training.datasets(workspace_id,id)
+);
+
+create table acq_training.evaluation_slice_groups (
+    workspace_id uuid not null,
+    slice_id uuid not null,
+    group_id uuid not null,
+    primary key (workspace_id,slice_id,group_id),
+    foreign key (workspace_id,slice_id) references acq_training.evaluation_slices(workspace_id,id),
+    foreign key (workspace_id,group_id) references acq_training.property_groups(workspace_id,id)
+);
+
+create table acq_training.model_releases (
+    workspace_id uuid not null,
+    id uuid not null default gen_random_uuid(),
+    name text not null,
+    version integer not null check (version>0),
+    vision_run_id uuid,
+    metadata_run_id uuid,
+    fusion_run_id uuid,
+    status text not null check (status in ('candidate','approved','retired')),
+    evaluation_summary jsonb not null,
+    approved_by text,
+    approved_at timestamptz,
+    created_at timestamptz not null default now(),
+    primary key (workspace_id,id),
+    unique (workspace_id,name,version),
+    foreign key (workspace_id,vision_run_id) references acq_training.model_runs(workspace_id,id),
+    foreign key (workspace_id,metadata_run_id) references acq_training.model_runs(workspace_id,id),
+    foreign key (workspace_id,fusion_run_id) references acq_training.model_runs(workspace_id,id),
+    check (vision_run_id is not null or metadata_run_id is not null),
+    check (status <> 'approved' or (approved_by is not null and approved_at is not null))
+);
+
 create table acq_training.predictions (
     workspace_id uuid not null,
     id uuid not null default gen_random_uuid(),
@@ -171,6 +221,12 @@ create table acq_training.predictions (
     task text not null,
     evidence_identity text not null,
     model_version text not null,
+    model_release_id uuid,
+    requested_mode text not null default 'automatic' check
+        (requested_mode in ('automatic','images_only','metadata_only','images_and_metadata')),
+    mode_used text not null default 'insufficient_evidence' check
+        (mode_used in ('images_only','metadata_only','images_and_metadata','insufficient_evidence')),
+    component_versions jsonb not null default '{}',
     prompt_hash text,
     bucket text,
     scores jsonb not null,
@@ -183,6 +239,7 @@ create table acq_training.predictions (
     created_at timestamptz not null default now(),
     primary key (workspace_id,id),
     foreign key (workspace_id,run_id) references acq_training.model_runs(workspace_id,id),
+    foreign key (workspace_id,model_release_id) references acq_training.model_releases(workspace_id,id),
     foreign key (workspace_id,example_id) references acq_training.examples(workspace_id,id),
     foreign key (workspace_id,photo_id) references acq_training.photos(workspace_id,id)
 );
@@ -233,7 +290,8 @@ declare table_name text;
 begin
     foreach table_name in array array[
         'property_groups','examples','photos','review_events','datasets','dataset_groups',
-        'dataset_items','model_runs','predictions'
+        'dataset_items','model_runs','evaluation_slices','evaluation_slice_groups',
+        'model_releases','predictions'
     ] loop
         execute format('alter table acq_training.%I enable row level security',table_name);
         execute format('revoke all on acq_training.%I from public,anon,authenticated',table_name);
@@ -249,8 +307,9 @@ grant insert on acq_training.property_groups,acq_training.examples,acq_training.
     acq_training.model_runs,acq_training.predictions to acq_training_worker;
 grant update(status,artifact_object_key,artifact_sha256,metrics,error_code,completed_at)
     on acq_training.model_runs to acq_training_worker;
--- Dataset freezing/identity adjudication stays administrative until a narrowly
--- scoped publication RPC is reviewed. No worker can edit human answers or splits.
+-- Dataset freezing, evaluation-slice membership, identity adjudication and model
+-- release promotion stay administrative until narrowly scoped RPCs are reviewed.
+-- No worker can edit human answers, protected splits or release status.
 -- Source SELECT grants and private Storage object policies are intentionally not
 -- included: review actual source views and storage permissions before connecting.
 commit;

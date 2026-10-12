@@ -38,6 +38,7 @@ acquisition_audit.json
 
 # Rebuildable environments, caches and test output
 .venv/
+.venv-hosted/
 .cache/
 __pycache__/
 .pytest_cache/
@@ -45,6 +46,8 @@ __pycache__/
 .ruff_cache/
 *.pyc
 node_modules/
+frontend-dist/
+*.tsbuildinfo
 test-results/
 playwright-report/
 *.log

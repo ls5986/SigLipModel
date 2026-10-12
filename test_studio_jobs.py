@@ -49,6 +49,8 @@ def test_property_target_and_machine_proposals_do_not_train_image_heads(tmp_path
     assert examples[0]["room"] is None
     assert examples[0]["features"] == {}
     assert examples[0]["preference"] is None
+    properties = jobs._property_snapshot()
+    assert properties[0]["review"]["target_fit"] == "target"
     store.save_review({"kind": "image", "id": "p1:m1", "expected_revision": 0,
                        "reviewer": "Reviewer", "status": "approved", "room": "bathroom",
                        "features": {"old_cabinetry": None}, "preference": "unsure"})
@@ -59,7 +61,27 @@ def test_property_target_and_machine_proposals_do_not_train_image_heads(tmp_path
     preview = jobs.preview("train")
     assert preview["approved_rooms"] == 1
     assert preview["approved_preferences"] == 0
+    assert preview["approved_property_targets"] == 1
     assert preview["new_embeddings_needed"] == 1
+
+
+def test_only_approved_human_context_enters_training_snapshot(tmp_path):
+    store = imported_store(tmp_path)
+    jobs = StudioJobs(store, store.root)
+    store.save_review({
+        "kind": "image", "id": "p1:m1", "expected_revision": 0,
+        "reviewer": "Reviewer", "status": "draft", "room": "other",
+        "context": "floor_plan", "features": {}, "preference": None,
+    })
+    rows, _ = jobs._snapshot()
+    assert rows[0]["photo_context"] is None
+    store.save_review({
+        "kind": "image", "id": "p1:m1", "expected_revision": 1,
+        "reviewer": "Reviewer", "status": "approved", "room": "other",
+        "context": "floor_plan", "features": {}, "preference": None,
+    })
+    rows, _ = jobs._snapshot()
+    assert rows[0]["photo_context"] == "floor_plan"
 
 
 def test_explicit_prelabel_start_freezes_labels_and_has_no_cloud_transport(tmp_path):

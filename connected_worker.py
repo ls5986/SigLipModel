@@ -110,7 +110,15 @@ class ConnectedWorker:
         if self.capability is None or time.monotonic() - self.checked > 60:
             state = status(self.jobs)
             self.capability = {key: state.get(key) for key in ("version", "heads_sha256", "review_fingerprint")}
-            self.capability.update(ready=state["ready"], reason=state["reason"][:400])
+            self.capability.update(
+                ready=state["ready"], reason=state["reason"][:400],
+                components=state.get("components", {}),
+                component_versions=state.get("component_versions", {}),
+                prediction_modes=[
+                    "automatic", "images_only", "metadata_only", "images_and_metadata",
+                ],
+                request_schema_versions=["acq-siglip-request-v1", "acq-property-request-v2"],
+            )
             self.checked = time.monotonic()
         return {**self.capability, "busy": bool(self.jobs.active and self.jobs.active.is_alive())}
 

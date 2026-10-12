@@ -18,10 +18,18 @@ from uuid import uuid4
 
 from PIL import Image
 
+from condition_schema import validate_labels
 from pilot import FEATURE_ROOMS, FEATURES, ROOT, SOURCE, UnionFind, read_json
 
 ROOMS = ["kitchen", "bathroom", "living", "bedroom", "exterior", "outdoor", "other"]
-CONDITIONS = ["updated", "mixed", "dated", "rough", "major", "unknown"]
+CONDITIONS = ["updated", "mixed", "dated", "slightly_dated", "maintained_original", "rough", "major", "unknown"]
+CONFIDENCE_LEVELS = {"low", "medium", "high"}
+EVIDENCE_SOURCES = {"images", "metadata", "both", "insufficient"}
+PHOTO_CONTEXTS = {
+    "subject", "subject_interior", "subject_exterior", "shared_amenity",
+    "floor_plan", "unrelated", "unknown",
+}
+EXCLUDED_CONTEXTS = {"shared_amenity", "floor_plan", "unrelated"}
 
 
 def now():
@@ -62,6 +70,152 @@ def trim_metadata(data):
             if not any(word in normalize(k) for word in forbidden)
             and not str(k).lower().endswith("url")
             and isinstance(v, (str, int, float, bool, list, type(None)))}
+
+
+def validate_review(payload, source):
+    kind, identifier = payload.get("kind"), payload.get("id")
+    if kind not in {"image", "property"}:
+        raise ValueError("Unsupported review type")
+    if not isinstance(identifier, str):
+        raise ValueError("Review requires a known ID")
+    reviewer = payload.get("reviewer")
+    if not isinstance(reviewer, str) or not 1 <= len(reviewer.strip()) <= 100:
+        raise ValueError("Enter reviewer name or initials once")
+    status = payload.get("status")
+    if status not in {"draft", "approved"}:
+        raise ValueError("Choose draft or approved")
+    record = {"status": status, "reviewer": reviewer.strip(), "updated_at": now(),
+              "source": "human", "notes": payload.get("notes", "")}
+    if payload.get("label_schema_version") is not None:
+        from condition_schema import LABEL_SCHEMA_V2
+        from studio_v2 import validate_text_reviews
+        if payload["label_schema_version"] != LABEL_SCHEMA_V2 or kind != "property":
+            raise ValueError("Unsupported typed label schema")
+        text_signals = payload.get("text_signals", [])
+        validate_text_reviews(text_signals, None)
+        if not isinstance(payload.get("label_evidence_id"), str) or not re.fullmatch(r"[a-f0-9]{64}", payload["label_evidence_id"]):
+            raise ValueError("Typed labels require the original evidence identity")
+        record.update(label_schema_version=LABEL_SCHEMA_V2, text_signals=text_signals,
+                      label_evidence_id=payload.get("label_evidence_id"))
+        if payload.get("assistant_proposal"):
+            proposal = payload["assistant_proposal"]
+            if not isinstance(proposal, dict) or set(proposal) != {"proposal_id", "input_sha256", "model", "policy", "label_evidence_id"}:
+                raise ValueError("Invalid assistant provenance")
+            if any(not isinstance(value, str) or len(value) > 200 for value in proposal.values()):
+                raise ValueError("Invalid assistant provenance")
+            record["assistant_proposal"] = proposal
+    if not isinstance(record["notes"], str) or len(record["notes"]) > 4000:
+        raise ValueError("Notes too long")
+    if source is None:
+        raise ValueError("Unknown review item")
+    if kind == "image":
+        room = payload.get("room")
+        features = payload.get("features", {})
+        preference = payload.get("preference")
+        if room not in ROOMS:
+            raise ValueError("Choose the actual room or other")
+        if not isinstance(features, dict) or set(features) - set(FEATURES):
+            raise ValueError("Invalid visible feature labels")
+        if any(value is not None and type(value) is not bool for value in features.values()):
+            raise ValueError("Features require true, false or null (unknown)")
+        if any(value is True and feature in FEATURE_ROOMS and room not in FEATURE_ROOMS[feature]
+               for feature, value in features.items()):
+            raise ValueError("A present feature conflicts with the room; change it to Unknown or correct the room")
+        if preference not in {None, "target", "not_target", "unsure"}:
+            raise ValueError("Invalid room preference")
+        context = payload.get("context")
+        if context is not None and context not in PHOTO_CONTEXTS:
+            raise ValueError("Invalid photo context")
+        if context in EXCLUDED_CONTEXTS and (
+            preference is not None or any(value is not None for value in features.values())
+        ):
+            raise ValueError("Non-subject photos cannot approve subject condition or work preference labels")
+        if "include_in_similarity" in payload:
+            if type(payload["include_in_similarity"]) is not bool:
+                raise ValueError("Photo selection must be true or false")
+            record["include_in_similarity"] = payload["include_in_similarity"]
+        condition = payload.get("condition_label", "unknown")
+        if condition not in CONDITIONS:
+            raise ValueError("Invalid photo condition")
+        if condition != "unknown" and (context not in {"subject", "subject_interior"} or room not in {"kitchen", "bathroom", "living", "bedroom"}):
+            raise ValueError("Photo condition requires a subject interior")
+        if "condition_label" in payload:
+            record["condition_label"] = condition
+        if "physical_condition" in payload or "modernization_state" in payload:
+            physical, modernization = validate_labels(
+                payload.get("physical_condition", "UNKNOWN"),
+                payload.get("modernization_state", "UNKNOWN"),
+            )
+            if (physical != "UNKNOWN" or modernization != "UNKNOWN") and (
+                context not in {"subject","subject_interior"}
+                or room not in {"kitchen","bathroom","living","bedroom"}
+            ):
+                raise ValueError("Condition and modernization require a subject interior")
+            record.update(
+                physical_condition=physical,
+                modernization_state=modernization,
+            )
+        record.update(room=room, features=features, preference=preference,
+                      training_allowed=source["split"] != "test",
+                      property_target_inferred=False)
+        if context is not None:
+            record["context"] = context
+    else:
+        target, condition = payload.get("target_fit"), payload.get("condition_label")
+        target_score = payload.get("target_score")
+        confidence = payload.get("confidence")
+        evidence_source = payload.get("evidence_source")
+        reason = payload.get("reason", "")
+        if target not in {None, "target", "not_target", "unsure"} or condition not in [
+            None, *CONDITIONS,
+        ]:
+            raise ValueError("Invalid property decision or condition label")
+        if target_score is not None and (type(target_score) is not int or not 1 <= target_score <= 5):
+            raise ValueError("Property target score must be from one to five")
+        derived_target = "target" if target_score and target_score >= 4 else (
+            "not_target" if target_score and target_score <= 2 else
+            "unsure" if target_score == 3 else target
+        )
+        if target is not None and derived_target != target:
+            raise ValueError("Property rating and target decision disagree")
+        if confidence is not None and confidence not in CONFIDENCE_LEVELS:
+            raise ValueError("Invalid property review confidence")
+        if evidence_source is not None and evidence_source not in EVIDENCE_SOURCES:
+            raise ValueError("Invalid property evidence source")
+        fit_basis = payload.get("fit_basis", "unknown")
+        if fit_basis not in {"unknown", "renovation", "pricing", "layout_location", "mixed"}:
+            raise ValueError("Invalid acquisition fit basis")
+        if "physical_condition" in payload or "modernization_state" in payload:
+            physical, modernization = validate_labels(
+                payload.get("physical_condition", "UNKNOWN"),
+                payload.get("modernization_state", "UNKNOWN"),
+            )
+            record.update(
+                physical_condition=physical,
+                modernization_state=modernization,
+            )
+        reason_tags = payload.get("reason_tags", [])
+        if not isinstance(reason_tags, list) or len(reason_tags) > 12 or any(
+            not isinstance(value, str) or not value.strip() or len(value) > 80
+            for value in reason_tags
+        ):
+            raise ValueError("Invalid property reason tags")
+        standout = payload.get("standout_image_ids", [])
+        if not isinstance(standout, list) or len(standout) > 12 or any(
+            not isinstance(value, str) for value in standout
+        ):
+            raise ValueError("Invalid standout photo list")
+        if not isinstance(reason, str) or len(reason) > 2000:
+            raise ValueError("Invalid reason")
+        if status == "approved" and (derived_target is None or not reason.strip()):
+            raise ValueError("Choose a property rating or Not enough information and give a short reason")
+        record.update(target_fit=derived_target, target_score=target_score,
+                      condition_label=condition, fit_basis=fit_basis, confidence=confidence,
+                      evidence_source=evidence_source,
+                      reason_tags=list(dict.fromkeys(value.strip() for value in reason_tags)),
+                      standout_image_ids=list(dict.fromkeys(standout)),
+                      reason=reason, image_labels_approved=False)
+    return record
 
 
 class StudioStore:
@@ -408,65 +562,20 @@ class StudioStore:
 
     def save_review(self, payload):
         kind, identifier = payload.get("kind"), payload.get("id")
-        if kind not in {"image", "property"}:
-            raise ValueError("Unsupported review type")
-        if not isinstance(identifier, str):
-            raise ValueError("Review requires a known ID")
-        reviewer = payload.get("reviewer")
-        if not isinstance(reviewer, str) or not 1 <= len(reviewer.strip()) <= 100:
-            raise ValueError("Enter reviewer name or initials once")
-        status = payload.get("status")
-        if status not in {"draft", "approved"}:
-            raise ValueError("Choose draft or approved")
-        record = {"status": status, "reviewer": reviewer.strip(), "updated_at": now(),
-                  "source": "human", "notes": payload.get("notes", "")}
-        if not isinstance(record["notes"], str) or len(record["notes"]) > 4000:
-            raise ValueError("Notes too long")
+        if kind not in {"image", "property"} or not isinstance(identifier, str):
+            raise ValueError("Review requires a known type and ID")
         with self.lock, self.connect() as db:
             table = "images" if kind == "image" else "properties"
             source = db.execute(f"SELECT * FROM {table} WHERE id=?", (identifier,)).fetchone()
-            if source is None:
-                raise ValueError("Unknown review item")
-            if kind == "image":
-                room = payload.get("room")
-                features = payload.get("features", {})
-                preference = payload.get("preference")
-                if room not in ROOMS:
-                    raise ValueError("Choose the actual room or other")
-                if not isinstance(features, dict) or set(features) - set(FEATURES):
-                    raise ValueError("Invalid visible feature labels")
-                if any(value is not None and type(value) is not bool for value in features.values()):
-                    raise ValueError("Features require true, false or null (unknown)")
-                if any(value is True and feature in FEATURE_ROOMS and room not in FEATURE_ROOMS[feature]
-                       for feature, value in features.items()):
-                    raise ValueError("A present feature conflicts with the room; change it to Unknown or correct the room")
-                if preference not in {None, "target", "not_target", "unsure"}:
-                    raise ValueError("Invalid room preference")
-                context = payload.get("context")
-                if context is not None and context not in {"subject", "shared_amenity", "floor_plan", "unrelated", "unknown"}:
-                    raise ValueError("Invalid photo context")
-                if context in {"shared_amenity", "floor_plan", "unrelated"} and (
-                    preference is not None or any(value is not None for value in features.values())
-                ):
-                    raise ValueError("Non-subject photos cannot approve subject condition or work preference labels")
-                record.update(room=room, features=features, preference=preference,
-                              training_allowed=source["split"] != "test",
-                              property_target_inferred=False)
-                if context is not None:
-                    record["context"] = context
-            else:
-                target, condition = payload.get("target_fit"), payload.get("condition_label")
-                reason = payload.get("reason", "")
-                if target not in {None, "target", "not_target", "unsure"} or condition not in [
-                    None, *CONDITIONS,
-                ]:
-                    raise ValueError("Invalid property decision or condition label")
-                if not isinstance(reason, str) or len(reason) > 2000:
-                    raise ValueError("Invalid reason")
-                if status == "approved" and (target is None or not reason.strip()):
-                    raise ValueError("Choose Target / Not target / Unsure and give a short reason")
-                record.update(target_fit=target, condition_label=condition, reason=reason,
-                              image_labels_approved=False)
+            record = validate_review(payload, source)
+            if kind == "property" and record["standout_image_ids"]:
+                standout = record["standout_image_ids"]
+                found = db.execute(
+                    f"SELECT count(*) FROM images WHERE property_id=? AND id IN ({','.join('?' for _ in standout)})",
+                    (identifier, *standout),
+                ).fetchone()[0]
+                if found != len(set(standout)):
+                    raise ValueError("Standout photo belongs to another property")
             previous = db.execute("SELECT payload,revision FROM reviews WHERE kind=? AND id=?",
                                   (kind, identifier)).fetchone()
             revision = previous["revision"] if previous else 0
@@ -474,7 +583,7 @@ class StudioStore:
                 prior_context = json.loads(previous["payload"]).get("context")
                 if prior_context is not None:
                     record["context"] = prior_context
-            if kind == "image" and record.get("context") in {"shared_amenity", "floor_plan", "unrelated"} and (
+            if kind == "image" and record.get("context") in EXCLUDED_CONTEXTS and (
                 record["preference"] is not None or any(v is not None for v in record["features"].values())
             ):
                 raise ValueError("Non-subject photo context conflicts with subject condition labels")
