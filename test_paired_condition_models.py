@@ -1,8 +1,12 @@
 from copy import deepcopy
+import warnings
+
 import numpy as np
+import pytest
 
 from paired_condition_models import (train, predict, structured_features, sanitize_text,
     guarded_splits, vision_features, classify, combine)
+from release_sources.trained_classifier import probability as release_probability
 
 
 def fixture_rows():
@@ -21,6 +25,21 @@ def fixture_rows():
                            'metadata': 'TARGET' if target else 'NOT_TARGET',
                            'overall': 'TARGET' if target else 'NOT_TARGET'}})
     return rows
+
+
+def test_release_probability_rejects_nonfinite_logits_without_runtime_warnings():
+    head = {
+        'mean': [0.],
+        'scale': [1.],
+        'coef': [[1e308]],
+        'intercept': [0.],
+        'classes': ['NOT_TARGET', 'TARGET'],
+    }
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        with pytest.raises(ValueError, match='non-finite logits'):
+            release_probability(head, np.asarray([[1e308]]))
+    assert caught == []
 
 
 def test_actual_heads_fit_and_heldout_labels_do_not_change_them():

@@ -211,8 +211,22 @@ def fit_component(name, rows):
 
 
 def probability(head, matrix):
-    values = (matrix - np.asarray(head['mean'])) / np.asarray(head['scale'])
-    scores = expit((values @ np.asarray(head['coef']).T + np.asarray(head['intercept']))[:, 0])
+    mean = np.asarray(head['mean'])
+    scale = np.asarray(head['scale'])
+    coef = np.asarray(head['coef'])
+    intercept = np.asarray(head['intercept'])
+    if not all(np.isfinite(value).all() for value in (matrix, mean, scale, coef, intercept)):
+        raise ValueError('Classifier inputs and parameters must be finite')
+    if np.any(scale == 0):
+        raise ValueError('Classifier scales must be non-zero')
+    with np.errstate(over='ignore', divide='ignore', invalid='ignore'):
+        values = (matrix - mean) / scale
+        logits = (values @ coef.T + intercept)[:, 0]
+    if not np.isfinite(values).all():
+        raise ValueError('Classifier standardization produced non-finite values')
+    if not np.isfinite(logits).all():
+        raise ValueError('Classifier produced non-finite logits')
+    scores = expit(logits)
     return scores if head['classes'][1] == 'TARGET' else 1. - scores
 
 
