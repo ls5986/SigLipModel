@@ -1,22 +1,37 @@
 import hashlib
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
+import joblib
 import pytest
 
 from actvision_contract import canonical_json
 from actvision_load_smoke import (
     DEFAULT_EXPECTATIONS,
     ComponentExpectation,
+    EXPECTED_RUNTIME,
     SmokeExpectations,
     SmokePaths,
+    load_only,
     verify_inputs,
 )
+from v2_calibration import CalibratedModel, TemperatureCalibrator
 
 
 def sha256(value):
     return hashlib.sha256(value).hexdigest()
+
+
+@dataclass
+class InertModel:
+    feature_schema_version: str
+
+    def predict(self, *_args, **_kwargs):
+        raise AssertionError("load-only smoke invoked prediction")
+
+    def transform(self, *_args, **_kwargs):
+        raise AssertionError("load-only smoke invoked transformation")
 
 
 def write_fixture(tmp_path):
@@ -106,6 +121,66 @@ def write_fixture(tmp_path):
         expectations,
         manifest,
     )
+
+
+def write_load_fixture(tmp_path):
+    paths, expected, manifest = write_fixture(tmp_path)
+    components = {}
+    for name, component in expected.components.items():
+        model = CalibratedModel(
+            InertModel(component.feature_schema_version),
+            TemperatureCalibrator({}, component.calibration_version),
+            component.feature_schema_version,
+        )
+        path = paths.artifact_root / manifest["components"][name]["uri"]
+        joblib.dump(model, path, compress=3)
+        updated = replace(component, sha256=sha256(path.read_bytes()))
+        components[name] = updated
+        manifest["components"][name]["sha256"] = updated.sha256
+    paths.manifest.write_text(json.dumps(manifest))
+    expected = replace(
+        expected,
+        components=components,
+        bundle_sha256=sha256(canonical_json(manifest).encode()),
+    )
+    return paths, expected
+
+
+def prepare_load(monkeypatch, paths, expected):
+    monkeypatch.setattr(
+        "provision_semantic_encoder.verify",
+        lambda directory: {
+            "model": expected.text_model,
+            "revision": expected.text_revision,
+            "checkpoint_sha256": expected.text_checkpoint_sha256,
+            "directory": str(directory),
+        },
+    )
+    monkeypatch.setattr("actvision_load_smoke._runtime_versions", lambda: EXPECTED_RUNTIME)
+
+    class GuardedEncoder:
+        def predict(self, *_args, **_kwargs):
+            raise AssertionError("load-only smoke invoked prediction")
+
+        transform = predict
+        encode = predict
+        embed = predict
+        classify = predict
+        forward = predict
+
+    def vision_loader(snapshot):
+        assert snapshot == paths.vision_provenance.parent / expected.vision_revision
+        assert __import__("os").environ["HF_HUB_OFFLINE"] == "1"
+        assert __import__("os").environ["TRANSFORMERS_OFFLINE"] == "1"
+        return GuardedEncoder(), GuardedEncoder()
+
+    def text_loader(checkpoint):
+        assert checkpoint == paths.text_checkpoint
+        return GuardedEncoder()
+
+    monkeypatch.setattr("actvision_load_smoke._load_vision_encoder", vision_loader)
+    monkeypatch.setattr("actvision_load_smoke._load_text_encoder", text_loader)
+    return verify_inputs(paths, expected)
 
 
 def test_default_expectations_pin_verified_v2_candidate():
@@ -242,3 +317,85 @@ def test_missing_original_siglip_revision_blocks_before_artifact_reads(tmp_path,
         verify_inputs(paths, expected)
 
     assert reads == []
+
+
+def test_load_only_deserializes_all_compatible_components(tmp_path, monkeypatch):
+    paths, expected = write_load_fixture(tmp_path)
+    verified = prepare_load(monkeypatch, paths, expected)
+
+    report = load_only(verified, expected)
+
+    assert report["release_id"] == expected.release_id
+    assert report["inference_executed"] is False
+    assert report["encoders"] == {
+        "vision": {"model": expected.vision_model, "revision": expected.vision_revision},
+        "text": {
+            "model": expected.text_model,
+            "revision": expected.text_revision,
+            "checkpoint_sha256": expected.text_checkpoint_sha256,
+        },
+    }
+    assert {
+        name: (entry["feature_schema_version"], entry["calibration_version"])
+        for name, entry in report["components"].items()
+    } == {
+        name: (component.feature_schema_version, component.calibration_version)
+        for name, component in expected.components.items()
+    }
+    assert report["elapsed_seconds"] >= 0
+    assert report["peak_rss_bytes"] > 0
+
+
+@pytest.mark.parametrize("dependency", sorted(EXPECTED_RUNTIME))
+def test_load_only_rejects_runtime_version_mismatch(
+    tmp_path, monkeypatch, dependency
+):
+    paths, expected = write_load_fixture(tmp_path)
+    verified = prepare_load(monkeypatch, paths, expected)
+    versions = dict(EXPECTED_RUNTIME)
+    versions[dependency] = "0"
+    monkeypatch.setattr("actvision_load_smoke._runtime_versions", lambda: versions)
+
+    with pytest.raises(ValueError, match=rf"{dependency} runtime version"):
+        load_only(verified, expected)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("class", "supported CalibratedModel"),
+        ("schema", "loaded vision feature schema"),
+        ("calibration", "loaded vision calibration"),
+    ],
+)
+def test_load_only_rejects_incompatible_artifact(
+    tmp_path, monkeypatch, mutation, message
+):
+    paths, expected = write_load_fixture(tmp_path)
+    verified = prepare_load(monkeypatch, paths, expected)
+    component = expected.components["vision"]
+    if mutation == "class":
+        model = InertModel(component.feature_schema_version)
+    elif mutation == "schema":
+        model = CalibratedModel(
+            InertModel("wrong"),
+            TemperatureCalibrator({}, component.calibration_version),
+            "wrong",
+        )
+    else:
+        model = CalibratedModel(
+            InertModel(component.feature_schema_version),
+            TemperatureCalibrator({}, "wrong"),
+            component.feature_schema_version,
+        )
+    real_load = joblib.load
+    monkeypatch.setattr(
+        joblib,
+        "load",
+        lambda path: model
+        if Path(path) == verified.artifact_paths["vision"]
+        else real_load(path),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        load_only(verified, expected)

@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+from importlib.metadata import version as package_version
 import json
+import os
 from pathlib import Path
 import re
+import resource
+import sys
+import time
 
 from actvision_contract import canonical_json, validate_contract
+from v2_calibration import CalibratedModel
 
 
 @dataclass(frozen=True)
@@ -80,6 +86,15 @@ DEFAULT_EXPECTATIONS = SmokeExpectations(
     text_revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
     text_checkpoint_sha256="dfdac870e42d2700ab4813bb3ad1dab8c9f992d4a99d5f50e4f5732610d30d92",
 )
+
+EXPECTED_RUNTIME = {
+    "python": "3.12.14",
+    "scikit-learn": "1.6.1",
+    "joblib": "1.4.2",
+    "torch": "2.6.0",
+    "transformers": "4.57.6",
+    "sentence-transformers": "5.1.2",
+}
 
 
 def _sha256_file(path: Path) -> str:
@@ -182,3 +197,104 @@ def verify_inputs(
         vision_revision=vision_revision,
         text_checkpoint=paths.text_checkpoint.resolve(strict=True),
     )
+
+
+def _runtime_versions() -> dict[str, str]:
+    return {
+        "python": ".".join(map(str, sys.version_info[:3])),
+        **{
+            name: package_version(name)
+            for name in EXPECTED_RUNTIME
+            if name != "python"
+        },
+    }
+
+
+def _load_vision_encoder(snapshot: Path):
+    from transformers import AutoModel, AutoProcessor
+
+    processor = AutoProcessor.from_pretrained(
+        snapshot, local_files_only=True, trust_remote_code=False
+    )
+    model = AutoModel.from_pretrained(
+        snapshot, local_files_only=True, trust_remote_code=False
+    )
+    return processor, model
+
+
+def _load_text_encoder(checkpoint: Path):
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer(
+        str(checkpoint),
+        device="cpu",
+        local_files_only=True,
+        trust_remote_code=False,
+    )
+
+
+def _peak_rss_bytes() -> int:
+    value = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    return value if sys.platform == "darwin" else value * 1024
+
+
+def load_only(
+    inputs: VerifiedSmokeInputs,
+    expected: SmokeExpectations = DEFAULT_EXPECTATIONS,
+) -> dict:
+    started = time.monotonic()
+    versions = _runtime_versions()
+    for name, required in EXPECTED_RUNTIME.items():
+        if versions.get(name) != required:
+            raise ValueError(
+                f"{name} runtime version mismatch: expected {required}, "
+                f"observed {versions.get(name) or 'missing'}"
+            )
+
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    _load_vision_encoder(inputs.vision_snapshot)
+    _load_text_encoder(inputs.text_checkpoint)
+
+    import joblib
+
+    components = {}
+    for name, component_expected in expected.components.items():
+        path = inputs.artifact_paths[name]
+        if _sha256_file(path) != component_expected.sha256:
+            raise ValueError(f"{name} artifact changed after verification")
+        model = joblib.load(path)
+        if not isinstance(model, CalibratedModel):
+            raise ValueError(f"{name} artifact is not a supported CalibratedModel")
+        if model.feature_schema_version != component_expected.feature_schema_version:
+            raise ValueError(f"loaded {name} feature schema mismatch")
+        calibration = getattr(getattr(model, "calibrator", None), "version", None)
+        if calibration != component_expected.calibration_version:
+            raise ValueError(f"loaded {name} calibration mismatch")
+        components[name] = {
+            "class": f"{type(model).__module__}.{type(model).__qualname__}",
+            "feature_schema_version": model.feature_schema_version,
+            "calibration_version": calibration,
+            "sha256": component_expected.sha256,
+        }
+
+    return {
+        "release_id": expected.release_id,
+        "bundle_sha256": expected.bundle_sha256,
+        "runtime": versions,
+        "encoders": {
+            "vision": {
+                "model": expected.vision_model,
+                "revision": inputs.vision_revision,
+            },
+            "text": {
+                "model": expected.text_model,
+                "revision": expected.text_revision,
+                "checkpoint_sha256": expected.text_checkpoint_sha256,
+            },
+        },
+        "components": components,
+        "elapsed_seconds": time.monotonic() - started,
+        "peak_rss_bytes": _peak_rss_bytes(),
+        "inference_executed": False,
+    }
