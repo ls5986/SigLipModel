@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import replace
 import json
 from pathlib import Path
 import sys
@@ -30,21 +29,18 @@ def parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
     try:
-        provenance = json.loads(args.vision_provenance.read_text())
-        revision = provenance.get("revision")
-        if not revision:
+        if DEFAULT_EXPECTATIONS.vision_revision is None:
             raise ValueError(
-                "The original SigLIP2 revision is absent from the supplied provenance"
+                "The original SigLIP2 revision has not been independently pinned"
             )
-        expected = replace(DEFAULT_EXPECTATIONS, vision_revision=revision)
         paths = SmokePaths(
             manifest=args.bundle_root / "release.json",
             artifact_root=args.bundle_root,
             vision_provenance=args.vision_provenance,
             text_checkpoint=args.text_checkpoint,
         )
-        verified = verify_inputs(paths, expected)
-        report = load_only(verified, expected)
+        verified = verify_inputs(paths, DEFAULT_EXPECTATIONS)
+        report = load_only(verified, DEFAULT_EXPECTATIONS)
     except (OSError, ValueError) as exc:
         print(f"ActVision v2 load smoke blocked: {exc}", file=sys.stderr)
         return 2

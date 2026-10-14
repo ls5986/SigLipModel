@@ -52,6 +52,12 @@ from the original model worker's persistent disk/cache or a verified backup.
 If that cannot be recovered, the exact v2 vision pipeline is not reproducible
 and the load smoke must remain blocked.
 
+After independent recovery, add that full revision to
+`DEFAULT_EXPECTATIONS.vision_revision` in `actvision_load_smoke.py` through a
+reviewed commit. The CLI intentionally does not trust the revision inside the
+supplied `backbone.json` as its own proof. Until the independent expectation is
+pinned, it exits before reading the bundle or loading any model.
+
 ## Runtime
 
 Create an isolated Python 3.12.14 environment with the exact versions in

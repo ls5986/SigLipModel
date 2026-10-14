@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
-from importlib.metadata import version as package_version
+from importlib.metadata import PackageNotFoundError, version as package_version
 import json
 import os
 from pathlib import Path
@@ -200,14 +200,15 @@ def verify_inputs(
 
 
 def _runtime_versions() -> dict[str, str]:
-    return {
-        "python": ".".join(map(str, sys.version_info[:3])),
-        **{
-            name: package_version(name)
-            for name in EXPECTED_RUNTIME
-            if name != "python"
-        },
-    }
+    versions = {"python": ".".join(map(str, sys.version_info[:3]))}
+    for name in EXPECTED_RUNTIME:
+        if name == "python":
+            continue
+        try:
+            versions[name] = package_version(name)
+        except PackageNotFoundError:
+            versions[name] = "missing"
+    return versions
 
 
 def _load_vision_encoder(snapshot: Path):

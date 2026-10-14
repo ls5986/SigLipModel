@@ -422,6 +422,11 @@ def test_smoke_cli_prints_load_report_without_reading_dotenv(
     text.mkdir()
     (tmp_path / ".env").write_text("THIS IS NOT A VALID ENV FILE")
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        cli,
+        "DEFAULT_EXPECTATIONS",
+        replace(DEFAULT_EXPECTATIONS, vision_revision="a" * 40),
+    )
     observed = {}
 
     def fake_verify(paths, expected):
@@ -455,17 +460,22 @@ def test_smoke_cli_prints_load_report_without_reading_dotenv(
     }
 
 
-def test_smoke_cli_fails_when_provenance_has_no_original_revision(
-    tmp_path, capsys
+def test_smoke_cli_fails_when_original_revision_is_not_independently_pinned(
+    tmp_path, monkeypatch, capsys
 ):
     from tools import smoke_actvision_v2_load as cli
 
     bundle = tmp_path / "bundle"
     bundle.mkdir()
     provenance = tmp_path / "backbone.json"
-    provenance.write_text("{}")
+    provenance.write_text(json.dumps({"revision": "a" * 40}))
     text = tmp_path / "text"
     text.mkdir()
+    monkeypatch.setattr(
+        cli,
+        "verify_inputs",
+        lambda *_args: pytest.fail("verification ran without a pinned revision"),
+    )
 
     result = cli.main([
         "--bundle-root", str(bundle),
@@ -475,3 +485,31 @@ def test_smoke_cli_fails_when_provenance_has_no_original_revision(
 
     assert result == 2
     assert "original SigLIP2 revision" in capsys.readouterr().err
+
+
+def test_load_only_reports_missing_runtime_package_as_explicit_mismatch(
+    tmp_path, monkeypatch
+):
+    from importlib.metadata import PackageNotFoundError
+    import actvision_load_smoke
+
+    paths, expected = write_load_fixture(tmp_path)
+    real_runtime_versions = actvision_load_smoke._runtime_versions
+    verified = prepare_load(monkeypatch, paths, expected)
+
+    def runtime_version(name):
+        if name == "torch":
+            raise PackageNotFoundError(name)
+        return EXPECTED_RUNTIME[name]
+
+    monkeypatch.setattr(actvision_load_smoke, "package_version", runtime_version)
+    monkeypatch.setattr(
+        actvision_load_smoke,
+        "_runtime_versions",
+        real_runtime_versions,
+    )
+
+    with pytest.raises(
+        ValueError, match="torch runtime version mismatch.*observed missing"
+    ):
+        load_only(verified, expected)
