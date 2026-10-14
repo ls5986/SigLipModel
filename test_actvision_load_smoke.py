@@ -399,3 +399,79 @@ def test_load_only_rejects_incompatible_artifact(
 
     with pytest.raises(ValueError, match=message):
         load_only(verified, expected)
+
+
+def test_smoke_cli_requires_all_local_paths():
+    from tools.smoke_actvision_v2_load import parser
+
+    with pytest.raises(SystemExit):
+        parser().parse_args([])
+
+
+def test_smoke_cli_prints_load_report_without_reading_dotenv(
+    tmp_path, monkeypatch, capsys
+):
+    from tools import smoke_actvision_v2_load as cli
+
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "release.json").write_text("{}")
+    provenance = tmp_path / "backbone.json"
+    provenance.write_text(json.dumps({"revision": "a" * 40}))
+    text = tmp_path / "text"
+    text.mkdir()
+    (tmp_path / ".env").write_text("THIS IS NOT A VALID ENV FILE")
+    monkeypatch.chdir(tmp_path)
+    observed = {}
+
+    def fake_verify(paths, expected):
+        observed["paths"] = paths
+        observed["expected"] = expected
+        return object()
+
+    monkeypatch.setattr(cli, "verify_inputs", fake_verify)
+    monkeypatch.setattr(
+        cli,
+        "load_only",
+        lambda verified, expected: {
+            "release_id": expected.release_id,
+            "inference_executed": False,
+        },
+    )
+
+    result = cli.main([
+        "--bundle-root", str(bundle),
+        "--vision-provenance", str(provenance),
+        "--text-checkpoint", str(text),
+    ])
+
+    assert result == 0
+    assert observed["paths"].manifest == bundle / "release.json"
+    assert observed["expected"].release_id == DEFAULT_EXPECTATIONS.release_id
+    assert observed["expected"].vision_revision == "a" * 40
+    assert json.loads(capsys.readouterr().out) == {
+        "release_id": DEFAULT_EXPECTATIONS.release_id,
+        "inference_executed": False,
+    }
+
+
+def test_smoke_cli_fails_when_provenance_has_no_original_revision(
+    tmp_path, capsys
+):
+    from tools import smoke_actvision_v2_load as cli
+
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    provenance = tmp_path / "backbone.json"
+    provenance.write_text("{}")
+    text = tmp_path / "text"
+    text.mkdir()
+
+    result = cli.main([
+        "--bundle-root", str(bundle),
+        "--vision-provenance", str(provenance),
+        "--text-checkpoint", str(text),
+    ])
+
+    assert result == 2
+    assert "original SigLIP2 revision" in capsys.readouterr().err
