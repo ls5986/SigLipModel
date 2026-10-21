@@ -14,10 +14,13 @@ Requires Python 3.12. In PowerShell:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env
+Copy-Item .env.development.example .env.development
 ```
 
-Edit the ignored `.env` file:
+Edit the ignored `.env.development` file. Local execution defaults to
+`SIGLIP_ENV=development`; set `SIGLIP_ENV` explicitly to load another
+`.env.<name>` file. A legacy ignored `.env` is loaded afterward for compatibility,
+without overriding environment-specific values.
 
 ```dotenv
 ACQ_DATA_ROOT=C:\absolute\path\to\your\existing\ACQVisionPilot
@@ -649,7 +652,7 @@ python local_label_worker.py --check
 python local_label_worker.py
 ```
 
-Before `--check`, fill the local `.env` entries `STUDIO_DATABASE_URL` and
+Before `--check`, fill the local `.env.development` entries `STUDIO_DATABASE_URL` and
 `STUDIO_STORAGE_SECRET` using your development database connection and existing
 private storage secret. Keep the existing `SUPABASE_PROJECT_REF` and
 `STUDIO_WORKSPACE_ID`. Never commit secrets. Install the interactive CLI with `winget install GitHub.Copilot` on Windows

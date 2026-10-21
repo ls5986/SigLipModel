@@ -5,6 +5,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 CODE_ROOT = Path(__file__).resolve().parent
+ENVIRONMENT = os.environ.get("SIGLIP_ENV", "development").strip().casefold()
+if not ENVIRONMENT or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for character in ENVIRONMENT):
+    raise ValueError("SIGLIP_ENV must contain only letters, numbers, underscores, or hyphens")
+load_dotenv(CODE_ROOT / f".env.{ENVIRONMENT}", override=False)
 load_dotenv(CODE_ROOT / ".env", override=False)
 
 

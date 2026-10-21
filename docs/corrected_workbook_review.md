@@ -1,6 +1,6 @@
 # Corrected prior/last MLS review
 
-The corrected workbook maps two possible marketing events to each physical property. Prior-sale and later-sale evidence are separate candidates. Neither role implies a confirmed TARGET or NOT TARGET label. The simple paired screen retains independent photo, metadata, and overall decisions and optional condition/modernization labels.
+The corrected workbook maps two possible marketing events to each physical property. Prior-sale and later-sale evidence are separate candidates. Neither role implies a confirmed TARGET or NOT TARGET label. The paired screen prioritizes rapid listing-identity triage; independent photo, metadata, overall, condition, and modernization labels remain available as a separate detailed task.
 
 ## Reuse and ownership
 
@@ -26,15 +26,25 @@ The corrected workbook maps two possible marketing events to each physical prope
 4. Run `paired_workbook_import.py --workbook <path> --stored-evidence <json...> --output <private-json>` to inspect deterministic preparation. Keep all workbook/evidence outputs out of Git.
 5. Run `paired_workbook_apply.py` without `--apply` first. Applying requires `ACQ_TRAINING_DATABASE_URL` and an explicit matching project ref. It applies bound staging batches and reconciles source counts; it does not apply DDL.
 6. Apply the reviewed forward correction and draft membership/outcome scripts only to the training database. Another source import requires a new dataset version and explicit source selection; do not mix imports into an existing draft.
-7. Use `/paired-review` after an approved development deployment. Existing `/target-review` remains unchanged by this patch. Sign-in, same-origin checks, review tokens, private image delivery, and workspace roles are reused.
+7. Use `/` or `/paired-review` after an approved development deployment. The paired reviewer is the deliberate homepage; the earlier sheet remains available at `/target-review`. Sign-in, same-origin checks, review tokens, private image delivery, and workspace roles are reused.
 
 The current SQL outcome research script records a fixed observation cutoff. Change that cutoff deliberately for a new research version, never silently on a rerun.
+
+### Fast identity-triage acceptance
+
+- The queue is a compact table with address, prior MLS, resale MLS, and decision state visible without opening every property.
+- Selecting a row shows prior and resale evidence side by side with photos, dates, MLS identity, and remarks before optional model-label controls.
+- Each available listing has one-click **Correct listing**, **Wrong property**, **Wrong era**, and **Unsure** actions. These append only the event-role decision; they do not fabricate photo, metadata, condition, or target labels.
+- Once every available role for a property has an identity decision, the reviewer advances automatically. Missing candidates are already resolved as UNKNOWN and require no click.
+- Detailed photo/metadata/model labels are collapsed by default and can be completed independently after identity triage.
+- Saving and reloading preserves the latest append-only role decision. Revision conflicts fail visibly and require reload.
 
 ## Review and feature policy
 
 - Prior: editable TARGET suggestion. Last: editable NOT TARGET suggestion. Missing candidate: UNKNOWN, not a scored negative.
+- Queue availability and the **Both MLS listings** filter use staged listing-event roles, not non-null workbook cells; blank or whitespace-only MLS cells do not count as evidence.
 - Photo and metadata decisions are independent. TARGET strength is a human 50–100 scale, not a model probability.
-- Verify event role, then save the two available listing reviews and advance. Condition and modernization are optional during general review but mandatory before protected quality claims.
+- Identity triage and model-label review are independent. Verify each available event role first; detailed photo, metadata, condition, and modernization review remains mandatory before protected quality claims.
 - Manually exclude floor plans, virtual/AI staging, shared amenities, and unrelated photos. If all photos are excluded, visual evidence is insufficient.
 - Private snippets remain restricted. Private text signal confirmations are optional, separate append-only judgments. Unreviewed legal/permit/access/financing/defect signals remain drafts and cannot become authoritative training truth.
 - Quarantine address/unit/APN/date conflicts, shared listings across transactions, and unclear era assignments. An expired acquisition listing can be relevant and remains reviewable.

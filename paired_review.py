@@ -30,6 +30,16 @@ def validate(payload):
  answer['private_signal_reviews']=private
  return answer,revision
 
+def validate_role(payload):
+ allowed={'group_id','evidence_id','role_id','expected_revision','role_decision'}
+ if not isinstance(payload,dict) or set(payload)!=allowed:raise ValueError('Invalid role review fields')
+ answer={key:str(UUID(str(payload.get(key)))) for key in ('group_id','evidence_id','role_id')}
+ revision=payload.get('expected_revision')
+ if isinstance(revision,bool) or not isinstance(revision,int) or revision<0:raise ValueError('Invalid role revision')
+ if payload.get('role_decision') not in ROLE_DECISIONS:raise ValueError('Verify the property and listing era')
+ answer.update(expected_revision=revision,role_decision=payload['role_decision'])
+ return answer
+
 class PairedReview:
  def __init__(self,store):self.store,self.database=store,store.database
  def _import(self,db):
@@ -42,10 +52,14 @@ class PairedReview:
    rows=db.execute('''SELECT s.id::text source_id,s.group_id::text group_id,s.address,s.normalized_apn,s.normalized_unit,
     g.protected_test,EXISTS(SELECT 1 FROM acq_training.evaluation_slice_groups sg JOIN acq_training.evaluation_slices es ON es.workspace_id=sg.workspace_id AND es.id=sg.slice_id WHERE sg.workspace_id=s.workspace_id AND sg.group_id=s.group_id AND es.name='corrected-prior-sale-human-review-50' AND es.dataset_id IN(SELECT id FROM acq_training.datasets d WHERE d.workspace_id=s.workspace_id AND d.name='corrected-prior-sale-reference-review' ORDER BY d.version DESC LIMIT 1)) protected_review, s.raw_snapshot->'simplified'->>'Prior Sale MLS' prior_mls,
     s.raw_snapshot->'simplified'->>'Last Sale MLS' last_mls,
+    EXISTS(SELECT 1 FROM acq_training.property_event_roles r WHERE r.workspace_id=s.workspace_id AND r.source_row_id=s.id AND r.event_role='acquisition' AND r.revision=0 AND r.listing_event_id IS NOT NULL) prior_listing_available,
+    EXISTS(SELECT 1 FROM acq_training.property_event_roles r WHERE r.workspace_id=s.workspace_id AND r.source_row_id=s.id AND r.event_role='resale' AND r.revision=0 AND r.listing_event_id IS NOT NULL) last_listing_available,
+    (SELECT r.decision FROM acq_training.property_event_roles r WHERE r.workspace_id=s.workspace_id AND r.source_row_id=s.id AND r.event_role='acquisition' ORDER BY r.revision DESC LIMIT 1) prior_decision,
+    (SELECT r.decision FROM acq_training.property_event_roles r WHERE r.workspace_id=s.workspace_id AND r.source_row_id=s.id AND r.event_role='resale' ORDER BY r.revision DESC LIMIT 1) last_decision,
     (EXISTS(SELECT 1 FROM acq_training.property_label_events l WHERE l.workspace_id=s.workspace_id AND l.group_id=s.group_id AND l.label_axis='overall') AND NOT EXISTS(SELECT 1 FROM acq_training.property_event_roles r JOIN acq_training.evidence_snapshots es ON es.workspace_id=r.workspace_id AND es.listing_event_id=r.listing_event_id AND es.metadata_snapshot->>'role'=r.event_role WHERE r.workspace_id=s.workspace_id AND r.source_row_id=s.id AND r.revision=0 AND NOT EXISTS(SELECT 1 FROM acq_training.property_label_events l WHERE l.workspace_id=es.workspace_id AND l.evidence_snapshot_id=es.id AND l.label_axis='overall'))) reviewed
     FROM acq_training.source_rows s JOIN acq_training.property_groups g ON g.workspace_id=s.workspace_id AND g.id=s.group_id
     WHERE s.workspace_id=%s AND s.source_import_id=%s
-    ORDER BY protected_review DESC,g.protected_test DESC,(s.raw_snapshot->'simplified'->>'Prior Sale MLS' IS NOT NULL AND s.raw_snapshot->'simplified'->>'Last Sale MLS' IS NOT NULL) DESC,s.source_row_number''',(self.database.workspace,imp)).fetchall()
+    ORDER BY protected_review DESC,g.protected_test DESC,prior_listing_available DESC,last_listing_available DESC,s.source_row_number''',(self.database.workspace,imp)).fetchall()
   return {'items':[dict(r) for r in rows],'total':len(rows)}
  def detail(self,group):
   group=str(UUID(str(group)))
@@ -70,9 +84,10 @@ class PairedReview:
       WHERE workspace_id=%s AND evidence_snapshot_id=%s ORDER BY label_axis,revision DESC''',(self.database.workspace,event['evidence_id'])).fetchall()
      event['revision']=max((l['revision'] for l in labels),default=0)
      event['review']={l['label_axis']:l['answer'] for l in labels} or None
-     role=db.execute('''SELECT decision,audit FROM acq_training.property_event_roles WHERE workspace_id=%s AND source_row_id=%s AND event_role=%s ORDER BY revision DESC LIMIT 1''',(self.database.workspace,source['id'],event['event_role'])).fetchone()
+     role=db.execute('''SELECT decision,audit,revision FROM acq_training.property_event_roles WHERE workspace_id=%s AND source_row_id=%s AND event_role=%s ORDER BY revision DESC LIMIT 1''',(self.database.workspace,source['id'],event['event_role'])).fetchone()
      event['decision']=role['decision']
      event['audit']=role['audit']
+     event['role_revision']=role['revision']
      event['signals']=[dict(r) for r in db.execute('''SELECT id::text signal_id,source_field,signal_name,state,snippet,start_offset,end_offset,review_status FROM acq_training.remark_signal_events
       WHERE workspace_id=%s AND evidence_snapshot_id=%s AND state<>'UNKNOWN' ORDER BY source_field,start_offset''',(self.database.workspace,event['evidence_id'])).fetchall()]
     event['previous_review']=None
@@ -113,6 +128,24 @@ class PairedReview:
    db.execute('''INSERT INTO acq_training.property_event_roles(workspace_id,source_row_id,group_id,listing_event_id,transaction_id,event_role,decision,provenance,reviewer,reviewed_at,revision,audit,evidence_sha256)
     VALUES(%s,%s,%s,%s,%s,%s,%s,'HUMAN_REVIEWED',%s,now(),%s,%s,%s)''',(self.database.workspace,row['source_row_id'],row['group_id'],row['listing_event_id'],row['transaction_id'],row['event_role'],answer['role_decision'],reviewer,role_revision,Jsonb(row['audit']),row['evidence_sha256']))
   return {'revision':revision,'saved':True}
+ def save_role(self,payload,reviewer):
+  answer=validate_role(payload)
+  with self.database.connect() as db:
+   imp=self._import(db)
+   db.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))',(str(self.database.workspace)+answer['group_id'],))
+   row=db.execute('''SELECT r.* FROM acq_training.property_event_roles r
+    JOIN acq_training.source_rows src ON src.workspace_id=r.workspace_id AND src.id=r.source_row_id
+    JOIN acq_training.evidence_snapshots s ON s.workspace_id=r.workspace_id AND s.listing_event_id=r.listing_event_id AND s.group_id=r.group_id AND s.metadata_snapshot->>'role'=r.event_role
+    WHERE r.workspace_id=%s AND r.group_id=%s AND r.id=%s AND s.id=%s AND src.source_import_id=%s AND r.revision=0''',(self.database.workspace,answer['group_id'],answer['role_id'],answer['evidence_id'],imp)).fetchone()
+   if not row:raise ValueError('The selected listing evidence is outside this review')
+   current=db.execute('''SELECT revision FROM acq_training.property_event_roles
+    WHERE workspace_id=%s AND source_row_id=%s AND event_role=%s ORDER BY revision DESC LIMIT 1''',(self.database.workspace,row['source_row_id'],row['event_role'])).fetchone()['revision']
+   if current!=answer['expected_revision']:raise RuntimeError('This listing identity changed in another window. Reload before saving.')
+   revision=current+1
+   from psycopg.types.json import Jsonb
+   db.execute('''INSERT INTO acq_training.property_event_roles(workspace_id,source_row_id,group_id,listing_event_id,transaction_id,event_role,decision,provenance,reviewer,reviewed_at,revision,audit,evidence_sha256)
+    VALUES(%s,%s,%s,%s,%s,%s,%s,'HUMAN_REVIEWED',%s,now(),%s,%s,%s)''',(self.database.workspace,row['source_row_id'],row['group_id'],row['listing_event_id'],row['transaction_id'],row['event_role'],answer['role_decision'],reviewer,revision,Jsonb(row['audit']),row['evidence_sha256']))
+  return {'revision':revision,'decision':answer['role_decision'],'saved':True}
  def image(self,evidence,digest):
   evidence=str(UUID(str(evidence)))
   with self.database.connect() as db:

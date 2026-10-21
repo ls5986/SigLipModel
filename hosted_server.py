@@ -135,9 +135,9 @@ def create_server(port, app, auth):
                 if path.startswith("/api/"):
                     return self.data(401,{"error":"Your session expired. Sign in again.","login":"/login"})
                 return self.reply(303,b"",headers=[("Location","/login")])
-            if path=="/paired-review":
+            if path=="/paired-review" or (path=="/" and not parse_qs(urlparse(self.path).query).get("property")):
                 return self.reply(200,(CODE_ROOT/"paired_review.html").read_bytes(),"text/html; charset=utf-8")
-            if path=="/target-review" or (path=="/" and not parse_qs(urlparse(self.path).query).get("property")):
+            if path=="/target-review":
                 return self.reply(200,(CODE_ROOT/"target_review.html").read_bytes(),"text/html; charset=utf-8")
             if path=="/" and parse_qs(urlparse(self.path).query).get("property"):
                 return self.reply(303,b"",headers=[("Location","/property-review?"+urlparse(self.path).query)])
@@ -252,6 +252,9 @@ def create_server(port, app, auth):
                 if path=="/api/studio/paired-review/save":
                     from paired_review import PairedReview
                     return self.data(200,PairedReview(app.get_studio().store).save(payload,auth.username))
+                if path=="/api/studio/paired-review/role":
+                    from paired_review import PairedReview
+                    return self.data(200,PairedReview(app.get_studio().store).save_role(payload,auth.username))
                 if path=="/api/studio/target-review/save":
                     from target_review import TargetReview
                     return self.data(200,TargetReview(app.get_studio().store).save(payload,auth.username))
@@ -281,5 +284,3 @@ def main():
         server.server_close()
 
 if __name__=="__main__": main()
-
-

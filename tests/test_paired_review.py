@@ -3,13 +3,25 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'recovery-build'))
-from paired_review import validate
+from paired_review import validate,validate_role
 from paired_workbook_import import signals,prepare,fingerprint,STRUCTURED
 G='11111111-1111-4111-8111-111111111111'
 def answer():return {'group_id':G,'evidence_id':G,'role_id':G,'expected_revision':0,'overall':'TARGET','image':{'decision':'NOT_TARGET','strength':None},'metadata':{'decision':'TARGET','strength':75},'notes':'','role_decision':'human_confirmed'}
 class Review(unittest.TestCase):
+ def test_queue_uses_listing_events_not_workbook_strings(self):
+  source=Path(__file__).resolve().parent.parent.joinpath('paired_review.py').read_text()
+  page=Path(__file__).resolve().parent.parent.joinpath('paired_review.html').read_text()
+  self.assertIn("r.listing_event_id IS NOT NULL) prior_listing_available",source)
+  self.assertIn("r.listing_event_id IS NOT NULL) last_listing_available",source)
+  self.assertNotIn("->>'Prior Sale MLS' IS NOT NULL",source)
+  self.assertIn("i.prior_listing_available&&i.last_listing_available",page)
  def test_modalities_are_independent(self):
   a,r=validate(answer());self.assertEqual(a['image']['decision'],'NOT_TARGET');self.assertEqual(a['metadata']['strength'],75)
+ def test_fast_role_review_is_independent_and_revisioned(self):
+  role={'group_id':G,'evidence_id':G,'role_id':G,'expected_revision':3,'role_decision':'wrong_era'}
+  self.assertEqual(validate_role(role)['role_decision'],'wrong_era')
+  for invalid in ({**role,'expected_revision':True},{**role,'role_decision':'TARGET'},{**role,'notes':'extra'}):
+   with self.assertRaises(ValueError):validate_role(invalid)
  def test_missing_role_cannot_save_as_verified(self):
   a=answer();a.pop('role_decision')
   with self.assertRaises(ValueError):validate(a)
