@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { ArrowLeft, BarChart3, Database, Eye, LogOut, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Database, Eye, LogOut, RefreshCw, ShieldCheck } from 'lucide-react';
 import { config, PiStudioClient, type Section } from './api';
 
 type Tab='overview'|'review'|'training'|'runs';
