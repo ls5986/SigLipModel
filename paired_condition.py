@@ -520,7 +520,7 @@ def detail(store, group_id):
 def run_idle_loop(store, stop, *, clock, heartbeat, train, predict):
     # The database suppresses unchanged ready heartbeats for 60 seconds.  Attempt
     # every 10 seconds independently of queue polling so suppression cannot push
-    # the persisted timestamp past the 90-second Studio readiness deadline.
+    # the persisted timestamp past the 90-second deadline during bounded idle calls.
     next_heartbeat = next_poll = clock()
     delay = 3
     while not stop.is_set():
@@ -540,6 +540,7 @@ def run_idle_loop(store, stop, *, clock, heartbeat, train, predict):
             next_poll = clock() + delay
             continue
         stop.wait(max(0, min(next_heartbeat, next_poll) - clock()))
+
 
 def run():
     import signal
