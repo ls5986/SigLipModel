@@ -483,6 +483,24 @@ def detail(store, group_id):
     return result
 
 
+def run_idle_loop(store, stop, *, clock, heartbeat, train, predict):
+    last_heartbeat = None
+    delay = 3
+    while not stop.is_set():
+        if last_heartbeat is None or clock() - last_heartbeat >= 60:
+            heartbeat(store)
+            last_heartbeat = clock()
+        trained = train(store)
+        predicted = predict(store)
+        if trained or predicted:
+            # Restore ready promptly after a genuine state transition.
+            last_heartbeat = None
+            delay = 3
+        else:
+            delay = min(30, delay * 2)
+        stop.wait(delay)
+
+
 def run():
     import signal
     import threading
@@ -499,8 +517,7 @@ def run():
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     signal.signal(signal.SIGINT, lambda *_: stop.set())
-    while not stop.is_set():
-        save(store, HEARTBEAT, {'status': 'ready', 'at': now(), 'policy': POLICY})
-        poll_training(store)
-        poll_prediction(store)
-        stop.wait(3)
+    from time import monotonic
+    run_idle_loop(store, stop, clock=monotonic,
+                  heartbeat=lambda s: save(s, HEARTBEAT, {'status': 'ready', 'at': now(), 'policy': POLICY}),
+                  train=poll_training, predict=poll_prediction)
