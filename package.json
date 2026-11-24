@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc -b && vite build",
     "dev": "vite",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:pi-studio": "tsc -b && vite build --config vite.pi-studio.config.ts"
   },
   "dependencies": {
     "lucide-react": "0.542.0",
