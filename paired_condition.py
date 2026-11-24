@@ -517,22 +517,47 @@ def detail(store, group_id):
     return result
 
 
+def save_idle_heartbeat(store):
+    """Recover only when another writer has already recorded a fresh ready state."""
+    from cloud_store import StateRevisionConflict
+    try:
+        save(store, HEARTBEAT, {'status': 'ready', 'at': now(), 'policy': POLICY})
+    except StateRevisionConflict as conflict:
+        current = store.document(HEARTBEAT) or {}
+        try:
+            observed = datetime.fromisoformat(current.get('at', '').replace('Z', '+00:00'))
+            age = (datetime.now(timezone.utc) - observed).total_seconds()
+        except (TypeError, ValueError):
+            raise conflict
+        if current.get('status') != 'ready' or not 0 <= age < 80:
+            raise
+        # Another writer has already recorded a fresh ready heartbeat. Do not
+        # issue a second write or overwrite a concurrent running state.
+
+
 def run_idle_loop(store, stop, *, clock, heartbeat, train, predict):
-    last_heartbeat = None
+    # The database suppresses unchanged ready heartbeats for 60 seconds.  Attempt
+    # every 10 seconds independently of queue polling so suppression cannot push
+    # the persisted timestamp past the 90-second deadline during bounded idle calls.
+    next_heartbeat = next_poll = clock()
     delay = 3
     while not stop.is_set():
-        if last_heartbeat is None or clock() - last_heartbeat >= 60:
+        now = clock()
+        if now >= next_heartbeat:
             heartbeat(store)
-            last_heartbeat = clock()
-        trained = train(store)
-        predicted = predict(store)
-        if trained or predicted:
-            # Restore ready promptly after a genuine state transition.
-            last_heartbeat = None
-            delay = 3
-        else:
-            delay = min(30, delay * 2)
-        stop.wait(delay)
+            next_heartbeat = clock() + 10
+        if clock() >= next_poll:
+            trained = train(store)
+            predicted = predict(store)
+            if trained or predicted:
+                delay = 3
+                # Restore ready promptly after a genuine state transition.
+                next_heartbeat = clock()
+            else:
+                delay = min(30, delay * 2)
+            next_poll = clock() + delay
+            continue
+        stop.wait(max(0, min(next_heartbeat, next_poll) - clock()))
 
 
 def run():
@@ -553,5 +578,5 @@ def run():
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     from time import monotonic
     run_idle_loop(store, stop, clock=monotonic,
-                  heartbeat=lambda s: save(s, HEARTBEAT, {'status': 'ready', 'at': now(), 'policy': POLICY}),
+                  heartbeat=save_idle_heartbeat,
                   train=poll_training, predict=poll_prediction)

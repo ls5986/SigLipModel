@@ -114,6 +114,10 @@ def validation_room(metadata):
     return 'property'
 
 
+class StateRevisionConflict(RuntimeError):
+    """A specific studio-state compare-and-swap revision conflict."""
+
+
 class Database:
     def __init__(self, dsn, workspace):
         self.dsn, self.workspace = dsn, str(UUID(workspace))
@@ -127,7 +131,9 @@ class Database:
                                  row_factory=dict_row) as db:
                 db.execute("SET LOCAL statement_timeout='15000ms'")
                 yield db
-        except psycopg.errors.SerializationFailure:
+        except psycopg.errors.SerializationFailure as exc:
+            if getattr(exc.diag, 'message_primary', None) == 'Review changed; reload before saving':
+                raise StateRevisionConflict('This record changed. Reload before saving.') from None
             raise RuntimeError('This record changed. Reload before saving.') from None
         except psycopg.Error as exc:
             # Log classification only. Never log credentials, SQL, parameters or diagnostics.
