@@ -61,3 +61,47 @@ def test_heartbeat_failure_is_not_silenced():
     with pytest.raises(RuntimeError, match="database unavailable"):
         run_idle_loop(None, Stop(), clock=lambda: 0, heartbeat=failed,
                       train=lambda _: False, predict=lambda _: False)
+
+
+@pytest.mark.parametrize("status,age,should_recover", [
+    ("ready", 5, True), ("ready", 81, False),
+    ("running", 5, False), ("ready", -5, False),
+])
+def test_heartbeat_conflict_only_recovers_a_fresh_ready_state(monkeypatch, status, age, should_recover):
+    import sys
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+    from paired_condition import save_idle_heartbeat
+    class Conflict(RuntimeError): pass
+    monkeypatch.setitem(sys.modules, 'cloud_store', SimpleNamespace(StateRevisionConflict=Conflict))
+    class Store:
+        reads = 0
+        def document(self, key):
+            self.reads += 1
+            if self.reads == 1:
+                return {'revision': 1}
+            return {'revision': 2, 'status': status,
+                    'at': (datetime.now(timezone.utc) - timedelta(seconds=age)).isoformat()}
+        def save_document(self, key, payload, revision):
+            raise Conflict('stale')
+    store = Store()
+    if should_recover:
+        save_idle_heartbeat(store)
+        assert store.reads == 2
+    else:
+        with pytest.raises(Conflict):
+            save_idle_heartbeat(store)
+
+
+def test_heartbeat_does_not_mask_other_database_errors(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from paired_condition import save_idle_heartbeat
+    class Conflict(RuntimeError): pass
+    monkeypatch.setitem(sys.modules, 'cloud_store', SimpleNamespace(StateRevisionConflict=Conflict))
+    class Store:
+        def document(self, key): return {'revision': 1}
+        def save_document(self, key, payload, revision): raise OSError('database unavailable')
+    with pytest.raises(OSError, match='database unavailable'):
+        save_idle_heartbeat(Store())
+
