@@ -517,6 +517,24 @@ def detail(store, group_id):
     return result
 
 
+def save_idle_heartbeat(store):
+    """Recover only when another writer has already recorded a fresh ready state."""
+    from cloud_store import StateRevisionConflict
+    try:
+        save(store, HEARTBEAT, {'status': 'ready', 'at': now(), 'policy': POLICY})
+    except StateRevisionConflict:
+        current = store.document(HEARTBEAT) or {}
+        try:
+            observed = datetime.fromisoformat(current.get('at', '').replace('Z', '+00:00'))
+            age = (datetime.now(timezone.utc) - observed).total_seconds()
+        except (TypeError, ValueError):
+            raise
+        if current.get('status') != 'ready' or not 0 <= age < 80:
+            raise
+        # Another writer has already recorded a fresh ready heartbeat. Do not
+        # issue a second write or overwrite a concurrent running state.
+
+
 def run_idle_loop(store, stop, *, clock, heartbeat, train, predict):
     # The database suppresses unchanged ready heartbeats for 60 seconds.  Attempt
     # every 10 seconds independently of queue polling so suppression cannot push
@@ -560,5 +578,5 @@ def run():
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     from time import monotonic
     run_idle_loop(store, stop, clock=monotonic,
-                  heartbeat=lambda s: save(s, HEARTBEAT, {'status': 'ready', 'at': now(), 'policy': POLICY}),
+                  heartbeat=save_idle_heartbeat,
                   train=poll_training, predict=poll_prediction)
