@@ -522,13 +522,13 @@ def save_idle_heartbeat(store):
     from cloud_store import StateRevisionConflict
     try:
         save(store, HEARTBEAT, {'status': 'ready', 'at': now(), 'policy': POLICY})
-    except StateRevisionConflict:
+    except StateRevisionConflict as conflict:
         current = store.document(HEARTBEAT) or {}
         try:
             observed = datetime.fromisoformat(current.get('at', '').replace('Z', '+00:00'))
             age = (datetime.now(timezone.utc) - observed).total_seconds()
         except (TypeError, ValueError):
-            raise
+            raise conflict
         if current.get('status') != 'ready' or not 0 <= age < 80:
             raise
         # Another writer has already recorded a fresh ready heartbeat. Do not
